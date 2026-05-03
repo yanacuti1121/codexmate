@@ -256,14 +256,45 @@ export function createSessionTimelineMethods() {
         },
         onSessionPreviewScroll() {
             if (
-                !this.sessionTimelineEnabled
-                || this.mainTab !== 'sessions'
+                this.mainTab !== 'sessions'
                 || this.getMainTabForNav() !== 'sessions'
                 || !this.sessionPreviewRenderEnabled
             ) return;
-            if (!this.sessionTimelineNodes.length) return;
             const scrollEl = this.sessionPreviewScrollEl || this.$refs.sessionPreviewScroll;
             if (!scrollEl) return;
+
+            if (
+                this.canLoadMoreSessionMessages
+                && !this.sessionPreviewLoadingMore
+                && !this.sessionDetailLoading
+                && typeof this.loadMoreSessionMessages === 'function'
+            ) {
+                const now = Date.now();
+                const lastAt = Number(this.sessionPreviewAutoLoadLastAt || 0);
+                if (!this.sessionPreviewAutoLoadPending && (now - lastAt) >= 200) {
+                    const scrollTop = Number(scrollEl.scrollTop || 0);
+                    const clientHeight = Number(scrollEl.clientHeight || 0);
+                    const scrollHeight = Number(scrollEl.scrollHeight || 0);
+                    const threshold = 240;
+                    if (
+                        Number.isFinite(scrollTop)
+                        && Number.isFinite(clientHeight)
+                        && Number.isFinite(scrollHeight)
+                        && (scrollTop + clientHeight) >= (scrollHeight - threshold)
+                    ) {
+                        this.sessionPreviewAutoLoadLastAt = now;
+                        this.sessionPreviewAutoLoadPending = true;
+                        Promise.resolve(this.loadMoreSessionMessages()).finally(() => {
+                            this.sessionPreviewAutoLoadPending = false;
+                        });
+                    }
+                }
+            }
+
+            if (!this.sessionTimelineEnabled) {
+                return;
+            }
+            if (!this.sessionTimelineNodes.length) return;
             const now = Date.now();
             const currentTop = Number(scrollEl.scrollTop || 0);
             const delta = Math.abs(currentTop - Number(this.sessionTimelineLastScrollTop || 0));

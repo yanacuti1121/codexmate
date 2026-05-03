@@ -267,15 +267,9 @@
                                             class="session-item-sub session-item-wrap"
                                             style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                                             <span>{{ t('sessions.preview.shownCount', { shown: activeSessionVisibleMessages.length, total: activeSessionMessages.length }) }}</span>
-                                            <button class="btn-session-refresh" @click="loadMoreSessionMessages()" :disabled="sessionDetailLoading || sessionPreviewLoadingMore">
-                                                {{ sessionPreviewLoadingMore ? t('sessions.preview.loading') : t('sessions.preview.loadMore', { remain: sessionPreviewRemainingCount }) }}
-                                            </button>
+                                            <span>{{ t('sessions.preview.loadMore', { remain: sessionPreviewRemainingCount }) }}</span>
                                         </div>
-                                        <div
-                                            v-if="sessionPreviewLoadingMore"
-                                            class="session-item-sub session-item-wrap">
-                                            {{ t('sessions.preview.loadingMore') }}
-                                        </div>
+                                        <div v-if="sessionPreviewLoadingMore" class="session-item-sub session-item-wrap">{{ t('sessions.preview.loadingMore') }}</div>
                                         <div
                                             v-for="(msg, idx) in activeSessionVisibleMessages"
                                             :key="getRecordRenderKey(msg, idx)"
