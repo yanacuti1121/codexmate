@@ -330,14 +330,22 @@ export function createStartupClaudeMethods(options = {}) {
                         }
                         return;
                     }
-                    this.currentClaudeConfig = '';
-                    this.currentClaudeModel = '';
-                    this.resetClaudeModelsState();
-                    if (!silent) {
-                        const tip = res && res.exists
-                            ? '当前 Claude settings.json 与本地配置不匹配，已取消选中'
-                            : '未检测到 Claude settings.json，已取消选中';
-                        this.showMessage(tip, 'info');
+                    {
+                        const configNames = Object.keys(this.claudeConfigs || {});
+                        const current = typeof this.currentClaudeConfig === 'string' ? this.currentClaudeConfig.trim() : '';
+                        const fallback = current && this.claudeConfigs && this.claudeConfigs[current]
+                            ? current
+                            : (configNames[0] || '');
+                        if (!fallback) {
+                            this.currentClaudeConfig = '';
+                            this.currentClaudeModel = '';
+                            this.resetClaudeModelsState();
+                            return;
+                        }
+                        if (this.currentClaudeConfig !== fallback) {
+                            this.currentClaudeConfig = fallback;
+                        }
+                        this.refreshClaudeModelContext({ silentError: silentModelError });
                     }
                 } catch (e) {
                     if (!silent) {
@@ -382,7 +390,6 @@ export function createStartupClaudeMethods(options = {}) {
         },
 
         async loadClaudeModels(options = {}) {
-            const silentError = !!options.silentError;
             const config = this.getCurrentClaudeConfig();
             const requestSeq = (Number(this.claudeModelsRequestSeq) || 0) + 1;
             this.claudeModelsRequestSeq = requestSeq;
@@ -414,7 +421,32 @@ export function createStartupClaudeMethods(options = {}) {
                 return;
             }
 
-            this.claudeModelsLoading = true;
+            const cache = typeof globalThis !== 'undefined'
+                ? (globalThis.__codexmateClaudeModelsCache || (globalThis.__codexmateClaudeModelsCache = new Map()))
+                : new Map();
+            const cacheKey = baseUrl;
+            const ttlMs = 2 * 60 * 1000;
+            const now = Date.now();
+            const cached = cache.get(cacheKey);
+            const cachedOk = cached
+                && Number.isFinite(cached.ts)
+                && now - cached.ts < ttlMs
+                && Array.isArray(cached.models);
+            if (cachedOk) {
+                this.claudeModels = cached.models;
+                this.claudeModelsSource = cached.source || 'remote';
+                if (this.claudeModels.length) {
+                    this.updateClaudeModelsCurrent();
+                } else {
+                    this.claudeModelsHasCurrent = true;
+                }
+                this.claudeModelsLoading = false;
+            } else if (localCatalog.length) {
+                this.claudeModels = localCatalog;
+                this.claudeModelsSource = 'catalog';
+                this.updateClaudeModelsCurrent();
+                this.claudeModelsLoading = false;
+            }
             const isLatestRequest = () => {
                 if (requestSeq !== Number(this.claudeModelsRequestSeq || 0)) {
                     return false;
@@ -431,6 +463,9 @@ export function createStartupClaudeMethods(options = {}) {
                     && (latestConfig.apiKey || '').trim() === apiKey
                     && (typeof latestConfig.externalCredentialType === 'string' ? latestConfig.externalCredentialType.trim() : '') === externalCredentialType;
             };
+            if (cachedOk) {
+                return;
+            }
             try {
                 const res = await api('models-by-url', { baseUrl, apiKey });
                 if (!isLatestRequest()) {
@@ -440,12 +475,10 @@ export function createStartupClaudeMethods(options = {}) {
                     this.claudeModels = [];
                     this.claudeModelsSource = 'unlimited';
                     this.claudeModelsHasCurrent = true;
+                    cache.set(cacheKey, { ts: Date.now(), models: [], source: 'unlimited' });
                     return;
                 }
                 if (res.error) {
-                    if (!silentError) {
-                        this.showMessage('获取模型列表失败', 'error');
-                    }
                     this.claudeModels = [];
                     this.claudeModelsSource = 'error';
                     this.claudeModelsHasCurrent = true;
@@ -455,12 +488,10 @@ export function createStartupClaudeMethods(options = {}) {
                 this.claudeModels = list;
                 this.claudeModelsSource = res.source || 'remote';
                 this.updateClaudeModelsCurrent();
+                cache.set(cacheKey, { ts: Date.now(), models: list, source: this.claudeModelsSource });
             } catch (_) {
                 if (!isLatestRequest()) {
                     return;
-                }
-                if (!silentError) {
-                    this.showMessage('获取模型列表失败', 'error');
                 }
                 this.claudeModels = [];
                 this.claudeModelsSource = 'error';
