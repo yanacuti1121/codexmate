@@ -8713,17 +8713,32 @@ function probeCliBinary(binName) {
     let lastError = '';
 
     for (const args of attempts) {
-        const argString = args.join(' ').trim();
-        const commandLine = argString ? `${binName} ${argString}` : binName;
         try {
-            const stdout = execSync(commandLine, {
-                encoding: 'utf8',
-                windowsHide: true,
-                timeout: 5000,
-                stdio: ['ignore', 'pipe', 'pipe'],
-                shell: process.platform === 'win32'
-            });
-            const version = parseBinaryVersionOutput(String(stdout || ''));
+            let output = '';
+            let status = 0;
+            if (process.platform === 'win32') {
+                const argString = args.join(' ').trim();
+                const commandLine = argString ? `${binName} ${argString}` : binName;
+                const stdout = execSync(commandLine, {
+                    encoding: 'utf8',
+                    windowsHide: true,
+                    timeout: 5000,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    shell: true
+                });
+                output = String(stdout || '');
+            } else {
+                const cmd = resolveSpawnCommand(binName);
+                const probe = spawnSync(cmd, args, {
+                    encoding: 'utf8',
+                    windowsHide: true,
+                    timeout: 5000,
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+                status = Number.isFinite(probe.status) ? probe.status : (probe.error ? 1 : 0);
+                output = `${probe.stdout || ''}\n${probe.stderr || ''}`.trim();
+            }
+            const version = parseBinaryVersionOutput(output);
             return {
                 installed: true,
                 bin: binName,

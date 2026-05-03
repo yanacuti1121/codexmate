@@ -85,6 +85,7 @@ module.exports = async function testWebUiAssets(ctx) {
         !/(?:^|\n)\s*export\s+\*\s+from\s+['"]\.[^'"]+['"]\s*;?/.test(appEntry.body),
         'app entry should not leak split re-export directives'
     );
+    assert(appEntry.body.includes('onClaudeModelChange'), 'app entry should expose Claude model handler');
 
     const logicEntry = await getText(port, '/web-ui/logic.mjs');
     assert(logicEntry.statusCode === 200, 'logic entry should return 200');

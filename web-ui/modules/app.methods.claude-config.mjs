@@ -20,6 +20,7 @@ export function createClaudeConfigMethods(options = {}) {
             }
             const existing = this.claudeConfigs[name] || {};
             this.currentClaudeModel = model;
+            this.claudeCustomModelDraft = model;
             this.claudeConfigs[name] = this.mergeClaudeConfig(existing, { model });
             this.saveClaudeConfigs();
             this.updateClaudeModelsCurrent();
@@ -28,6 +29,10 @@ export function createClaudeConfigMethods(options = {}) {
                 return;
             }
             this.applyClaudeConfig(name);
+        },
+
+        onClaudeCustomModelSubmit() {
+            this.onClaudeModelChange();
         },
 
         saveClaudeConfigs() {

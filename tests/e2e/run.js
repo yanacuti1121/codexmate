@@ -29,6 +29,7 @@ const testTaskOrchestration = require('./test-task-orchestration');
 const testInvalidConfig = require('./test-invalid-config');
 const testWebUiAssets = require('./test-web-ui-assets');
 const testWebUiSessionBrowser = require('./test-web-ui-session-browser');
+const testInstallStatus = require('./test-install-status');
 
 async function main() {
     const realHome = os.homedir();
@@ -41,10 +42,27 @@ async function main() {
     ];
 
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'codexmate-e2e-'));
+    const tmpBin = path.join(tmpHome, 'bin');
+    try {
+        fs.mkdirSync(tmpBin, { recursive: true });
+    } catch (e) {}
+    if (process.platform === 'win32') {
+        const cmdPath = path.join(tmpBin, 'claude.cmd');
+        try {
+            fs.writeFileSync(cmdPath, '@echo claude 1.2.3\r\n', 'utf-8');
+        } catch (e) {}
+    } else {
+        const binPath = path.join(tmpBin, 'claude');
+        try {
+            fs.writeFileSync(binPath, '#!/usr/bin/env sh\necho \"claude 1.2.3\"\\n', 'utf-8');
+            fs.chmodSync(binPath, 0o755);
+        } catch (e) {}
+    }
     const env = {
         ...process.env,
         HOME: tmpHome,
         USERPROFILE: tmpHome,
+        PATH: `${tmpBin}${path.delimiter}${process.env.PATH || ''}`,
         CODEX_HOME: '',
         CLAUDE_HOME: '',
         CLAUDE_CONFIG_DIR: '',
@@ -140,6 +158,7 @@ async function main() {
         await testMcp(ctx);
         await testWorkflow(ctx);
         await testTaskOrchestration(ctx);
+        await testInstallStatus(ctx);
         await testWebUiAssets(ctx);
         await testWebUiSessionBrowser(ctx);
 

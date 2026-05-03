@@ -262,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 newModelName: '',
                 currentClaudeConfig: '',
                 currentClaudeModel: '',
+                claudeCustomModelDraft: '',
                 editingConfig: { name: '', apiKey: '', baseUrl: '', model: '' },
                 claudeConfigs: {
                     '智谱GLM': {

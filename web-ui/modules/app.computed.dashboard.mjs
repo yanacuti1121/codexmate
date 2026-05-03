@@ -40,7 +40,50 @@ export function createDashboardComputed() {
             return list;
         },
         installTargetCards() {
-            const targets = Array.isArray(this.installStatusTargets) ? this.installStatusTargets : [];
+            const targets = Array.isArray(this.installStatusTargets) && this.installStatusTargets.length
+                ? this.installStatusTargets
+                : [
+                    {
+                        id: 'claude',
+                        name: 'Claude Code CLI',
+                        packageName: '@anthropic-ai/claude-code',
+                        installed: false,
+                        bin: 'claude',
+                        version: '',
+                        commandPath: '',
+                        error: ''
+                    },
+                    {
+                        id: 'codebuddy',
+                        name: 'CodeBuddy Code',
+                        packageName: '@tencent-ai/codebuddy-code',
+                        installed: false,
+                        bin: 'codebuddy',
+                        version: '',
+                        commandPath: '',
+                        error: ''
+                    },
+                    {
+                        id: 'gemini',
+                        name: 'Gemini CLI',
+                        packageName: '@google/gemini-cli',
+                        installed: false,
+                        bin: 'gemini',
+                        version: '',
+                        commandPath: '',
+                        error: ''
+                    },
+                    {
+                        id: 'codex',
+                        name: 'Codex CLI',
+                        packageName: '@openai/codex',
+                        installed: false,
+                        bin: 'codex',
+                        version: '',
+                        commandPath: '',
+                        error: ''
+                    }
+                ];
             const action = this.normalizeInstallAction(this.installCommandAction);
             return targets.map((target) => {
                 const id = target && typeof target.id === 'string' ? target.id : '';

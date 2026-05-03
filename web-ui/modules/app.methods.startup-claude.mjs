@@ -361,6 +361,7 @@ export function createStartupClaudeMethods(options = {}) {
         syncClaudeModelFromConfig() {
             const config = this.getCurrentClaudeConfig();
             this.currentClaudeModel = config && config.model ? config.model : '';
+            this.claudeCustomModelDraft = this.currentClaudeModel;
         },
 
         refreshClaudeModelContext(options = {}) {

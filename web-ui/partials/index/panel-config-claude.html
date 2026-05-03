@@ -71,14 +71,19 @@
                     <div class="selector-header">
                         <span class="selector-title">{{ t('claude.model') }}</span>
                     </div>
-                    <select
+                    <input
                         v-if="claudeModelHasList"
-                        class="model-select"
+                        class="model-input"
                         v-model="currentClaudeModel"
                         @change="onClaudeModelChange"
+                        @blur="onClaudeModelChange"
+                        @keyup.enter="onClaudeModelChange"
+                        :placeholder="t('claude.model.placeholder')"
+                        list="claude-model-options"
                     >
-                        <option v-for="model in claudeModelOptions" :key="model" :value="model">{{ model }}</option>
-                    </select>
+                    <datalist v-if="claudeModelHasList" id="claude-model-options">
+                        <option v-for="model in claudeModelOptions" :key="model" :value="model"></option>
+                    </datalist>
                     <input
                         v-else
                         class="model-input"
