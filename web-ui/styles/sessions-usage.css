@@ -261,7 +261,7 @@
 
 .usage-chart-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
     gap: 16px;
 }
 
@@ -380,6 +380,13 @@
     grid-column: 1 / -1;
 }
 
+.usage-card-heatmap {
+    grid-column: 2;
+    justify-self: stretch;
+    width: 100%;
+    max-width: 100%;
+}
+
 .usage-daily-legend {
     display: flex;
     flex-wrap: wrap;
@@ -487,10 +494,10 @@
 }
 
 .usage-gh-heatmap {
-    --usage-heat-cell: 10px;
+    --usage-heat-cell: 8px;
     --usage-heat-gap: 2px;
     --usage-heat-week: calc(var(--usage-heat-cell) + var(--usage-heat-gap));
-    --usage-heat-axis: 28px;
+    --usage-heat-axis: 22px;
     margin-top: 6px;
 }
 
@@ -654,6 +661,18 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+@media (max-width: 900px) {
+    .usage-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .usage-card-heatmap {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        max-width: 100%;
+    }
 }
 
 .usage-heat-dot {

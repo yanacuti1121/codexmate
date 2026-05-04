@@ -4,6 +4,21 @@ const { assert } = require('./helpers');
 
 let bundledAppOptionsPromise = null;
 
+function createLocalStorage() {
+    const store = new Map();
+    return {
+        getItem(key) {
+            return store.has(key) ? store.get(key) : null;
+        },
+        setItem(key, value) {
+            store.set(String(key), String(value));
+        },
+        removeItem(key) {
+            store.delete(String(key));
+        }
+    };
+}
+
 function getBundledAppOptions() {
     if (!bundledAppOptionsPromise) {
         const helperPath = path.resolve(__dirname, '..', 'unit', 'helpers', 'web-ui-app-options.mjs');
@@ -72,47 +87,65 @@ function flushScheduledFrames(vm) {
 module.exports = async function testWebUiSessionTab() {
     const appOptions = await getBundledAppOptions();
     const vm = createBundledNavigationContext(appOptions);
+    const prevLocalStorage = globalThis.localStorage;
+    globalThis.localStorage = createLocalStorage();
+    try {
+        vm.mainTab = 'sessions';
+        vm.sessionListRenderEnabled = true;
+        vm.sessionPreviewRenderEnabled = true;
+        vm.sessionTabRenderTicket = 5;
+        vm.sessionTimelineActiveKey = 'node-1';
+        vm.sessionPreviewScrollEl = {};
+        vm.sessionPreviewContainerEl = {};
+        vm.sessionPreviewHeaderEl = {};
 
-    vm.mainTab = 'sessions';
-    vm.sessionListRenderEnabled = true;
-    vm.sessionPreviewRenderEnabled = true;
-    vm.sessionTabRenderTicket = 5;
-    vm.sessionTimelineActiveKey = 'node-1';
-    vm.sessionPreviewScrollEl = {};
-    vm.sessionPreviewContainerEl = {};
-    vm.sessionPreviewHeaderEl = {};
+        vm.onMainTabPointerDown('settings', {
+            button: 0,
+            pointerType: 'mouse'
+        });
 
-    vm.onMainTabPointerDown('settings', {
-        button: 0,
-        pointerType: 'mouse'
-    });
+        assert(vm.fastHidden === true, 'pointerdown should hide the sessions panel immediately');
+        assert(
+            String(globalThis.localStorage.getItem('codexmateNavState.v1') || '').includes('"mainTab":"settings"'),
+            'pointerdown should persist the intended nav tab even while the commit is deferred'
+        );
+        assert(vm.mainTab === 'sessions', 'tab commit should stay deferred until the next frame');
+        assert(vm.sessionListRenderEnabled === false, 'leaving sessions should suspend list rendering immediately');
+        assert(vm.sessionPreviewRenderEnabled === false, 'leaving sessions should suspend preview rendering immediately');
+        assert(vm._cancelTimelineSyncCalls === 1, 'leaving sessions should cancel pending timeline sync work');
+        assert(vm.sessionPreviewScrollEl === null, 'leaving sessions should clear preview scroll refs');
+        assert(vm.sessionPreviewContainerEl === null, 'leaving sessions should clear preview container refs');
+        assert(vm.sessionPreviewHeaderEl === null, 'leaving sessions should clear preview header refs');
 
-    assert(vm.fastHidden === true, 'pointerdown should hide the sessions panel immediately');
-    assert(vm.mainTab === 'sessions', 'tab commit should stay deferred until the next frame');
-    assert(vm.sessionListRenderEnabled === false, 'leaving sessions should suspend list rendering immediately');
-    assert(vm.sessionPreviewRenderEnabled === false, 'leaving sessions should suspend preview rendering immediately');
-    assert(vm._cancelTimelineSyncCalls === 1, 'leaving sessions should cancel pending timeline sync work');
-    assert(vm.sessionPreviewScrollEl === null, 'leaving sessions should clear preview scroll refs');
-    assert(vm.sessionPreviewContainerEl === null, 'leaving sessions should clear preview container refs');
-    assert(vm.sessionPreviewHeaderEl === null, 'leaving sessions should clear preview header refs');
+        vm.prepareSessionTabRender = function prepareSessionTabRender() {
+            this._prepareCalls = (this._prepareCalls || 0) + 1;
+            this.sessionListRenderEnabled = true;
+            this.sessionPreviewRenderEnabled = true;
+        };
 
-    vm.prepareSessionTabRender = function prepareSessionTabRender() {
-        this._prepareCalls = (this._prepareCalls || 0) + 1;
-        this.sessionListRenderEnabled = true;
-        this.sessionPreviewRenderEnabled = true;
-    };
+        vm.onMainTabPointerDown('sessions', {
+            button: 0,
+            pointerType: 'mouse'
+        });
 
-    vm.onMainTabPointerDown('sessions', {
-        button: 0,
-        pointerType: 'mouse'
-    });
+        assert(vm.fastHidden === false, 'returning to sessions should reveal the panel immediately');
+        assert(vm._prepareCalls === 1, 'returning to sessions should re-prime suspended session rendering');
 
-    assert(vm.fastHidden === false, 'returning to sessions should reveal the panel immediately');
-    assert(vm._prepareCalls === 1, 'returning to sessions should re-prime suspended session rendering');
+        flushScheduledFrames(vm);
 
-    flushScheduledFrames(vm);
+        assert(vm.mainTab === 'sessions', 'a canceled deferred leave should keep the bundled app on sessions');
+        assert(vm.sessionListRenderEnabled === true, 'session list rendering should recover after canceling the leave');
+        assert(vm.sessionPreviewRenderEnabled === true, 'session preview rendering should recover after canceling the leave');
 
-    assert(vm.mainTab === 'sessions', 'a canceled deferred leave should keep the bundled app on sessions');
-    assert(vm.sessionListRenderEnabled === true, 'session list rendering should recover after canceling the leave');
-    assert(vm.sessionPreviewRenderEnabled === true, 'session preview rendering should recover after canceling the leave');
+        globalThis.localStorage.setItem('codexmateNavState.v1', JSON.stringify({
+            mainTab: 'usage',
+            configMode: 'codex'
+        }));
+        const vm2 = createBundledNavigationContext(appOptions);
+        vm2.mainTab = 'dashboard';
+        vm2.restoreNavStateFromStorage();
+        assert(vm2.mainTab === 'usage', 'nav state restore should select the cached sidebar tab');
+    } finally {
+        globalThis.localStorage = prevLocalStorage;
+    }
 };

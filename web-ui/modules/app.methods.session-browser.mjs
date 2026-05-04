@@ -596,6 +596,135 @@ export function createSessionBrowserMethods(options = {}) {
             }
         },
 
+        cancelScheduledSessionListMessageCountHydrate() {
+            const handle = this.__sessionListMessageCountHydrateHandle || null;
+            if (!handle) return;
+            if (typeof this.cancelIdleTask === 'function') {
+                this.cancelIdleTask(handle);
+            }
+            this.__sessionListMessageCountHydrateHandle = null;
+        },
+
+        resetSessionListMessageCountHydrate() {
+            this.cancelScheduledSessionListMessageCountHydrate();
+            this.__sessionListMessageCountHydrateInFlight = false;
+            this.__sessionListMessageCountHydrateLastScheduleAt = 0;
+            this.__sessionListMessageCountHydrateLastAttemptAtMap = {};
+            this.sessionListMessageCountHydrateRequestSeq = (Number(this.sessionListMessageCountHydrateRequestSeq) || 0) + 1;
+        },
+
+        scheduleSessionListMessageCountHydrate() {
+            if (this.mainTab !== 'sessions' || !this.sessionListRenderEnabled) {
+                return;
+            }
+            const now = Date.now();
+            const lastAt = Number(this.__sessionListMessageCountHydrateLastScheduleAt || 0);
+            if ((now - lastAt) < 120) {
+                return;
+            }
+            this.__sessionListMessageCountHydrateLastScheduleAt = now;
+            this.cancelScheduledSessionListMessageCountHydrate();
+            const run = () => {
+                this.__sessionListMessageCountHydrateHandle = null;
+                return this.hydrateVisibleSessionListMessageCounts();
+            };
+            if (typeof this.scheduleIdleTask === 'function') {
+                this.__sessionListMessageCountHydrateHandle = this.scheduleIdleTask(run, 160);
+                return;
+            }
+            if (typeof this.scheduleAfterFrame === 'function') {
+                this.scheduleAfterFrame(run);
+                return;
+            }
+            run();
+        },
+
+        async hydrateVisibleSessionListMessageCounts() {
+            if (this.__sessionListMessageCountHydrateInFlight) {
+                return;
+            }
+            if (this.mainTab !== 'sessions' || !this.sessionListRenderEnabled) {
+                return;
+            }
+
+            const visible = Array.isArray(this.visibleSessionsList) ? this.visibleSessionsList : [];
+            if (!visible.length) return;
+
+            const now = Date.now();
+            const lastAttemptAtMap = (this.__sessionListMessageCountHydrateLastAttemptAtMap && typeof this.__sessionListMessageCountHydrateLastAttemptAtMap === 'object')
+                ? this.__sessionListMessageCountHydrateLastAttemptAtMap
+                : {};
+            const targets = [];
+            for (const session of visible) {
+                if (!session || typeof session !== 'object') continue;
+                const messageCountRaw = Number(session.messageCount);
+                const shouldHydrate = !Number.isFinite(messageCountRaw) || messageCountRaw === 0;
+                if (!shouldHydrate) continue;
+                const key = this.getSessionExportKey(session);
+                if (!key) continue;
+                const lastAttempt = Number(lastAttemptAtMap[key] || 0);
+                if ((now - lastAttempt) < 5000) {
+                    continue;
+                }
+                lastAttemptAtMap[key] = now;
+                targets.push({
+                    source: session.source,
+                    sessionId: session.sessionId,
+                    filePath: session.filePath
+                });
+                if (targets.length >= 32) {
+                    break;
+                }
+            }
+            this.__sessionListMessageCountHydrateLastAttemptAtMap = lastAttemptAtMap;
+            if (!targets.length) return;
+
+            const requestSeq = (Number(this.sessionListMessageCountHydrateRequestSeq) || 0) + 1;
+            this.sessionListMessageCountHydrateRequestSeq = requestSeq;
+            this.__sessionListMessageCountHydrateInFlight = true;
+            try {
+                const res = await api('session-message-counts', {
+                    items: targets,
+                    limit: targets.length
+                });
+                if (requestSeq !== Number(this.sessionListMessageCountHydrateRequestSeq || 0)) {
+                    return;
+                }
+                if (!res || res.error || !Array.isArray(res.items)) {
+                    return;
+                }
+                const byKey = new Map();
+                for (const item of res.items) {
+                    if (!item || typeof item !== 'object') continue;
+                    const key = typeof item.key === 'string' ? item.key : '';
+                    if (!key) continue;
+                    const messageCount = Number(item.messageCount);
+                    if (!Number.isFinite(messageCount) || messageCount < 0) continue;
+                    byKey.set(key, Math.floor(messageCount));
+                }
+                if (!byKey.size) {
+                    return;
+                }
+                const sessions = Array.isArray(this.sessionsList) ? this.sessionsList : [];
+                const sessionMap = new Map(sessions.map((session) => [this.getSessionExportKey(session), session]));
+                for (const [key, count] of byKey.entries()) {
+                    const matched = sessionMap.get(key);
+                    if (matched) {
+                        matched.messageCount = count;
+                    }
+                    if (this.activeSession && this.getSessionExportKey(this.activeSession) === key) {
+                        this.activeSession.messageCount = count;
+                    }
+                }
+            } catch (_) {
+                return;
+            } finally {
+                if (requestSeq === Number(this.sessionListMessageCountHydrateRequestSeq || 0)) {
+                    this.__sessionListMessageCountHydrateInFlight = false;
+                }
+            }
+        },
+
         invalidateSessionsUsageData(options = {}) {
             this.sessionsUsageLoadedOnce = false;
             this.sessionsUsageLoadedLimit = 0;
@@ -654,8 +783,10 @@ export function createSessionBrowserMethods(options = {}) {
         },
 
         async loadSessions(options = {}) {
+            this.resetSessionListMessageCountHydrate();
             const result = await loadSessionsHelper.call(this, api, options || {});
             this.pruneSessionPinnedMap(this.sessionsList);
+            this.scheduleSessionListMessageCountHydrate();
             return result;
         },
 

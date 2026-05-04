@@ -55,11 +55,18 @@ export function createNavigationMethods(options = {}) {
             return null;
         }
     };
-    const persistNavState = (vm) => {
+    const persistNavState = (vm, overrides = null) => {
         if (!vm || vm.__navStateRestoring) return;
         if (typeof localStorage === 'undefined') return;
-        const mainTab = typeof vm.mainTab === 'string' ? vm.mainTab.trim().toLowerCase() : '';
-        const configMode = typeof vm.configMode === 'string' ? vm.configMode.trim().toLowerCase() : '';
+        const resolvedOverrides = overrides && typeof overrides === 'object' ? overrides : null;
+        const mainTabSource = resolvedOverrides && typeof resolvedOverrides.mainTab === 'string'
+            ? resolvedOverrides.mainTab
+            : vm.mainTab;
+        const configModeSource = resolvedOverrides && typeof resolvedOverrides.configMode === 'string'
+            ? resolvedOverrides.configMode
+            : vm.configMode;
+        const mainTab = typeof mainTabSource === 'string' ? mainTabSource.trim().toLowerCase() : '';
+        const configMode = typeof configModeSource === 'string' ? configModeSource.trim().toLowerCase() : '';
         const snapshot = {
             mainTab: MAIN_TAB_SET.has(mainTab) ? mainTab : 'dashboard',
             configMode: configModeSet && configModeSet.has(configMode) ? configMode : 'codex'
@@ -70,6 +77,34 @@ export function createNavigationMethods(options = {}) {
     };
 
     return {
+        restoreNavStateFromStorage() {
+            if (this.__navStateRestoring) return false;
+            const restored = readNavState();
+            if (!restored) return false;
+            const nextMainTab = restored && typeof restored.mainTab === 'string'
+                ? restored.mainTab.trim().toLowerCase()
+                : '';
+            const nextConfigMode = restored && typeof restored.configMode === 'string'
+                ? restored.configMode.trim().toLowerCase()
+                : '';
+            const shouldUpdateConfigMode = !!(nextConfigMode && configModeSet && configModeSet.has(nextConfigMode));
+            const shouldUpdateMainTab = !!(nextMainTab && MAIN_TAB_SET.has(nextMainTab) && nextMainTab !== this.mainTab);
+            if (!shouldUpdateConfigMode && !shouldUpdateMainTab) {
+                return false;
+            }
+            this.__navStateRestoring = true;
+            try {
+                if (shouldUpdateConfigMode) {
+                    this.configMode = nextConfigMode;
+                }
+                if (shouldUpdateMainTab) {
+                    this.switchMainTab(nextMainTab);
+                }
+            } finally {
+                this.__navStateRestoring = false;
+            }
+            return true;
+        },
         switchConfigMode(mode) {
             const normalizedMode = typeof mode === 'string'
                 ? mode.trim().toLowerCase()
@@ -101,6 +136,10 @@ export function createNavigationMethods(options = {}) {
                 persistNavState(this);
                 return;
             }
+            persistNavState(this, {
+                mainTab: 'config',
+                configMode: normalizedMode
+            });
             this.switchMainTab('config');
         },
 
@@ -254,6 +293,7 @@ export function createNavigationMethods(options = {}) {
             }
             const normalizedTab = typeof tab === 'string' ? tab.trim().toLowerCase() : '';
             if (!normalizedTab) return;
+            persistNavState(this, { mainTab: normalizedTab });
             this.setMainTabSwitchIntent(normalizedTab);
             this.applyImmediateNavIntent(normalizedTab);
             const shouldHideSessionPanel = this.mainTab === 'sessions' && normalizedTab !== 'sessions';
@@ -275,6 +315,7 @@ export function createNavigationMethods(options = {}) {
             }
             const normalizedMode = typeof mode === 'string' ? mode.trim().toLowerCase() : '';
             if (!normalizedMode) return;
+            persistNavState(this, { mainTab: 'config', configMode: normalizedMode });
             this.setMainTabSwitchIntent('config');
             if (typeof this.ensureMainTabSwitchState === 'function') {
                 this.ensureMainTabSwitchState().pendingConfigMode = normalizedMode;
@@ -345,6 +386,10 @@ export function createNavigationMethods(options = {}) {
             if (targetTab === 'orchestration' && this.taskOrchestrationTabEnabled !== true) {
                 return this.switchMainTab('config');
             }
+            persistNavState(this, {
+                mainTab: targetTab,
+                configMode: targetTab === 'config' ? this.configMode : this.configMode
+            });
             this.cancelTouchNavIntentReset();
             if (targetTab === 'sessions') {
                 this.cancelScheduledSessionTabDeferredTeardown();
@@ -564,6 +609,9 @@ export function createNavigationMethods(options = {}) {
                     return;
                 }
                 if (this.expandVisibleSessionList(undefined, { ensureActive: true })) {
+                    if (typeof this.scheduleSessionListMessageCountHydrate === 'function') {
+                        this.scheduleSessionListMessageCountHydrate();
+                    }
                     this.scheduleSessionListViewportFill();
                 }
             };
@@ -576,6 +624,9 @@ export function createNavigationMethods(options = {}) {
             }
             this.expandVisibleSessionList(undefined, { ensureActive: true });
             this.scheduleSessionListViewportFill();
+            if (typeof this.scheduleSessionListMessageCountHydrate === 'function') {
+                this.scheduleSessionListMessageCountHydrate();
+            }
         },
         onSessionListScroll(event) {
             const nextRef = event && event.currentTarget ? event.currentTarget : this.__sessionListRef;
@@ -583,6 +634,9 @@ export function createNavigationMethods(options = {}) {
                 this.__sessionListRef = nextRef;
             }
             this.scheduleSessionListViewportFill();
+            if (typeof this.scheduleSessionListMessageCountHydrate === 'function') {
+                this.scheduleSessionListMessageCountHydrate();
+            }
         },
 
         resetSessionPreviewMessageRender() {

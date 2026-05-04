@@ -50,6 +50,50 @@ function buildCodexSessionRecords(sessionId, messageCount, options = {}) {
     return records;
 }
 
+function buildCodexSessionRecordsWithLeadingNoise(sessionId, noiseLineCount, messageCount, options = {}) {
+    const baseMs = Date.parse(options.baseIso || '2025-04-01T00:00:00.000Z');
+    const noiseSize = Number.isFinite(options.noiseSize)
+        ? Math.max(256, Math.floor(options.noiseSize))
+        : 8192;
+    const messageSize = Number.isFinite(options.messageSize)
+        ? Math.max(0, Math.floor(options.messageSize))
+        : 128;
+    const records = [{
+        type: 'session_meta',
+        payload: {
+            id: sessionId,
+            cwd: options.cwd || `/tmp/${sessionId}`
+        },
+        timestamp: createIso(baseMs, 0)
+    }];
+
+    for (let i = 0; i < noiseLineCount; i += 1) {
+        records.push({
+            type: 'response_item',
+            payload: {
+                type: 'tool_call',
+                role: 'assistant',
+                content: 'noise-' + String(i).padStart(3, '0') + '-' + 'n'.repeat(noiseSize)
+            },
+            timestamp: createIso(baseMs, i + 1)
+        });
+    }
+
+    for (let i = 0; i < messageCount; i += 1) {
+        records.push({
+            type: 'response_item',
+            payload: {
+                type: 'message',
+                role: i % 2 === 0 ? 'user' : 'assistant',
+                content: `${sessionId}-msg-${String(i).padStart(4, '0')}-` + 'x'.repeat(messageSize)
+            },
+            timestamp: createIso(baseMs, noiseLineCount + i + 1)
+        });
+    }
+
+    return records;
+}
+
 function writeCodexSessionFile(sessionsDir, sessionId, records) {
     const filePath = path.join(sessionsDir, `${sessionId}.jsonl`);
     fs.writeFileSync(filePath, records.map((record) => JSON.stringify(record)).join('\n') + '\n', 'utf-8');
@@ -149,11 +193,18 @@ function createWebUiVm(appOptions) {
 
 async function flushScheduledFrames(vm) {
     let guard = 0;
-    while (Array.isArray(vm._scheduledFrames) && vm._scheduledFrames.length > 0) {
-        const task = vm._scheduledFrames.shift();
-        await Promise.resolve(task());
+    while (
+        (Array.isArray(vm._scheduledFrames) && vm._scheduledFrames.length > 0)
+        || (Array.isArray(vm._idleTasks) && vm._idleTasks.length > 0)
+    ) {
+        const task = (Array.isArray(vm._scheduledFrames) && vm._scheduledFrames.length > 0)
+            ? vm._scheduledFrames.shift()
+            : (Array.isArray(vm._idleTasks) ? vm._idleTasks.shift() : null);
+        if (typeof task === 'function') {
+            await Promise.resolve(task());
+        }
         guard += 1;
-        if (guard > 50) {
+        if (guard > 200) {
             throw new Error('scheduled frame queue did not settle');
         }
     }
@@ -181,6 +232,8 @@ module.exports = async function testWebUiSessionBrowser(ctx) {
     const hotSessionMessageCount = 1325;
     const hugeLineSessionId = 'session-browser-huge-line-e2e';
     const initialHugeLineSessionId = 'session-browser-huge-line-initial-e2e';
+    const hydrateZeroSessionId = 'session-browser-hydrate-zero-e2e';
+    const hydrateZeroMessageCount = 25;
 
     for (let i = 0; i < denseListSessionCount; i += 1) {
         const sessionId = `session-browser-list-${String(i).padStart(3, '0')}`;
@@ -191,6 +244,17 @@ module.exports = async function testWebUiSessionBrowser(ctx) {
         });
         writeCodexSessionFile(sessionsDir, sessionId, records);
     }
+
+    writeCodexSessionFile(
+        sessionsDir,
+        hydrateZeroSessionId,
+        buildCodexSessionRecordsWithLeadingNoise(hydrateZeroSessionId, 18, hydrateZeroMessageCount, {
+            baseIso: '2025-04-01T12:00:00.000Z',
+            noiseSize: 9000,
+            messageSize: 96,
+            cwd: `/tmp/${hydrateZeroSessionId}`
+        })
+    );
 
     writeCodexSessionFile(
         sessionsDir,
@@ -271,6 +335,28 @@ module.exports = async function testWebUiSessionBrowser(ctx) {
     assert(vm.activeSessionMessages.every((message) => typeof message.text === 'string' && message.text.length <= 4000), 'session browser should cap huge-line preview text on initial tab entry');
     assert(vm.activeSessionDetailClipped === false, 'session browser should fully recover small huge-line sessions on initial tab entry');
     assert(vm.activeSessionVisibleMessages.length === vm.activeSessionMessages.length, 'session browser should render all truncated huge-line preview messages on initial tab entry');
+
+    const sampleListSessionId = hydrateZeroSessionId;
+    const sampleListSession = vm.sessionsList.find((item) => item && item.sessionId === sampleListSessionId);
+    assert(sampleListSession, 'session browser should list the sample non-selected session used for messageCount hydration');
+    assert(
+        vm.activeSession && vm.activeSession.sessionId !== sampleListSessionId,
+        'session browser should hydrate messageCount for a non-active session without selecting it'
+    );
+
+    await withGlobalOverrides({ fetch, localStorage }, async () => {
+        if (typeof vm.hydrateVisibleSessionListMessageCounts === 'function') {
+            await vm.hydrateVisibleSessionListMessageCounts();
+        }
+        await flushScheduledFrames(vm);
+        await waitForCondition(
+            () => {
+                const matched = vm.sessionsList.find((item) => item && item.sessionId === sampleListSessionId);
+                return matched && matched.messageCount === hydrateZeroMessageCount;
+            },
+            'session browser should hydrate messageCount in the list without selecting the session'
+        );
+    });
 
     const hotSession = vm.sessionsList.find((item) => item.sessionId === hotSessionId);
     assert(hotSession, 'session browser should list the hot large regression session');

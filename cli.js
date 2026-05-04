@@ -2927,6 +2927,46 @@ async function hydrateSessionItemsExactMessageCount(items) {
     });
 }
 
+function getSessionExportKeyForApi(item) {
+    const source = item && item.source ? String(item.source).trim() : '';
+    const sessionId = item && item.sessionId ? String(item.sessionId) : '';
+    const filePath = item && item.filePath ? String(item.filePath) : '';
+    return `${source || 'unknown'}:${sessionId}:${filePath}`;
+}
+
+async function readSessionMessageCounts(params = {}) {
+    const rawItems = Array.isArray(params.items) ? params.items : [];
+    const rawLimit = Number(params.limit);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.floor(rawLimit), 80)) : 40;
+    const items = rawItems.slice(0, limit);
+    const hydrated = await mapWithConcurrency(items, 4, async (item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+            return undefined;
+        }
+        const key = getSessionExportKeyForApi(item);
+        const source = item.source === 'claude'
+            ? 'claude'
+            : (item.source === 'codex'
+                ? 'codex'
+                : (item.source === 'gemini' ? 'gemini' : (item.source === 'codebuddy' ? 'codebuddy' : '')));
+        const filePath = typeof item.filePath === 'string' ? item.filePath : '';
+        if (!source || !filePath || !fs.existsSync(filePath)) {
+            return { key };
+        }
+        const exactMessageCount = await countConversationMessagesInFile(filePath, source);
+        if (!Number.isFinite(Number(exactMessageCount))) {
+            return { key };
+        }
+        return {
+            key,
+            messageCount: Math.max(0, Math.floor(Number(exactMessageCount)))
+        };
+    });
+    return {
+        items: hydrated.filter(Boolean)
+    };
+}
+
 function sortSessionsByUpdatedAt(items) {
     items.sort((a, b) => {
         const aTime = Date.parse(a.updatedAt || '') || 0;
@@ -10273,6 +10313,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'clone-session':
                             result = await cloneCodexSession(params || {});
+                            break;
+                        case 'session-message-counts':
+                            result = await readSessionMessageCounts(params || {});
                             break;
                         case 'session-detail':
                             result = await readSessionDetail(params);
