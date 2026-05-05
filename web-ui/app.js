@@ -112,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 _pendingCodexApplyOptions: null,
                 agentsContent: '',
                 agentsPath: '',
-                agentsPath: '',
                 agentsExists: false,
                 agentsLineEnding: '\n',
                 agentsLoading: false,
@@ -158,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ticket: 0
                 },
                 sessionsViewMode: 'browser',
-                sessionsUsageTimeRange: '7d',
+                sessionsUsageTimeRange: (function () { try { const saved = localStorage.getItem('sessionsUsageTimeRange'); if (saved === '7d' || saved === '30d' || saved === 'all') return saved; } catch (_) {} return '7d'; })(),
                 sessionsUsageList: [],
                 sessionsUsageCompareEnabled: false,
                 sessionsUsageSelectedDayKey: '',
@@ -363,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionTrashRestoring: {},
                 sessionTrashPurging: {},
                 sessionTrashClearing: false,
+                sessionTrashRetentionDays: 30,
                 claudeImportLoading: false,
                 codexImportLoading: false,
                 codexAuthProfiles: [],
@@ -479,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.restoreSessionPinnedMap();
             this.shareCommandPrefix = this.normalizeShareCommandPrefix(localStorage.getItem('codexmateShareCommandPrefix'));
             this.sessionTrashEnabled = this.normalizeSessionTrashEnabled(localStorage.getItem('codexmateSessionTrashEnabled'));
+            this.sessionTrashRetentionDays = this.normalizeSessionTrashRetentionDays(localStorage.getItem('codexmateSessionTrashRetentionDays'));
             this.configTemplateDiffConfirmEnabled = loadConfigTemplateDiffConfirmEnabledFromStorage(localStorage);
             window.addEventListener('resize', this.onWindowResize);
             window.addEventListener('keydown', this.handleGlobalKeydown);

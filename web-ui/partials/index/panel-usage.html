@@ -96,9 +96,8 @@
                                     <div class="usage-daydetail-controls">
                                         <select
                                             class="usage-daydetail-select"
-                                            :value="sessionsUsageSelectedDayKey || ''"
+                                            :value="sessionsUsageSelectedDayKey || (sessionUsageDailyTableRows[0] && sessionUsageDailyTableRows[0].key) || ''"
                                             @change="selectSessionsUsageDay(($event.target && $event.target.value) ? String($event.target.value) : '')">
-                                            <option value="">{{ t('usage.dayDetail.pick') }}</option>
                                             <option v-for="day in sessionUsageDailyTableRows" :key="'day-select-' + day.key" :value="day.key">{{ day.key }}</option>
                                         </select>
                                         <button
@@ -284,6 +283,36 @@
                                         <div class="usage-list-label">{{ item.label }}</div>
                                         <div class="usage-progress"><div class="usage-progress-fill" :style="{ width: item.percent + '%' }"></div></div>
                                         <div class="usage-list-value">{{ item.count }}</div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="usage-card usage-card-hourly-heatmap">
+                                <div class="usage-card-title">{{ t('usage.hourlyHeatmap.title') }}</div>
+                                <div class="usage-card-subtitle">{{ t('usage.hourlyHeatmap.subtitle') }}</div>
+                                <div class="hourly-heatmap-wrapper">
+                                    <div class="hourly-heatmap-header">
+                                        <div class="hourly-heatmap-corner"></div>
+                                        <div v-for="h in sessionUsageHourlyHeatmap.hourLabels" :key="'hh-' + h" class="hourly-heatmap-hour-label">{{ h }}</div>
+                                    </div>
+                                    <div v-for="(row, dayIndex) in sessionUsageHourlyHeatmap.rows" :key="'hd-' + dayIndex" class="hourly-heatmap-row">
+                                        <div class="hourly-heatmap-weekday-label">{{ row.weekday }}</div>
+                                        <div
+                                            v-for="(cell, hourIndex) in row.cells"
+                                            :key="'hc-' + dayIndex + '-' + hourIndex"
+                                            :class="['hourly-heatmap-cell', 'level-' + cell.level]"
+                                            :title="cell.tooltip"
+                                            :aria-label="cell.tooltip">
+                                        </div>
+                                    </div>
+                                    <div class="hourly-heatmap-legend">
+                                        <span class="hourly-heatmap-legend-label">{{ t('usage.hourlyHeatmap.legend.less') }}</span>
+                                        <span class="hourly-heatmap-cell level-0"></span>
+                                        <span class="hourly-heatmap-cell level-1"></span>
+                                        <span class="hourly-heatmap-cell level-2"></span>
+                                        <span class="hourly-heatmap-cell level-3"></span>
+                                        <span class="hourly-heatmap-cell level-4"></span>
+                                        <span class="hourly-heatmap-legend-label">{{ t('usage.hourlyHeatmap.legend.more') }}</span>
                                     </div>
                                 </div>
                             </section>

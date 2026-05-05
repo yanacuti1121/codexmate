@@ -778,6 +778,7 @@ export function createSessionBrowserMethods(options = {}) {
             const normalized = typeof nextRange === 'string' ? nextRange.trim().toLowerCase() : '';
             const range = normalized === 'all' ? 'all' : (normalized === '30d' ? '30d' : '7d');
             this.sessionsUsageTimeRange = range;
+            try { localStorage.setItem('sessionsUsageTimeRange', range); } catch (_) {}
             if (range === 'all') {
                 this.sessionsUsageCompareEnabled = false;
             }
@@ -848,6 +849,9 @@ export function createSessionBrowserMethods(options = {}) {
                 if (loadSucceeded) {
                     this.sessionsUsageLoadedOnce = true;
                     this.sessionsUsageLoadedLimit = limit;
+                    if (!this.sessionsUsageSelectedDayKey && Array.isArray(this.sessionUsageDailyTableRows) && this.sessionUsageDailyTableRows.length > 0) {
+                        this.sessionsUsageSelectedDayKey = this.sessionUsageDailyTableRows[0].key;
+                    }
                 }
             }
         },
