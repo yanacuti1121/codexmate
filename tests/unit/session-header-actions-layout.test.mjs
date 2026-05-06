@@ -18,6 +18,15 @@ test('sessions header actions keep buttons inline (contract)', () => {
         'panel-sessions should mark header actions with sessions-header-actions'
     );
 
+    assert(
+        !html.includes(':disabled="true"'),
+        'session panel actions must not contain permanently disabled buttons'
+    );
+    assert(
+        html.includes('isSessionConvertAvailable(activeSession)'),
+        'convert session button should bind to real availability instead of a hardcoded disabled state'
+    );
+
     const css = readText('web-ui/styles/controls-forms.css');
     assert(
         /\.selector-header\s*\{[\s\S]*?flex-wrap:\s*nowrap\s*;[\s\S]*?\}/m.test(css),

@@ -80,6 +80,14 @@ export function createCodexConfigMethods(options = {}) {
             }
         },
 
+        isSessionConvertAvailable(session) {
+            const source = normalizeSessionConvertSource(session && session.source ? session.source : '');
+            const target = getConvertTargetSource(source);
+            if (!session || !source || !target) return false;
+            const key = this.getSessionExportKey(session);
+            return !(this.sessionConverting && this.sessionConverting[key]);
+        },
+
         async convertSession(session) {
             const source = normalizeSessionConvertSource(session && session.source ? session.source : '');
             const target = getConvertTargetSource(source);

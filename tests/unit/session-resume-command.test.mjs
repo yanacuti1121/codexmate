@@ -20,6 +20,26 @@ test('isResumeCommandAvailable supports codex and codebuddy with sessionId', () 
     assert.strictEqual(methods.isResumeCommandAvailable({ source: 'claude', sessionId: '', filePath: '/home/user/.claude/projects/demo/sess-3.jsonl' }), true);
 });
 
+test('derived native availability controls resume warning and import action', () => {
+    const methods = createSessionActionMethods();
+    assert.strictEqual(
+        methods.isImportToNativeAvailable.call(methods, { source: 'codex', sessionId: 'sess-20260101-010101-abcdef', derived: true, nativeAvailable: false, nativeImportAvailable: true }),
+        true
+    );
+    assert.strictEqual(
+        methods.isImportToNativeAvailable.call(methods, { source: 'codex', sessionId: 'sess-20260101-010101-abcdef', derived: true, nativeAvailable: true, nativeImportAvailable: false }),
+        false
+    );
+    assert.strictEqual(
+        methods.getResumeCommandTitle.call(methods, { source: 'claude', sessionId: 'sess-2', derived: true, nativeAvailable: false }),
+        'Session not in native directory, resume may fail'
+    );
+    assert.strictEqual(
+        methods.getResumeCommandTitle.call(methods, { source: 'claude', sessionId: 'sess-2', derived: true, nativeAvailable: true }),
+        'Copy resume command'
+    );
+});
+
 test('buildResumeCommand generates codex resume with optional --yolo, codebuddy -r, gemini -r, and claude -r', () => {
     const methods = createSessionActionMethods();
     const contextBase = {

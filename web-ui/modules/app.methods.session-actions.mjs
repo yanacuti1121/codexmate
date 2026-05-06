@@ -28,6 +28,88 @@ export function createSessionActionMethods(options = {}) {
             return false;
         },
 
+        isSessionNativeAvailable(session) {
+            if (!session || typeof session !== 'object') return false;
+            if (session.nativeAvailable === false) return false;
+            return true;
+        },
+
+        isImportToNativeAvailable(session) {
+            if (!this.isDerivedSession(session)) return false;
+            if (session.nativeAvailable === true) return false;
+            if (session.nativeImportAvailable === false) return false;
+            const source = String(session.source || '').trim().toLowerCase();
+            return source === 'codex' || source === 'claude';
+        },
+
+        getResumeCommandTitle(session) {
+            if (!this.isSessionNativeAvailable(session)) {
+                return 'Session not in native directory, resume may fail';
+            }
+            return 'Copy resume command';
+        },
+
+        async importDerivedSessionToNative(session) {
+            if (!this.isImportToNativeAvailable(session)) {
+                this.showMessage('不支持此操作', 'error');
+                return;
+            }
+            const key = this.getSessionExportKey(session);
+            if (this.sessionImportingNative && this.sessionImportingNative[key]) return;
+            if (!this.sessionImportingNative) this.sessionImportingNative = {};
+            this.sessionImportingNative[key] = true;
+            try {
+                let res = await api('import-derived-session', {
+                    source: session.source,
+                    sessionId: session.sessionId,
+                    filePath: session.filePath
+                });
+                if (res && res.conflict) {
+                    const ok = typeof this.requestConfirmDialog === 'function'
+                        ? await this.requestConfirmDialog({
+                            title: '覆盖原生会话文件？',
+                            message: '原生会话文件已存在，覆盖后会替换目标工具原生目录中的同名会话。',
+                            confirmText: '覆盖',
+                            cancelText: '取消',
+                            danger: true
+                        })
+                        : false;
+                    if (!ok) {
+                        this.showMessage('已取消导入', 'info');
+                        return;
+                    }
+                    res = await api('import-derived-session', {
+                        source: session.source,
+                        sessionId: session.sessionId,
+                        filePath: session.filePath,
+                        overwrite: true
+                    });
+                }
+                if (res && res.error) {
+                    this.showMessage(res.error, 'error');
+                    return;
+                }
+                const converted = res && res.session ? res.session : null;
+                if (converted) {
+                    const list = Array.isArray(this.sessionsList) ? this.sessionsList : [];
+                    this.sessionsList = [converted, ...list.filter(item => !(item && item.filePath === converted.filePath && item.source === converted.source))];
+                    if (typeof this.selectSession === 'function') {
+                        await this.selectSession(converted);
+                    } else {
+                        this.activeSession = converted;
+                    }
+                } else if (this.activeSession) {
+                    this.activeSession.nativeAvailable = true;
+                    this.activeSession.nativePath = res.nativePath || this.activeSession.nativePath;
+                }
+                this.showMessage('已导入原生目录', 'success');
+            } catch (e) {
+                this.showMessage('导入失败', 'error');
+            } finally {
+                this.sessionImportingNative[key] = false;
+            }
+        },
+
         getSessionStandaloneContext() {
             try {
                 const url = new URL(window.location.href);
@@ -348,14 +430,15 @@ export function createSessionActionMethods(options = {}) {
             }
             const command = this.buildResumeCommand(session);
             const ok = this.fallbackCopyText(command);
+            const nativeOk = !(session && session.nativeAvailable === false);
             if (ok) {
-                this.showMessage('已复制', 'success');
+                this.showMessage(nativeOk ? '已复制' : '已复制，但该会话不在原生目录，恢复可能失败', nativeOk ? 'success' : 'info');
                 return;
             }
             try {
                 if (navigator.clipboard && window.isSecureContext) {
                     await navigator.clipboard.writeText(command);
-                    this.showMessage('已复制', 'success');
+                    this.showMessage(nativeOk ? '已复制' : '已复制，但该会话不在原生目录，恢复可能失败', nativeOk ? 'success' : 'info');
                     return;
                 }
             } catch (_) {}

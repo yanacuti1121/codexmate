@@ -223,6 +223,20 @@
     white-space: nowrap;
 }
 
+.session-derived-badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(208, 88, 58, 0.28);
+    border-radius: 999px;
+    padding: 2px 8px;
+    background: rgba(208, 88, 58, 0.08);
+    color: var(--color-brand);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-secondary);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 .session-count-badge {
     display: inline-flex;
     align-items: center;
