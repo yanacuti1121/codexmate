@@ -61,6 +61,9 @@ test('import to native session action strings are localized in both locales', ()
         'sessions.preview.importNative.confirmText',
         'sessions.preview.importNative.cancelled',
         'sessions.preview.importNative.conflict',
+        'sessions.preview.importNative.invalidSource',
+        'sessions.preview.importNative.fileNotFound',
+        'sessions.preview.importNative.nativePathUnavailable',
         'sessions.preview.importNative.success',
         'sessions.preview.importNative.failed',
         'sessions.preview.importNative.failedWithReason',
@@ -72,6 +75,34 @@ test('import to native session action strings are localized in both locales', ()
     }
     assert.strictEqual(DICT.zh['sessions.preview.importNative'], '导入原生目录');
     assert.strictEqual(DICT.en['sessions.preview.importNative'], 'Import to Native');
+});
+
+test('import to native backend error codes are shown through localized strings', async () => {
+    const methods = createSessionActionMethods({
+        api: async () => ({ error: 'Invalid source', errorCode: 'INVALID_SOURCE' })
+    });
+    const messages = [];
+    const context = {
+        ...methods,
+        sessionImportingNative: {},
+        showMessage(message, type) { messages.push({ message, type }); },
+        t(key, params) {
+            const template = DICT.zh[key] || key;
+            if (!params) return template;
+            return template.replace(/\{([^}]+)\}/g, (_, name) => params[name] ?? `{${name}}`);
+        }
+    };
+
+    await methods.importDerivedSessionToNative.call(context, {
+        source: 'codex',
+        sessionId: 'sess-20260101-010101-abcdef',
+        filePath: '/tmp/sess-20260101-010101-abcdef.jsonl',
+        derived: true,
+        nativeAvailable: false,
+        nativeImportAvailable: true
+    });
+
+    assert.deepStrictEqual(messages, [{ message: '会话来源无效', type: 'error' }]);
 });
 
 test('buildResumeCommand generates codex resume with optional --yolo, codebuddy -r, gemini -r, and claude -r', () => {

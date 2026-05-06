@@ -7282,11 +7282,11 @@ async function convertSessionToDerived(params = {}) {
 async function importDerivedSessionToNative(params = {}) {
     const source = normalizeSessionDerivedTarget(params.source);
     if (!source) {
-        return { error: 'Invalid source' };
+        return { error: 'Invalid source', errorCode: 'INVALID_SOURCE' };
     }
     const filePath = resolveSessionFilePath(source, getSessionFileArg(params), params.sessionId);
     if (!filePath) {
-        return { error: 'Session file not found' };
+        return { error: 'Session file not found', errorCode: 'SESSION_FILE_NOT_FOUND' };
     }
 
     const summary = (source === 'claude' ? parseClaudeSessionSummary(filePath) : parseCodexSessionSummary(filePath))
@@ -7294,7 +7294,7 @@ async function importDerivedSessionToNative(params = {}) {
     const sessionId = summary.sessionId || params.sessionId || path.basename(filePath, '.jsonl');
     const nativePath = resolveNativeSessionFilePath(source, sessionId, summary.cwd || '');
     if (!nativePath) {
-        return { error: 'Native session path unavailable' };
+        return { error: 'Native session path unavailable', errorCode: 'NATIVE_SESSION_PATH_UNAVAILABLE' };
     }
 
     const resolvedSourcePath = path.resolve(expandHomePath(filePath));
@@ -7317,6 +7317,7 @@ async function importDerivedSessionToNative(params = {}) {
     if (fs.existsSync(resolvedNativePath) && !overwrite) {
         return {
             error: 'Native session already exists',
+            errorCode: 'NATIVE_SESSION_EXISTS',
             conflict: true,
             source,
             sessionId,
@@ -7402,7 +7403,7 @@ async function importDerivedSessionToNative(params = {}) {
                 }
             }
         } catch (_) {}
-        return { error: `Import to native failed: ${e.message}` };
+        return { error: `Import to native failed: ${e.message}`, errorCode: 'IMPORT_DERIVED_SESSION_FAILED', reason: e.message };
     }
 
     invalidateSessionListCache();

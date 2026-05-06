@@ -89,11 +89,18 @@ export function createSessionActionMethods(options = {}) {
                     });
                 }
                 if (res && res.error) {
-                    const message = res.error === 'Native session already exists'
+                    const errorCode = typeof res.errorCode === 'string' ? res.errorCode : '';
+                    const message = errorCode === 'NATIVE_SESSION_EXISTS' || res.error === 'Native session already exists'
                         ? tr('sessions.preview.importNative.conflict', 'Native session already exists')
-                        : (String(res.error || '').startsWith('Import to native failed:')
-                            ? tr('sessions.preview.importNative.failedWithReason', 'Import to native failed: {reason}', { reason: String(res.error).replace(/^Import to native failed:\s*/, '') })
-                            : res.error);
+                        : (errorCode === 'INVALID_SOURCE'
+                            ? tr('sessions.preview.importNative.invalidSource', 'Invalid session source')
+                            : (errorCode === 'SESSION_FILE_NOT_FOUND'
+                                ? tr('sessions.preview.importNative.fileNotFound', 'Session file not found')
+                                : (errorCode === 'NATIVE_SESSION_PATH_UNAVAILABLE'
+                                    ? tr('sessions.preview.importNative.nativePathUnavailable', 'Native session path unavailable')
+                                    : (errorCode === 'IMPORT_DERIVED_SESSION_FAILED' || String(res.error || '').startsWith('Import to native failed:')
+                                        ? tr('sessions.preview.importNative.failedWithReason', 'Import to native failed: {reason}', { reason: res.reason || String(res.error).replace(/^Import to native failed:\s*/, '') })
+                                        : res.error))));
                     this.showMessage(message, 'error');
                     return;
                 }
