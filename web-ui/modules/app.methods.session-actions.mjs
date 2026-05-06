@@ -43,15 +43,17 @@ export function createSessionActionMethods(options = {}) {
         },
 
         getResumeCommandTitle(session) {
+            const tr = (key, fallback) => (typeof this.t === 'function' ? this.t(key) : fallback);
             if (!this.isSessionNativeAvailable(session)) {
-                return 'Session not in native directory, resume may fail';
+                return tr('sessions.resume.nativeUnavailableTitle', 'Session not in native directory, resume may fail');
             }
-            return 'Copy resume command';
+            return tr('sessions.copyResume', 'Copy resume command');
         },
 
         async importDerivedSessionToNative(session) {
+            const tr = (key, fallback, params = null) => (typeof this.t === 'function' ? this.t(key, params) : fallback);
             if (!this.isImportToNativeAvailable(session)) {
-                this.showMessage('不支持此操作', 'error');
+                this.showMessage(tr('sessions.preview.importNative.unsupported', 'This operation is not supported'), 'error');
                 return;
             }
             const key = this.getSessionExportKey(session);
@@ -67,15 +69,15 @@ export function createSessionActionMethods(options = {}) {
                 if (res && res.conflict) {
                     const ok = typeof this.requestConfirmDialog === 'function'
                         ? await this.requestConfirmDialog({
-                            title: '覆盖原生会话文件？',
-                            message: '原生会话文件已存在，覆盖后会替换目标工具原生目录中的同名会话。',
-                            confirmText: '覆盖',
-                            cancelText: '取消',
+                            title: tr('sessions.preview.importNative.confirmTitle', 'Overwrite native session file?'),
+                            message: tr('sessions.preview.importNative.confirmMessage', 'A native session file already exists. Overwriting will replace the matching session in the target tool native directory.'),
+                            confirmText: tr('sessions.preview.importNative.confirmText', 'Overwrite'),
+                            cancelText: tr('confirm.cancel', 'Cancel'),
                             danger: true
                         })
                         : false;
                     if (!ok) {
-                        this.showMessage('已取消导入', 'info');
+                        this.showMessage(tr('sessions.preview.importNative.cancelled', 'Import cancelled'), 'info');
                         return;
                     }
                     res = await api('import-derived-session', {
@@ -86,7 +88,12 @@ export function createSessionActionMethods(options = {}) {
                     });
                 }
                 if (res && res.error) {
-                    this.showMessage(res.error, 'error');
+                    const message = res.error === 'Native session already exists'
+                        ? tr('sessions.preview.importNative.conflict', 'Native session already exists')
+                        : (String(res.error || '').startsWith('Import to native failed:')
+                            ? tr('sessions.preview.importNative.failedWithReason', 'Import to native failed: {reason}', { reason: String(res.error).replace(/^Import to native failed:\s*/, '') })
+                            : res.error);
+                    this.showMessage(message, 'error');
                     return;
                 }
                 const converted = res && res.session ? res.session : null;
@@ -102,9 +109,9 @@ export function createSessionActionMethods(options = {}) {
                     this.activeSession.nativeAvailable = true;
                     this.activeSession.nativePath = res.nativePath || this.activeSession.nativePath;
                 }
-                this.showMessage('已导入原生目录', 'success');
+                this.showMessage(tr('sessions.preview.importNative.success', 'Imported to native directory'), 'success');
             } catch (e) {
-                this.showMessage('导入失败', 'error');
+                this.showMessage(tr('sessions.preview.importNative.failed', 'Import failed'), 'error');
             } finally {
                 this.sessionImportingNative[key] = false;
             }

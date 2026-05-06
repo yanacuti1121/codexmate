@@ -8,6 +8,9 @@ const __dirname = path.dirname(__filename);
 const { createSessionActionMethods } = await import(
     pathToFileURL(path.join(__dirname, '..', '..', 'web-ui', 'modules', 'app.methods.session-actions.mjs'))
 );
+const { DICT } = await import(
+    pathToFileURL(path.join(__dirname, '..', '..', 'web-ui', 'modules', 'i18n.dict.mjs'))
+);
 
 test('isResumeCommandAvailable supports codex and codebuddy with sessionId', () => {
     const methods = createSessionActionMethods();
@@ -38,6 +41,37 @@ test('derived native availability controls resume warning and import action', ()
         methods.getResumeCommandTitle.call(methods, { source: 'claude', sessionId: 'sess-2', derived: true, nativeAvailable: true }),
         'Copy resume command'
     );
+    const zhContext = {
+        ...methods,
+        t(key) { return DICT.zh[key] || key; }
+    };
+    assert.strictEqual(
+        methods.getResumeCommandTitle.call(zhContext, { source: 'claude', sessionId: 'sess-2', derived: true, nativeAvailable: false }),
+        '会话不在原生目录中，恢复可能失败'
+    );
+});
+
+test('import to native session action strings are localized in both locales', () => {
+    const keys = [
+        'sessions.preview.importNative',
+        'sessions.preview.importingNative',
+        'sessions.preview.importNative.unsupported',
+        'sessions.preview.importNative.confirmTitle',
+        'sessions.preview.importNative.confirmMessage',
+        'sessions.preview.importNative.confirmText',
+        'sessions.preview.importNative.cancelled',
+        'sessions.preview.importNative.conflict',
+        'sessions.preview.importNative.success',
+        'sessions.preview.importNative.failed',
+        'sessions.preview.importNative.failedWithReason',
+        'sessions.resume.nativeUnavailableTitle'
+    ];
+    for (const key of keys) {
+        assert(DICT.zh[key], `missing zh i18n key: ${key}`);
+        assert(DICT.en[key], `missing en i18n key: ${key}`);
+    }
+    assert.strictEqual(DICT.zh['sessions.preview.importNative'], '导入原生目录');
+    assert.strictEqual(DICT.en['sessions.preview.importNative'], 'Import to Native');
 });
 
 test('buildResumeCommand generates codex resume with optional --yolo, codebuddy -r, gemini -r, and claude -r', () => {
