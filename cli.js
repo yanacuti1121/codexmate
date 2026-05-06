@@ -4768,10 +4768,10 @@ function listClaudeSessions(limit, options = {}) {
                 titleReadBytes
             });
             if (summary) {
-                sessions.push({
+                sessions.push(attachSessionNativeStatus({
                     ...summary,
                     derived: isDerivedSessionFile(filePath)
-                });
+                }));
             }
 
             if (sessions.length >= targetCount) {
@@ -4793,10 +4793,10 @@ function listClaudeSessions(limit, options = {}) {
                 titleReadBytes
             });
             if (summary) {
-                sessions.push({
+                sessions.push(attachSessionNativeStatus({
                     ...summary,
                     derived: isDerivedSessionFile(filePath)
-                });
+                }));
             }
             seen.add(filePath);
         }
@@ -6410,7 +6410,7 @@ function buildSessionPlainText(messages) {
 function getDerivedSessionMetaPath(filePath) {
     if (!filePath) return '';
     const base = filePath.toLowerCase().endsWith('.jsonl')
-        ? filePath.slice(0, -5)
+        ? filePath.slice(0, -6)
         : filePath;
     return `${base}.meta.json`;
 }
@@ -6456,11 +6456,16 @@ function buildSessionNativeStatus(source, sessionId, cwd, filePath, derived) {
     const resolvedNativePath = nativePath ? path.resolve(expandHomePath(nativePath)) : '';
     const inNativePath = !!(currentPath && resolvedNativePath && currentPath === resolvedNativePath);
     const nativeExists = !!(resolvedNativePath && fs.existsSync(resolvedNativePath));
+    const currentExists = !!(currentPath && fs.existsSync(currentPath));
     const isDerived = derived === true || isDerivedSessionFile(currentPath);
+    const nativeAvailable = inNativePath || nativeExists || (!isDerived && currentExists);
+    const effectiveNativePath = !isDerived && currentPath
+        ? currentPath
+        : (resolvedNativePath || '');
     return {
         derived: isDerived,
-        nativeAvailable: inNativePath || nativeExists || (!isDerived && !!currentPath && fs.existsSync(currentPath)),
-        nativePath: resolvedNativePath || (currentPath && !isDerived ? currentPath : ''),
+        nativeAvailable,
+        nativePath: effectiveNativePath,
         derivedPath: isDerived && currentPath && !inNativePath ? currentPath : '',
         nativeImportAvailable: isDerived && !!resolvedNativePath && !inNativePath
     };
@@ -6468,8 +6473,20 @@ function buildSessionNativeStatus(source, sessionId, cwd, filePath, derived) {
 
 function attachSessionNativeStatus(session) {
     if (!session || typeof session !== 'object') return session;
+    const meta = session.meta && typeof session.meta === 'object' && !Array.isArray(session.meta)
+        ? session.meta
+        : (session.derived === true ? readDerivedSessionMeta(session.filePath) : null);
+    const metaConvertedFromLabel = buildConvertedFromLabel(meta);
+    const convertedFromLabel = typeof session.convertedFromLabel === 'string' && session.convertedFromLabel.trim()
+        ? session.convertedFromLabel.trim()
+        : metaConvertedFromLabel;
+    const convertedFrom = typeof session.convertedFrom === 'string' && session.convertedFrom.trim()
+        ? session.convertedFrom.trim()
+        : (convertedFromLabel ? convertedFromLabel.toLowerCase().replace(' code', '') : '');
     return {
         ...session,
+        ...(convertedFrom ? { convertedFrom } : {}),
+        ...(convertedFromLabel ? { convertedFromLabel } : {}),
         ...buildSessionNativeStatus(
             session.source,
             session.sessionId,
@@ -6481,9 +6498,10 @@ function attachSessionNativeStatus(session) {
 }
 
 function buildConvertedFromLabel(meta) {
-    const sourceType = meta && meta.source && typeof meta.source.type === 'string'
-        ? meta.source.type.trim().toLowerCase()
-        : '';
+    const rawSourceType = meta && meta.source && typeof meta.source.type === 'string'
+        ? meta.source.type
+        : (meta && typeof meta.convertedFrom === 'string' ? meta.convertedFrom : '');
+    const sourceType = rawSourceType.trim().toLowerCase();
     if (sourceType === 'codex') return 'Codex';
     if (sourceType === 'claude') return 'Claude Code';
     return '';
@@ -6837,7 +6855,7 @@ async function readSessionDetail(params = {}) {
         derived: (() => {
             try {
                 const metaPath = filePath.toLowerCase().endsWith('.jsonl')
-                    ? `${filePath.slice(0, -5)}.meta.json`
+                    ? `${filePath.slice(0, -6)}.meta.json`
                     : `${filePath}.meta.json`;
                 if (fs.existsSync(metaPath)) {
                     return true;
@@ -7112,17 +7130,26 @@ async function convertSessionToDerived(params = {}) {
     let derivedSessionId = '';
     let outputPath = '';
     let metaPath = '';
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-        derivedSessionId = buildDerivedSessionId(baseSessionId);
+    if (outputDirMode === 'native') {
+        derivedSessionId = baseSessionId;
         outputPath = path.join(outputDir, `${derivedSessionId}.jsonl`);
         metaPath = path.join(outputDir, `${derivedSessionId}.meta.json`);
-        if (!fs.existsSync(outputPath) && !fs.existsSync(metaPath)) {
-            break;
+        if (fs.existsSync(outputPath) || fs.existsSync(metaPath)) {
+            return { error: 'Converted sessionId conflicts with an existing native session; please retry or choose derived output.' };
         }
-        derivedSessionId = '';
-    }
-    if (!derivedSessionId) {
-        return { error: 'Converted sessionId conflicts with an existing native session; please retry or choose derived output.' };
+    } else {
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+            derivedSessionId = buildDerivedSessionId(baseSessionId);
+            outputPath = path.join(outputDir, `${derivedSessionId}.jsonl`);
+            metaPath = path.join(outputDir, `${derivedSessionId}.meta.json`);
+            if (!fs.existsSync(outputPath) && !fs.existsSync(metaPath)) {
+                break;
+            }
+            derivedSessionId = '';
+        }
+        if (!derivedSessionId) {
+            return { error: 'Converted sessionId conflicts with an existing native session; please retry or choose derived output.' };
+        }
     }
 
     const resolvedCwd = cwd ? path.resolve(expandHomePath(cwd)) : '';
@@ -7273,7 +7300,7 @@ async function importDerivedSessionToNative(params = {}) {
     const resolvedSourcePath = path.resolve(expandHomePath(filePath));
     const resolvedNativePath = path.resolve(expandHomePath(nativePath));
     const overwrite = params.overwrite === true || params.confirmOverwrite === true || params.force === true;
-    const nativeStatus = buildSessionNativeStatus(source, sessionId, summary.cwd || '', resolvedSourcePath, true);
+    const hadNativeBefore = fs.existsSync(resolvedNativePath);
     if (resolvedSourcePath === resolvedNativePath) {
         return {
             success: true,
@@ -7300,11 +7327,23 @@ async function importDerivedSessionToNative(params = {}) {
         };
     }
 
+    const targetMetaPath = getDerivedSessionMetaPath(resolvedNativePath);
+    const indexPath = source === 'claude' ? path.join(path.dirname(resolvedNativePath), 'sessions-index.json') : '';
+    const tmpNativePath = `${resolvedNativePath}.tmp-${process.pid}-${Date.now()}`;
+    let previousNative = null;
+    let previousMeta = null;
+    let previousIndex = null;
     try {
+        previousNative = hadNativeBefore ? fs.readFileSync(resolvedNativePath) : null;
+        previousMeta = targetMetaPath && fs.existsSync(targetMetaPath)
+            ? fs.readFileSync(targetMetaPath)
+            : null;
+        previousIndex = indexPath && fs.existsSync(indexPath)
+            ? fs.readFileSync(indexPath)
+            : null;
         ensureDir(path.dirname(resolvedNativePath));
-        fs.copyFileSync(resolvedSourcePath, resolvedNativePath);
+        fs.copyFileSync(resolvedSourcePath, tmpNativePath);
         const sourceMetaPath = getDerivedSessionMetaPath(resolvedSourcePath);
-        const targetMetaPath = getDerivedSessionMetaPath(resolvedNativePath);
         let meta = readDerivedSessionMeta(resolvedSourcePath) || {};
         if (!meta || typeof meta !== 'object' || Array.isArray(meta)) meta = {};
         meta.version = meta.version || 1;
@@ -7321,7 +7360,6 @@ async function importDerivedSessionToNative(params = {}) {
             writeJsonAtomic(targetMetaPath, meta);
         }
         if (source === 'claude') {
-            const indexPath = path.join(path.dirname(resolvedNativePath), 'sessions-index.json');
             ensureClaudeSessionsIndex(indexPath, summary.cwd || '');
             upsertClaudeSessionIndexEntry(indexPath, resolvedNativePath, {
                 ...summary,
@@ -7330,7 +7368,40 @@ async function importDerivedSessionToNative(params = {}) {
                 claudeIndexEntry: { projectPath: summary.cwd || '' }
             });
         }
+        if (hadNativeBefore) {
+            fs.unlinkSync(resolvedNativePath);
+        }
+        fs.renameSync(tmpNativePath, resolvedNativePath);
     } catch (e) {
+        try {
+            if (fs.existsSync(tmpNativePath)) fs.unlinkSync(tmpNativePath);
+        } catch (_) {}
+        try {
+            if (previousNative) {
+                ensureDir(path.dirname(resolvedNativePath));
+                fs.writeFileSync(resolvedNativePath, previousNative);
+            } else if (!hadNativeBefore && fs.existsSync(resolvedNativePath)) {
+                fs.unlinkSync(resolvedNativePath);
+            }
+        } catch (_) {}
+        try {
+            if (previousMeta) {
+                ensureDir(path.dirname(targetMetaPath));
+                fs.writeFileSync(targetMetaPath, previousMeta);
+            } else if (targetMetaPath && fs.existsSync(targetMetaPath)) {
+                fs.unlinkSync(targetMetaPath);
+            }
+        } catch (_) {}
+        try {
+            if (indexPath) {
+                if (previousIndex) {
+                    ensureDir(path.dirname(indexPath));
+                    fs.writeFileSync(indexPath, previousIndex);
+                } else if (fs.existsSync(indexPath)) {
+                    fs.unlinkSync(indexPath);
+                }
+            }
+        } catch (_) {}
         return { error: `Import to native failed: ${e.message}` };
     }
 
@@ -7340,13 +7411,13 @@ async function importDerivedSessionToNative(params = {}) {
     return {
         success: true,
         imported: true,
-        overwritten: fs.existsSync(resolvedNativePath) && overwrite,
         source,
         sessionId,
         filePath: resolvedNativePath,
         nativePath: resolvedNativePath,
         nativeAvailable: true,
         previousFilePath: resolvedSourcePath,
+        overwritten: hadNativeBefore && overwrite,
         session: attachSessionNativeStatus({ ...importedSummary, filePath: resolvedNativePath, derived: true })
     };
 }

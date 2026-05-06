@@ -69,6 +69,19 @@ function resolveDefaultOutputPath(opt, sessionId, cwd) {
     return path.join(resolveClaudeProjectsDir(), sanitizeClaudeProjectName(cwd), `${safeSessionId}.jsonl`);
 }
 
+function getDerivedSessionMetaPath(filePath) {
+    if (!filePath) return '';
+    return filePath.toLowerCase().endsWith('.jsonl')
+        ? filePath.slice(0, -6) + '.meta.json'
+        : `${filePath}.meta.json`;
+}
+
+function writeJsonAtomic(filePath, value) {
+    const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf-8', flag: 'wx' });
+    fs.renameSync(tmpPath, filePath);
+}
+
 async function cmdConvertSession(args = [], deps = {}) {
     const parsed = parseArgs(args);
     if (parsed.error) {
@@ -91,12 +104,43 @@ async function cmdConvertSession(args = [], deps = {}) {
     const records = buildTargetRecords(opt.to, { sessionId, cwd: extracted.cwd || '', messages: extracted.messages });
     const jsonl = `${records.map(r => JSON.stringify(r)).join('\n')}\n`;
     const outputPath = resolveDefaultOutputPath(opt, sessionId, extracted.cwd || '');
-    if (fs.existsSync(outputPath)) {
-        console.error('转换失败: target session already exists:', outputPath);
-        process.exit(1);
-    }
+    const metaPath = getDerivedSessionMetaPath(outputPath);
     ensureDir(path.dirname(outputPath));
-    fs.writeFileSync(outputPath, jsonl, 'utf-8');
+    try {
+        if (fs.existsSync(metaPath)) {
+            const error = new Error(`target session metadata already exists: ${metaPath}`);
+            error.code = 'EEXIST';
+            throw error;
+        }
+        fs.writeFileSync(outputPath, jsonl, { encoding: 'utf-8', flag: 'wx' });
+        writeJsonAtomic(metaPath, {
+            version: 1,
+            createdAt: new Date().toISOString(),
+            source: {
+                type: opt.from,
+                sessionId,
+                filePath
+            },
+            target: {
+                type: opt.to,
+                sessionId,
+                filePath: outputPath
+            },
+            options: {
+                maxMessages: opt.maxMessages,
+                outputDir: opt.outputDir
+            }
+        });
+    } catch (error) {
+        if (error && error.code === 'EEXIST') {
+            console.error('转换失败: target session already exists:', outputPath);
+            process.exit(1);
+        }
+        try {
+            if (fs.existsSync(outputPath) && !fs.existsSync(metaPath)) fs.unlinkSync(outputPath);
+        } catch (_) {}
+        throw error;
+    }
     console.log('\n✓ 会话已转换:', outputPath);
     if (extracted.truncated) console.log('! 已截断: 可使用 --max-messages=all');
     console.log();

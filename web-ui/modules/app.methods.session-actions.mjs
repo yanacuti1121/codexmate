@@ -57,6 +57,7 @@ export function createSessionActionMethods(options = {}) {
                 return;
             }
             const key = this.getSessionExportKey(session);
+            const targetKey = key;
             if (this.sessionImportingNative && this.sessionImportingNative[key]) return;
             if (!this.sessionImportingNative) this.sessionImportingNative = {};
             this.sessionImportingNative[key] = true;
@@ -105,9 +106,19 @@ export function createSessionActionMethods(options = {}) {
                     } else {
                         this.activeSession = converted;
                     }
-                } else if (this.activeSession) {
-                    this.activeSession.nativeAvailable = true;
-                    this.activeSession.nativePath = res.nativePath || this.activeSession.nativePath;
+                } else {
+                    const list = Array.isArray(this.sessionsList) ? this.sessionsList : [];
+                    const targetSession = list.find(item => item && this.getSessionExportKey(item) === targetKey)
+                        || (this.activeSession && this.getSessionExportKey(this.activeSession) === targetKey ? this.activeSession : null)
+                        || session;
+                    if (targetSession && typeof targetSession === 'object') {
+                        targetSession.nativeAvailable = true;
+                        targetSession.nativePath = res.nativePath || targetSession.nativePath;
+                    }
+                    if (this.activeSession && this.getSessionExportKey(this.activeSession) === targetKey) {
+                        this.activeSession.nativeAvailable = true;
+                        this.activeSession.nativePath = res.nativePath || this.activeSession.nativePath;
+                    }
                 }
                 this.showMessage(tr('sessions.preview.importNative.success', 'Imported to native directory'), 'success');
             } catch (e) {

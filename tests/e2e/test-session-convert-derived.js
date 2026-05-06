@@ -111,25 +111,13 @@ module.exports = async function testSessionConvertDerived(ctx) {
     assert(detailClaude.messages[0].text === 'hello', 'session-detail(derived claude) user text mismatch');
     assert(detailClaude.messages[1].text === 'world', 'session-detail(derived claude) assistant text mismatch');
 
-    const { outPath: derivedCodexPath } = await convertAndAssertListed(api, tmpHome, 'claude', 'codex', {
-        filePath: derivedClaudePath,
-        maxMessages: 'all'
-    });
-
-    const detailCodex = await api('session-detail', { source: 'codex', filePath: derivedCodexPath, maxMessages: 50 });
-    assert(detailCodex.derived === true, 'native-written converted codex session should stay marked derived');
-    assert(detailCodex.nativeAvailable === true, 'native-written converted codex session should report nativeAvailable');
-    assert(Array.isArray(detailCodex.messages), 'session-detail(derived codex) missing messages');
-    assert(detailCodex.messages.length === 2, 'session-detail(derived codex) should keep exact short length');
-    assert(detailCodex.messages[0].text === 'hello', 'session-detail(derived codex) user text mismatch');
-    assert(detailCodex.messages[1].text === 'world', 'session-detail(derived codex) assistant text mismatch');
-
-    const { outPath: derivedClaudePath2 } = await convertAndAssertListed(api, tmpHome, 'codex', 'claude', {
+    const duplicateNative = await api('convert-session', {
+        source: 'codex',
+        target: 'claude',
         sessionId,
         maxMessages: 'all'
     });
-    assert(derivedClaudePath2 && derivedClaudePath2 !== derivedClaudePath, 'second derived session should create a distinct file');
-    assert(fs.existsSync(derivedClaudePath2), 'second derived claude session file missing');
+    assert(duplicateNative.error, 'second native conversion should abort on target sessionId conflict');
 
     const afterHash = sha256File(sessionPath);
     assert(afterHash === beforeHash, 'source codex session should remain unchanged after conversions');
@@ -142,9 +130,14 @@ module.exports = async function testSessionConvertDerived(ctx) {
         }, { assertListed: false });
         assert(legacyRes.session.nativeAvailable === false, 'legacy derived codex conversion should report native unavailable');
         assert(legacyRes.session.nativeImportAvailable === true, 'legacy derived codex conversion should allow native import');
-        const legacyDetail = await api('session-detail', { source: 'codex', filePath: legacyDerivedCodexPath, maxMessages: 50 });
-        assert(legacyDetail.nativeAvailable === false, 'legacy derived codex detail should report native unavailable');
-        assert(legacyDetail.nativeImportAvailable === true, 'legacy derived codex detail should allow import');
+        const detailCodex = await api('session-detail', { source: 'codex', filePath: legacyDerivedCodexPath, maxMessages: 50 });
+        assert(detailCodex.derived === true, 'legacy derived codex session should stay marked derived');
+        assert(detailCodex.nativeAvailable === false, 'legacy derived codex detail should report native unavailable');
+        assert(detailCodex.nativeImportAvailable === true, 'legacy derived codex detail should allow import');
+        assert(Array.isArray(detailCodex.messages), 'session-detail(derived codex) missing messages');
+        assert(detailCodex.messages.length === 2, 'session-detail(derived codex) should keep exact short length');
+        assert(detailCodex.messages[0].text === 'hello', 'session-detail(derived codex) user text mismatch');
+        assert(detailCodex.messages[1].text === 'world', 'session-detail(derived codex) assistant text mismatch');
         const imported = await api('import-derived-session', { source: 'codex', filePath: legacyDerivedCodexPath });
         assert(!imported.error, `import-derived-session failed: ${imported.error || ''}`);
         assert(imported.nativeAvailable === true, 'import-derived-session should report native available');

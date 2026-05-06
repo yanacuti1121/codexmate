@@ -235,7 +235,7 @@
                                         <button
                                             class="btn-session-export"
                                             @click="convertSession(activeSession)"
-                                            :disabled="!activeSession || !isSessionConvertAvailable(activeSession)">
+                                            :disabled="!activeSession || sessionConverting[getSessionExportKey(activeSession)] || !isSessionConvertAvailable(activeSession)">
                                             {{ (activeSession && sessionConverting[getSessionExportKey(activeSession)]) ? t('sessions.preview.converting') : t('sessions.preview.convert') }}
                                         </button>
                                         <button
