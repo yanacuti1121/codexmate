@@ -136,6 +136,40 @@
                     </div>
                 </div>
 
+                <div class="selector-section">
+                    <div class="selector-header">
+                        <span class="selector-title">Webhook</span>
+                    </div>
+                    <div class="config-template-hint">配置变更（provider 切换 / CLAUDE.md 编辑）外发到 Slack/飞书/自定义 webhook。</div>
+                    <label class="webhook-row">
+                        <input type="checkbox" v-model="webhookConfig.enabled" @change="saveWebhookSettings">
+                        <span>启用 webhook 通知</span>
+                    </label>
+                    <input class="model-input" type="url"
+                           v-model="webhookConfig.url"
+                           placeholder="https://example.com/webhook"
+                           @blur="saveWebhookSettings"
+                           @keyup.enter="saveWebhookSettings">
+                    <div class="webhook-events">
+                        <label v-for="opt in webhookEventOptions" :key="opt" class="webhook-event-item">
+                            <input type="checkbox"
+                                   :checked="webhookConfig.events.indexOf(opt) !== -1"
+                                   @change="toggleWebhookEvent(opt); saveWebhookSettings()">
+                            <span>{{ opt }}</span>
+                        </label>
+                    </div>
+                    <div class="btn-group" style="gap: 6px;">
+                        <button type="button" class="btn-mini" @click="testWebhook" :disabled="webhookTesting || !webhookConfig.url">
+                            {{ webhookTesting ? '测试中…' : '发送测试 ping' }}
+                        </button>
+                        <button type="button" class="btn-mini" @click="loadWebhookSettings">重新加载</button>
+                    </div>
+                    <div v-if="webhookTestResult" class="config-template-hint">
+                        <span v-if="webhookTestResult.ok">✓ {{ webhookTestResult.status === 'saved' ? '已保存' : ('已发送 · status=' + (webhookTestResult.status || '')) }}</span>
+                        <span v-else>✗ {{ webhookTestResult.error || (webhookTestResult.skipped ? ('skipped: ' + webhookTestResult.reason) : '失败') }}</span>
+                    </div>
+                </div>
+
                 <div class="card-list">
                     <div v-for="(config, name) in claudeConfigs" :key="name"
                          :class="['card', { active: currentClaudeConfig === name }]"

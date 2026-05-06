@@ -401,13 +401,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastLoadedAt: '',
                     lastError: ''
                 },
-                _taskOrchestrationPollTimer: 0
+                _taskOrchestrationPollTimer: 0,
+                webhookConfig: { enabled: false, url: '', events: ['provider-switch', 'claude-md-edit'] },
+                webhookEventOptions: ['provider-switch', 'claude-md-edit'],
+                webhookSaving: false,
+                webhookTestResult: null,
+                webhookTesting: false,
+                terminalPanelOpen: false,
+                terminalLines: [],
+                terminalPaused: false,
+                terminalSearchQuery: '',
+                terminalCommandInput: 'codexmate codex hello',
+                terminalRunning: false,
+                terminalSocket: null,
+                terminalPendingBuffer: [],
+                terminalMaxLines: 2000
             };
         },
 
         mounted() {
             if (typeof this.initI18n === 'function') {
                 this.initI18n();
+            }
+            if (typeof this.loadWebhookSettings === 'function') {
+                this.loadWebhookSettings();
             }
             if (typeof this.t === 'function') {
                 this.confirmDialogConfirmText = this.t('confirm.ok');

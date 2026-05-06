@@ -1,0 +1,36 @@
+                <!-- 实时终端面板（issue #127） -->
+                <div class="terminal-panel" :class="{ 'terminal-panel-open': terminalPanelOpen }">
+                    <div class="terminal-panel-header">
+                        <button type="button" class="btn-mini" @click="toggleTerminalPanel">
+                            <span v-if="terminalPanelOpen">▾ 收起终端</span>
+                            <span v-else>▸ 展开终端</span>
+                        </button>
+                        <span v-if="terminalPanelOpen" class="terminal-panel-status">
+                            {{ terminalRunning ? '● 运行中' : '○ 空闲' }}
+                            · {{ terminalLines.length }} 行
+                            <span v-if="terminalPaused"> · 已暂停</span>
+                        </span>
+                    </div>
+                    <div v-if="terminalPanelOpen" class="terminal-panel-body">
+                        <div class="terminal-panel-toolbar">
+                            <input class="terminal-cmd-input"
+                                   type="text"
+                                   v-model="terminalCommandInput"
+                                   placeholder="codexmate codex hello"
+                                   @keyup.enter="runTerminalCommand">
+                            <button type="button" class="btn-mini" @click="runTerminalCommand" :disabled="terminalRunning">运行</button>
+                            <button type="button" class="btn-mini" @click="killTerminalCommand" :disabled="!terminalRunning">停止</button>
+                            <button v-if="!terminalPaused" type="button" class="btn-mini" @click="pauseTerminal">暂停</button>
+                            <button v-else type="button" class="btn-mini" @click="resumeTerminal">恢复</button>
+                            <button type="button" class="btn-mini" @click="clearTerminalOutput">清空</button>
+                            <input class="terminal-search-input"
+                                   type="search"
+                                   v-model="terminalSearchQuery"
+                                   placeholder="搜索…">
+                        </div>
+                        <pre class="terminal-panel-output" data-testid="terminal-output">
+<template v-for="(line, idx) in terminalLines" :key="idx"><span v-if="!terminalSearchQuery || line.text.toLowerCase().indexOf(terminalSearchQuery.toLowerCase()) !== -1"
+                                                              :class="['terminal-line', 'terminal-stream-' + line.stream, (terminalSearchQuery && line.text.toLowerCase().indexOf(terminalSearchQuery.toLowerCase()) !== -1) ? 'terminal-line-match' : '']">{{ line.text }}
+</span></template></pre>
+                    </div>
+                </div>
