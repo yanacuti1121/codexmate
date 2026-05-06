@@ -368,7 +368,21 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionsViewMode',
         'taskOrchestrationTabEnabled',
         'taskOrchestration',
-        '_taskOrchestrationPollTimer'
+        '_taskOrchestrationPollTimer',
+        'webhookConfig',
+        'webhookEventOptions',
+        'webhookSaving',
+        'webhookTestResult',
+        'webhookTesting',
+        'terminalPanelOpen',
+        'terminalLines',
+        'terminalPaused',
+        'terminalSearchQuery',
+        'terminalCommandInput',
+        'terminalRunning',
+        'terminalSocket',
+        'terminalPendingBuffer',
+        'terminalMaxLines'
     ];
     const allowedMissingCurrentKeys = [
         'localProxyRunning',
