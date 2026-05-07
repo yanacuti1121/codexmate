@@ -44,6 +44,50 @@ async function requestText(url, { method = 'GET', headers = {}, body } = {}) {
     });
 }
 
+test('openai-bridge GET /v1 returns local bridge status without probing upstream models', async () => {
+    let upstreamHit = false;
+    const upstream = http.createServer((req, res) => {
+        upstreamHit = true;
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ msg: 'Not Found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const resp = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1`, {
+        headers: { Authorization: 'Bearer codexmate' }
+    });
+    assert.equal(resp.status, 200);
+    assert.deepStrictEqual(JSON.parse(resp.text), {
+        object: 'codexmate.openai_bridge',
+        provider: 'test',
+        status: 'ok',
+        endpoints: ['/v1/responses', '/v1/models']
+    });
+    assert.equal(upstreamHit, false);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
 test('openai-bridge prefers upstream /responses and rewraps SSE when stream requested', async () => {
     const upstream = http.createServer((req, res) => {
         if (req.url === '/v1/responses' && req.method === 'POST') {
@@ -244,7 +288,168 @@ test('openai-bridge allows loopback clients to send arbitrary Authorization head
     await rm(tmpDir, { recursive: true, force: true });
 });
 
+test('openai-bridge normalizes mixed tool definitions before upstream /responses', async () => {
+    let capturedResponsesRequest = null;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/responses' && req.method === 'POST') {
+            let body = '';
+            req.on('data', (c) => (body += c));
+            req.on('end', () => {
+                capturedResponsesRequest = JSON.parse(body || '{}');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ id: 'resp_tool_normalized', model: 'gpt-test', output: [] }));
+            });
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const resp = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer codexmate' },
+        body: {
+            model: 'gpt-test',
+            input: 'ping',
+            tools: [{
+                type: 'function',
+                name: 'lookup',
+                function: {
+                    description: 'Look up data',
+                    parameters: { type: 'object', properties: { query: { type: 'string' } } }
+                }
+            }, {
+                type: 'web_search_preview'
+            }, {
+                type: 'function',
+                function: { description: 'missing name should be dropped' }
+            }],
+            stream: false
+        }
+    });
+    assert.equal(resp.status, 200);
+    assert.deepStrictEqual(capturedResponsesRequest.tools, [{
+        type: 'function',
+        name: 'lookup',
+        description: 'Look up data',
+        parameters: { type: 'object', properties: { query: { type: 'string' } } }
+    }]);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('openai-bridge falls back to chat when upstream /responses rejects tool function name', async () => {
+    let capturedChatRequest = null;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/responses' && req.method === 'POST') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: "'name' is a required property - 'tools.0.function'",
+                    type: 'invalid_request_error',
+                    param: '',
+                    code: null
+                }
+            }));
+            return;
+        }
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            let body = '';
+            req.on('data', (c) => (body += c));
+            req.on('end', () => {
+                capturedChatRequest = JSON.parse(body || '{}');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    id: 'chatcmpl_tool_error_fallback',
+                    model: 'gpt-test',
+                    choices: [{ message: { role: 'assistant', content: 'hello-from-chat' } }]
+                }));
+            });
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const resp = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer codexmate' },
+        body: {
+            model: 'gpt-test',
+            input: 'ping',
+            tools: [{
+                type: 'function',
+                name: 'lookup',
+                function: {
+                    description: 'Look up data',
+                    parameters: { type: 'object', properties: { query: { type: 'string' } } }
+                }
+            }, {
+                type: 'web_search_preview'
+            }, {
+                type: 'function',
+                function: { description: 'missing name should be dropped' }
+            }],
+            stream: false
+        }
+    });
+    assert.equal(resp.status, 200);
+    assert.deepStrictEqual(capturedChatRequest.tools, [{
+        type: 'function',
+        function: {
+            name: 'lookup',
+            parameters: { type: 'object', properties: { query: { type: 'string' } } },
+            description: 'Look up data'
+        }
+    }]);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
 test('openai-bridge falls back to upstream /chat/completions when /responses is not supported', async () => {
+    let capturedChatRequest = null;
     const upstream = http.createServer((req, res) => {
         if (req.url === '/v1/responses') {
             res.writeHead(405, { 'Content-Type': 'application/json' });
@@ -256,6 +461,7 @@ test('openai-bridge falls back to upstream /chat/completions when /responses is 
             req.on('data', (c) => (body += c));
             req.on('end', () => {
                 const parsed = JSON.parse(body || '{}');
+                capturedChatRequest = parsed;
                 // 确保 responses 的 object input 能被转换为 chat messages
                 assert.equal(parsed.messages && parsed.messages[0] && parsed.messages[0].role, 'user');
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -300,6 +506,20 @@ test('openai-bridge falls back to upstream /chat/completions when /responses is 
         body: {
             model: 'gpt-test',
             input: { type: 'input_text', text: 'ping' },
+            tools: [{
+                type: 'function',
+                name: 'lookup',
+                function: {
+                    description: 'Look up data',
+                    parameters: { type: 'object', properties: { query: { type: 'string' } } }
+                }
+            }, {
+                type: 'web_search_preview'
+            }, {
+                type: 'function',
+                function: { description: 'missing name should be dropped' }
+            }],
+            tool_choice: { type: 'function', name: 'lookup' },
             stream: false
         }
     });
@@ -308,6 +528,15 @@ test('openai-bridge falls back to upstream /chat/completions when /responses is 
     assert.equal(parsed.object, 'response');
     assert.equal(parsed.model, 'gpt-test');
     assert.ok(Array.isArray(parsed.output));
+    assert.deepStrictEqual(capturedChatRequest.tools, [{
+        type: 'function',
+        function: {
+            name: 'lookup',
+            parameters: { type: 'object', properties: { query: { type: 'string' } } },
+            description: 'Look up data'
+        }
+    }]);
+    assert.deepStrictEqual(capturedChatRequest.tool_choice, { type: 'function', function: { name: 'lookup' } });
 
     await bridge.close();
     await upstream.close();
