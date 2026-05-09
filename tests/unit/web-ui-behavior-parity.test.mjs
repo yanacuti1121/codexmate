@@ -335,7 +335,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionsUsageLoadedLimit',
         'taskOrchestrationTabEnabled',
         'taskOrchestration',
-        '_taskOrchestrationPollTimer'
+        '_taskOrchestrationPollTimer',
+        'displayProviderUrl',
+        'isTransformProvider'
     ] : [
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
@@ -629,7 +631,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'taskOrchestrationQueueStats',
         'taskOrchestrationDraftMetrics',
         'taskOrchestrationDraftChecklist',
-        'taskOrchestrationDraftReadiness'
+        'taskOrchestrationDraftReadiness',
+        'displayProviderUrl',
+        'isTransformProvider'
     ];
     const allowedMissingCurrentComputedKeys = [
         'hasLocalAndProxy',

@@ -1,3 +1,4 @@
+import { getProviderDisplayUrl, checkIsTransformProvider } from './provider-url-display.mjs';
 export function createDashboardComputed() {
     return {
         agentsDiffHasChanges() {
@@ -38,6 +39,14 @@ export function createDashboardComputed() {
         displayProvidersList() {
             const list = Array.isArray(this.providersList) ? this.providersList : [];
             return list;
+        },
+
+        displayProviderUrl() {
+            return (provider) => getProviderDisplayUrl(provider);
+        },
+
+        isTransformProvider() {
+            return (provider) => checkIsTransformProvider(provider);
         },
         installTargetCards() {
             const targets = Array.isArray(this.installStatusTargets) && this.installStatusTargets.length

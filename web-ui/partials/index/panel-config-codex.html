@@ -204,14 +204,14 @@
                          role="button"
                          :aria-current="displayCurrentProvider === provider.name ? 'true' : null">
                         <div class="card-leading">
-                            <div class="card-icon">{{ provider.name.charAt(0).toUpperCase() }}</div>
+                            <div class="card-icon">{{ provider.name.charAt(0).toUpperCase() }}<span v-if="isTransformProvider(provider)" class="card-icon-dot" title="通过内建转换适配"></span></div>
                             <div class="card-content">
                                 <div class="card-title">
                                     <span>{{ provider.name }}</span>
                                     <span v-if="provider.readOnly" class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
                                 </div>
                                 <div class="card-subtitle">
-                                    {{ provider.url || t('config.url.unset') }}
+                                    {{ displayProviderUrl(provider) || t('config.url.unset') }}
                                 </div>
                             </div>
                         </div>
