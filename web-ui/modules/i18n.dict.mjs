@@ -703,8 +703,7 @@ const DICT = Object.freeze({
 
         // Config panel (Codex)
         'config.addProvider': '新增提供商',
-        'config.providerTemplate.title': '预设服务',
-        'config.providerTemplate.hint': '点击预设将打开新增提供商弹窗并预填字段，确认后可继续微调。',
+        'config.providerTemplate.title': '预设供应商',
         'config.models': '模型',
         'config.modelLoading': '加载中...',
         'config.models.unlimited': '当前无模型列表，可手填。',
@@ -1762,8 +1761,7 @@ const DICT = Object.freeze({
 
         // Config panel (Codex)
         'config.addProvider': 'Add provider',
-        'config.providerTemplate.title': 'Quick presets',
-        'config.providerTemplate.hint': 'Click a preset to open the add dialog with fields pre-filled; you can still tweak before submitting.',
+        'config.providerTemplate.title': 'Provider presets',
         'config.models': 'Model',
         'config.modelLoading': 'Loading...',
         'config.models.unlimited': 'No model list available. Enter manually.',
