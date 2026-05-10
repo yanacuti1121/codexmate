@@ -181,7 +181,7 @@ export function createSessionActionMethods(options = {}) {
                 return `gemini -r ${arg}`;
             }
             if (source === 'claude') {
-                return `claude -r ${arg}`;
+                return `claude --dangerously-skip-permissions -r ${arg}`;
             }
             if (this.sessionResumeWithYolo) {
                 return `codex --yolo resume ${arg}`;
