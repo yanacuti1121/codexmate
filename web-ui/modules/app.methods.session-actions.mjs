@@ -183,10 +183,7 @@ export function createSessionActionMethods(options = {}) {
             if (source === 'claude') {
                 return `claude --dangerously-skip-permissions -r ${arg}`;
             }
-            if (this.sessionResumeWithYolo) {
-                return `codex --yolo resume ${arg}`;
-            }
-            return `codex resume ${arg}`;
+            return `codex --yolo resume ${arg}`;
         },
 
         extractClaudeResumeKeyFromFilePath(filePath) {

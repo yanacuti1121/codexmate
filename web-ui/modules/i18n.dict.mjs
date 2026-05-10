@@ -538,7 +538,6 @@ const DICT = Object.freeze({
         'sessions.pin': '置顶',
         'sessions.unpin': '取消置顶',
         'sessions.copyResume': '复制恢复命令',
-        'sessions.resumeYolo': '复制恢复命令附带 --yolo',
         'sessions.preview.refresh': '刷新内容',
         'sessions.preview.loading': '加载中...',
         'sessions.preview.deleteHard': '直接删除',
@@ -904,10 +903,9 @@ const DICT = Object.freeze({
         ,
 
         // Settings panel
-        'settings.tab.backup': '备份与导入',
-        'settings.tab.trash': '回收站',
-        'settings.tab.device': '设备',
-        'settings.tabs.aria': '设置标签页',
+        'settings.tab.general': '通用',
+        'settings.tab.data': '数据',
+        'settings.tabs.aria': '设置分类',
         'settings.sharePrefix.title': '分享命令前缀',
         'settings.sharePrefix.meta': '影响 Web UI 里“复制分享命令”的前缀',
         'settings.sharePrefix.label': '前缀',
@@ -1596,7 +1594,6 @@ const DICT = Object.freeze({
         'sessions.pin': 'Pin',
         'sessions.unpin': 'Unpin',
         'sessions.copyResume': 'Copy resume command',
-        'sessions.resumeYolo': 'Append --yolo to resume command',
         'sessions.preview.refresh': 'Refresh content',
         'sessions.preview.loading': 'Loading...',
         'sessions.preview.deleteHard': 'Delete permanently',
@@ -1962,10 +1959,9 @@ const DICT = Object.freeze({
         ,
 
         // Settings panel
-        'settings.tab.backup': 'Backup & Import',
-        'settings.tab.trash': 'Trash',
-        'settings.tab.device': 'Device',
-        'settings.tabs.aria': 'Settings tabs',
+        'settings.tab.general': 'General',
+        'settings.tab.data': 'Data',
+        'settings.tabs.aria': 'Settings categories',
         'settings.sharePrefix.title': 'Share command prefix',
         'settings.sharePrefix.meta': 'Used as the prefix for “Copy share command” in the Web UI',
         'settings.sharePrefix.label': 'Prefix',

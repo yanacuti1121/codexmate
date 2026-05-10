@@ -172,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionRoleFilter: 'all',
                 sessionTimePreset: 'all',
                 sessionSortMode: 'time',
-                sessionResumeWithYolo: true,
                 sessionPathOptions: [],
                 sessionPathOptionsLoading: false,
                 sessionPathOptionsMap: {
@@ -343,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 codexDownloadLoading: false,
                 codexDownloadProgress: 0,
                 codexDownloadTimer: null,
-                settingsTab: 'backup',
+                settingsTab: 'general',
                 sessionTrashEnabled: true,
                 sessionTrashItems: [],
                 sessionTrashVisibleCount: SESSION_TRASH_PAGE_SIZE,
@@ -466,12 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateCompactLayoutMode();
             if (!this.taskOrchestrationTabEnabled && this.mainTab === 'orchestration') {
                 this.mainTab = 'config';
-            }
-            const savedSessionYolo = localStorage.getItem('codexmateSessionResumeYolo');
-            if (savedSessionYolo === '0' || savedSessionYolo === 'false') {
-                this.sessionResumeWithYolo = false;
-            } else if (savedSessionYolo === '1' || savedSessionYolo === 'true') {
-                this.sessionResumeWithYolo = true;
             }
             this.restoreSessionFilterCache();
             this.restoreSessionPinnedMap();
