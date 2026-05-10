@@ -1,7 +1,10 @@
 export function getProviderDisplayUrl(provider) {
     if (!provider) return '';
     const bridge = typeof provider.codexmate_bridge === 'string' ? provider.codexmate_bridge.trim() : '';
-    if (bridge === 'openai') return provider.url || '';
+    if (bridge === 'openai') {
+        const upstream = typeof provider.upstreamUrl === 'string' ? provider.upstreamUrl.trim() : '';
+        if (upstream) return upstream;
+    }
     return provider.url || '';
 }
 
