@@ -38,6 +38,27 @@
                     {{ t('config.addProvider') }}
                 </button>
 
+                <!-- 服务预设 -->
+                <div class="selector-section" v-if="isCodexConfigMode && codexProviderTemplates.length">
+                    <div class="selector-header">
+                        <span class="selector-title">{{ t('config.providerTemplate.title') }}</span>
+                    </div>
+                    <div class="btn-group" style="flex-wrap: wrap; gap: 8px;">
+                        <button
+                            v-for="tpl in codexProviderTemplates"
+                            :key="tpl.name"
+                            type="button"
+                            class="btn-mini"
+                            @click="newProvider.name = tpl.name;
+                                    newProvider.url = tpl.url;
+                                    newProvider._suggestedModel = tpl.model || '';
+                                    newProvider.useTransform = !!tpl.useTransform;
+                                    showAddModal = true">
+                            {{ tpl.label }}
+                        </button>
+                    </div>
+                </div>
+
                 <!-- 模型选择器 -->
                 <div class="selector-section">
                     <div class="selector-header">
@@ -55,15 +76,20 @@
                         :disabled="codexModelsLoading"
                     >
                         <option v-if="codexModelsLoading" value="">{{ t('config.modelLoading') }}</option>
-                        <option v-else v-for="model in models" :key="model" :value="model">{{ model }}</option>
+                        <option v-else v-for="model in codexModelOptions" :key="model" :value="model">{{ model }}</option>
                     </select>
                     <input
                         v-if="!codexModelsLoading && (modelsSource !== 'remote' || !modelsHasCurrent)"
                         class="model-input"
                         v-model="currentModel"
                         @blur="onModelChange"
+                        @keyup.enter="onModelChange"
                         :placeholder="activeProviderModelPlaceholder"
+                        :list="codexModelHasList ? 'codex-model-options' : null"
                     >
+                    <datalist v-if="codexModelHasList" id="codex-model-options">
+                        <option v-for="model in codexModelOptions" :key="model" :value="model"></option>
+                    </datalist>
                     <div class="config-template-hint" v-if="modelsSource === 'unlimited'">
                         {{ t('config.models.unlimited') }}
                     </div>
@@ -204,14 +230,17 @@
                          role="button"
                          :aria-current="displayCurrentProvider === provider.name ? 'true' : null">
                         <div class="card-leading">
-                            <div class="card-icon">{{ provider.name.charAt(0).toUpperCase() }}</div>
+                            <div class="card-icon">{{ provider.name.charAt(0).toUpperCase() }}<span v-if="isTransformProvider(provider)" class="card-icon-dot" title="通过内建转换适配"></span></div>
                             <div class="card-content">
                                 <div class="card-title">
                                     <span>{{ provider.name }}</span>
                                     <span v-if="provider.readOnly" class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
                                 </div>
-                                <div class="card-subtitle">
-                                    {{ provider.url || t('config.url.unset') }}
+                                <div class="card-subtitle card-subtitle-model">
+                                    {{ activeProviderModel(provider.name) || t('config.model.unset') }}
+                                </div>
+                                <div class="card-subtitle card-subtitle-url">
+                                    {{ displayProviderUrl(provider) || t('config.url.unset') }}
                                 </div>
                             </div>
                         </div>

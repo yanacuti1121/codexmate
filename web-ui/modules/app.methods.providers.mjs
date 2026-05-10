@@ -149,6 +149,9 @@ export function createProvidersMethods(options = {}) {
                 if (this.newProvider && this.newProvider.useTransform) {
                     payload.useTransform = true;
                 }
+                const suggestedModel = typeof this.newProvider._suggestedModel === 'string'
+                    ? this.newProvider._suggestedModel.trim()
+                    : '';
                 const res = await api('add-provider', payload);
                 if (res.error) {
                     this.showMessage(res.error, 'error');
@@ -158,6 +161,11 @@ export function createProvidersMethods(options = {}) {
                 this.showMessage('操作成功', 'success');
                 this.closeAddModal();
                 await this.loadAll();
+                // loadAll 会重拉 status 覆盖字典，所以暗示模型在 loadAll 之后再写。
+                if (suggestedModel) {
+                    if (!this.currentModels || typeof this.currentModels !== 'object') this.currentModels = {};
+                    this.currentModels[validation.name] = suggestedModel;
+                }
             } catch (e) {
                 this.showMessage('添加失败', 'error');
             }
@@ -377,7 +385,7 @@ export function createProvidersMethods(options = {}) {
 
         closeAddModal() {
             this.showAddModal = false;
-            this.newProvider = { name: '', url: '', key: '', useTransform: false };
+            this.newProvider = { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' };
         },
 
         closeModelModal() {

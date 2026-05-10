@@ -350,10 +350,6 @@ const DICT = Object.freeze({
         'plugins.builtin.ruleAck.name': '规则确认回复',
         'plugins.builtin.ruleAck.desc': '请根据【{{rule}}】，收到请回复',
         'plugins.builtin.ruleAck.line1': '请根据【{{rule}}】，收到请回复',
-        'plugins.builtin.issueInject.name': 'Issue 注入',
-        'plugins.builtin.issueInject.desc': '将 {{issue}} 注入到 issue {{num}}',
-        'plugins.builtin.issueInject.line1': '## 需求',
-        'plugins.builtin.issueInject.line2': '## 验证',
 
         // Toasts
         'toast.copy.empty': '没有可复制内容',
@@ -538,7 +534,6 @@ const DICT = Object.freeze({
         'sessions.pin': '置顶',
         'sessions.unpin': '取消置顶',
         'sessions.copyResume': '复制恢复命令',
-        'sessions.resumeYolo': '复制恢复命令附带 --yolo',
         'sessions.preview.refresh': '刷新内容',
         'sessions.preview.loading': '加载中...',
         'sessions.preview.deleteHard': '直接删除',
@@ -703,6 +698,7 @@ const DICT = Object.freeze({
 
         // Config panel (Codex)
         'config.addProvider': '新增提供商',
+        'config.providerTemplate.title': '预设供应商',
         'config.models': '模型',
         'config.modelLoading': '加载中...',
         'config.models.unlimited': '当前无模型列表，可手填。',
@@ -738,6 +734,7 @@ const DICT = Object.freeze({
         'modal.agents.title.openclawWorkspaceFile': 'OpenClaw 工作区文件: {fileName}',
         'modal.agents.hint.openclawWorkspaceFile': '保存后会写入 OpenClaw Workspace 下的 {fileName}。',
         'config.url.unset': '未设 URL',
+        'config.model.unset': '未设置模型',
         'config.badge.system': '系统',
         'config.availabilityTest': '可用性测试',
         'config.availabilityTestAria': '测试 {name} 可用性',
@@ -902,10 +899,9 @@ const DICT = Object.freeze({
         ,
 
         // Settings panel
-        'settings.tab.backup': '备份与导入',
-        'settings.tab.trash': '回收站',
-        'settings.tab.device': '设备',
-        'settings.tabs.aria': '设置标签页',
+        'settings.tab.general': '通用',
+        'settings.tab.data': '数据',
+        'settings.tabs.aria': '设置分类',
         'settings.sharePrefix.title': '分享命令前缀',
         'settings.sharePrefix.meta': '影响 Web UI 里“复制分享命令”的前缀',
         'settings.sharePrefix.label': '前缀',
@@ -1406,10 +1402,6 @@ const DICT = Object.freeze({
         'plugins.builtin.ruleAck.name': 'Rule acknowledgement',
         'plugins.builtin.ruleAck.desc': 'Please follow 【{{rule}}】, reply when received',
         'plugins.builtin.ruleAck.line1': 'Please follow 【{{rule}}】, reply when received',
-        'plugins.builtin.issueInject.name': 'Issue inject',
-        'plugins.builtin.issueInject.desc': 'Inject {{issue}} into issue {{num}}',
-        'plugins.builtin.issueInject.line1': '## Requirements',
-        'plugins.builtin.issueInject.line2': '## Verification',
 
         // Toasts
         'toast.copy.empty': 'Nothing to copy',
@@ -1594,7 +1586,6 @@ const DICT = Object.freeze({
         'sessions.pin': 'Pin',
         'sessions.unpin': 'Unpin',
         'sessions.copyResume': 'Copy resume command',
-        'sessions.resumeYolo': 'Append --yolo to resume command',
         'sessions.preview.refresh': 'Refresh content',
         'sessions.preview.loading': 'Loading...',
         'sessions.preview.deleteHard': 'Delete permanently',
@@ -1759,6 +1750,7 @@ const DICT = Object.freeze({
 
         // Config panel (Codex)
         'config.addProvider': 'Add provider',
+        'config.providerTemplate.title': 'Provider presets',
         'config.models': 'Model',
         'config.modelLoading': 'Loading...',
         'config.models.unlimited': 'No model list available. Enter manually.',
@@ -1794,6 +1786,7 @@ const DICT = Object.freeze({
         'modal.agents.title.openclawWorkspaceFile': 'OpenClaw workspace file: {fileName}',
         'modal.agents.hint.openclawWorkspaceFile': 'Saved content will be written to OpenClaw workspace {fileName}.',
         'config.url.unset': 'URL not set',
+        'config.model.unset': 'Model not set',
         'config.badge.system': 'System',
         'config.availabilityTest': 'Availability test',
         'config.availabilityTestAria': 'Test availability for {name}',
@@ -1958,10 +1951,9 @@ const DICT = Object.freeze({
         ,
 
         // Settings panel
-        'settings.tab.backup': 'Backup & Import',
-        'settings.tab.trash': 'Trash',
-        'settings.tab.device': 'Device',
-        'settings.tabs.aria': 'Settings tabs',
+        'settings.tab.general': 'General',
+        'settings.tab.data': 'Data',
+        'settings.tabs.aria': 'Settings categories',
         'settings.sharePrefix.title': 'Share command prefix',
         'settings.sharePrefix.meta': 'Used as the prefix for “Copy share command” in the Web UI',
         'settings.sharePrefix.label': 'Prefix',
