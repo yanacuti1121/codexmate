@@ -20,7 +20,8 @@ const HOST_RULES = Object.freeze([
     { match: (u) => /api\.moonshot\.cn|api\.kimi\.com/i.test(u), models: ['moonshot-v1-32k', 'moonshot-v1-128k', 'kimi-latest'] },
     { match: (u) => /api\.minimax/i.test(u), models: ['MiniMax-M2', 'abab6.5s-chat', 'abab6.5-chat'] },
     { match: (u) => /api-inference\.modelscope\.cn/i.test(u), models: ['Qwen/Qwen3-Coder-480B-A35B-Instruct', 'ZhipuAI/GLM-4.5'] },
-    { match: (u) => /xiaomimimo\.com/i.test(u), models: ['mimo-v2-pro', 'mimo-v2'] }
+    { match: (u) => /xiaomimimo\.com/i.test(u), models: ['mimo-v2-pro', 'mimo-v2'] },
+    { match: (u) => /ai\.muapi\.cn/i.test(u), models: ['mimo-v2-pro'] }
 ]);
 
 function normalizeUrl(url) {
@@ -41,14 +42,15 @@ export function getCodexModelCatalogForProvider(provider) {
     return [];
 }
 
-// 服务模板表：供新增 provider modal 的一行模板按钮使用。
-// model 字段为可选首选项（添加后由前端触发 set-provider 落到 currentModels[name]）。
+// 服务模板表：供面板上的预设按钮使用。
+// model 字段为可选首选项（添加后由前端写入内存字典 currentModels[name]）。
+// useTransform=true 表示该服务需通过内建 OpenAI bridge 转发。
 export const CODEX_PROVIDER_TEMPLATES = Object.freeze([
-    { label: 'OpenAI', name: 'openai', url: 'https://api.openai.com/v1', model: 'gpt-5-codex' },
-    { label: 'DeepSeek', name: 'deepseek', url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-    { label: 'Qwen Coder', name: 'qwen', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3-coder-plus' },
-    { label: 'Doubao', name: 'doubao', url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-1-6-thinking' },
-    { label: 'Zhipu GLM', name: 'glm', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.6' },
-    { label: 'Kimi', name: 'kimi', url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-32k' },
-    { label: 'ModelScope', name: 'modelscope', url: 'https://api-inference.modelscope.cn/v1', model: 'Qwen/Qwen3-Coder-480B-A35B-Instruct' }
+    {
+        label: 'MuAPI',
+        name: 'muapi',
+        url: 'https://ai.muapi.cn/v1',
+        model: 'mimo-v2-pro',
+        useTransform: true
+    }
 ]);

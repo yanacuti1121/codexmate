@@ -386,7 +386,6 @@ const DICT = Object.freeze({
 
         // Basic modals
         'modal.providerAdd.title': '添加提供商',
-        'modal.providerAdd.template': '快速模板',
         'modal.providerEdit.title': '编辑提供商',
         'modal.modelAdd.title': '添加模型',
         'modal.modelManage.title': '管理模型',
@@ -704,6 +703,8 @@ const DICT = Object.freeze({
 
         // Config panel (Codex)
         'config.addProvider': '新增提供商',
+        'config.providerTemplate.title': '预设服务',
+        'config.providerTemplate.hint': '点击预设将打开新增提供商弹窗并预填字段，确认后可继续微调。',
         'config.models': '模型',
         'config.modelLoading': '加载中...',
         'config.models.unlimited': '当前无模型列表，可手填。',
@@ -1443,7 +1444,6 @@ const DICT = Object.freeze({
 
         // Basic modals
         'modal.providerAdd.title': 'Add provider',
-        'modal.providerAdd.template': 'Quick templates',
         'modal.providerEdit.title': 'Edit provider',
         'modal.modelAdd.title': 'Add model',
         'modal.modelManage.title': 'Manage models',
@@ -1761,6 +1761,8 @@ const DICT = Object.freeze({
 
         // Config panel (Codex)
         'config.addProvider': 'Add provider',
+        'config.providerTemplate.title': 'Quick presets',
+        'config.providerTemplate.hint': 'Click a preset to open the add dialog with fields pre-filled; you can still tweak before submitting.',
         'config.models': 'Model',
         'config.modelLoading': 'Loading...',
         'config.models.unlimited': 'No model list available. Enter manually.',
