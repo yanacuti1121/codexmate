@@ -239,7 +239,10 @@
                                     <span>{{ provider.name }}</span>
                                     <span v-if="provider.readOnly" class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
                                 </div>
-                                <div class="card-subtitle">
+                                <div class="card-subtitle card-subtitle-model">
+                                    {{ activeProviderModel(provider.name) || t('config.model.unset') }}
+                                </div>
+                                <div class="card-subtitle card-subtitle-url">
                                     {{ displayProviderUrl(provider) || t('config.url.unset') }}
                                 </div>
                             </div>

@@ -149,7 +149,8 @@
                             <div class="card-icon">{{ name.charAt(0).toUpperCase() }}</div>
                             <div class="card-content">
                                 <div class="card-title">{{ name }}</div>
-                                <div class="card-subtitle">{{ config.model || t('claude.model.unset') }}</div>
+                                <div class="card-subtitle card-subtitle-model">{{ config.model || t('claude.model.unset') }}</div>
+                                <div class="card-subtitle card-subtitle-url" v-if="config.baseUrl">{{ config.baseUrl }}</div>
                             </div>
                         </div>
                         <div class="card-trailing">
