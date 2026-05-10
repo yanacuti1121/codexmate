@@ -55,15 +55,20 @@
                         :disabled="codexModelsLoading"
                     >
                         <option v-if="codexModelsLoading" value="">{{ t('config.modelLoading') }}</option>
-                        <option v-else v-for="model in models" :key="model" :value="model">{{ model }}</option>
+                        <option v-else v-for="model in codexModelOptions" :key="model" :value="model">{{ model }}</option>
                     </select>
                     <input
                         v-if="!codexModelsLoading && (modelsSource !== 'remote' || !modelsHasCurrent)"
                         class="model-input"
                         v-model="currentModel"
                         @blur="onModelChange"
+                        @keyup.enter="onModelChange"
                         :placeholder="activeProviderModelPlaceholder"
+                        :list="codexModelHasList ? 'codex-model-options' : null"
                     >
+                    <datalist v-if="codexModelHasList" id="codex-model-options">
+                        <option v-for="model in codexModelOptions" :key="model" :value="model"></option>
+                    </datalist>
                     <div class="config-template-hint" v-if="modelsSource === 'unlimited'">
                         {{ t('config.models.unlimited') }}
                     </div>

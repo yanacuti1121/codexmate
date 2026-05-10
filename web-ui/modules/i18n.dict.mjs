@@ -386,6 +386,7 @@ const DICT = Object.freeze({
 
         // Basic modals
         'modal.providerAdd.title': '添加提供商',
+        'modal.providerAdd.template': '快速模板',
         'modal.providerEdit.title': '编辑提供商',
         'modal.modelAdd.title': '添加模型',
         'modal.modelManage.title': '管理模型',
@@ -1442,6 +1443,7 @@ const DICT = Object.freeze({
 
         // Basic modals
         'modal.providerAdd.title': 'Add provider',
+        'modal.providerAdd.template': 'Quick templates',
         'modal.providerEdit.title': 'Edit provider',
         'modal.modelAdd.title': 'Add model',
         'modal.modelManage.title': 'Manage models',

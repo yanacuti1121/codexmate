@@ -411,7 +411,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionConverting',
         'sessionSortMode',
         'sessionsUsageCompareEnabled',
-        'sessionsUsageSelectedDayKey'
+        'sessionsUsageSelectedDayKey',
+        'currentModels'
     );
     if (parityAgainstHead) {
         const allowedExtraKeySet = new Set(allowedExtraCurrentKeys);
@@ -633,7 +634,11 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'taskOrchestrationDraftChecklist',
         'taskOrchestrationDraftReadiness',
         'displayProviderUrl',
-        'isTransformProvider'
+        'isTransformProvider',
+        'activeProviderModel',
+        'codexModelOptions',
+        'codexModelHasList',
+        'codexProviderTemplates'
     ];
     const allowedMissingCurrentComputedKeys = [
         'hasLocalAndProxy',

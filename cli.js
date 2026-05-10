@@ -10017,6 +10017,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = {
                                 provider: config.model_provider || '未设置',
                                 model: config.model || '未设置',
+                                currentModels: readCurrentModels(),
                                 serviceTier,
                                 modelReasoningEffort,
                                 modelContextWindow,
