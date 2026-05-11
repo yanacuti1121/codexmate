@@ -337,7 +337,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'taskOrchestration',
         '_taskOrchestrationPollTimer',
         'displayProviderUrl',
-        'isTransformProvider'
+        'isTransformProvider',
+        'openCloneClaudeConfigModal',
+        'openCloneProviderModal'
     ] : [
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
@@ -356,7 +358,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionsViewMode',
         'taskOrchestrationTabEnabled',
         'taskOrchestration',
-        '_taskOrchestrationPollTimer'
+        '_taskOrchestrationPollTimer',
+        'openCloneClaudeConfigModal',
+        'openCloneProviderModal'
     ];
     const allowedMissingCurrentKeys = [
         'localProxyRunning',
@@ -551,7 +555,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'copySessionsFilterShareUrl',
         'getInstallStatusTarget',
         'isInstallTargetInstalled',
-        'shouldShowCliInstallPlaceholder'
+        'shouldShowCliInstallPlaceholder',
+        'openCloneClaudeConfigModal',
+        'openCloneProviderModal'
     );
     const allowedMissingCurrentMethodKeys = [
         'closeInstallModal',
@@ -1201,7 +1207,7 @@ test('share, copy, and standalone helpers remain aligned with HEAD', async () =>
 
     assert.deepStrictEqual(currentProvider, headProvider);
     assert.deepStrictEqual(currentProviderEnv.clipboardWrites, [
-        "npm start add demo-provider 'https://provider.example.com' provider-secret && npm start switch demo-provider && npm start use gpt-4.1"
+        "npm start -- add demo-provider 'https://provider.example.com' provider-secret && npm start -- switch demo-provider && npm start -- use gpt-4.1"
     ]);
     assert.deepStrictEqual(currentProviderContext.providerShareLoading, headProviderContext.providerShareLoading);
     assert.deepStrictEqual(currentProviderContext.messages, headProviderContext.messages);
@@ -1243,7 +1249,7 @@ test('share, copy, and standalone helpers remain aligned with HEAD', async () =>
     }, () => headMethods.copyClaudeShareCommand.call(headClaudeContext, 'shared'));
 
     assert.deepStrictEqual(currentClaudeEnv.clipboardWrites, [
-        "npm start claude 'https://claude.example.com' claude-secret claude-3-7"
+        "npm start -- claude 'https://claude.example.com' claude-secret claude-3-7"
     ]);
     assert.deepStrictEqual(currentClaudeContext.claudeShareLoading, headClaudeContext.claudeShareLoading);
     assert.deepStrictEqual(currentClaudeContext.messages, headClaudeContext.messages);

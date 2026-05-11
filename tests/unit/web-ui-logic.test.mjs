@@ -1050,7 +1050,7 @@ test('sessionUsageSummaryCards estimates usage cost from configured provider pri
     assert(costCard, 'missing estimated cost summary card');
     assert(activeDurationCard, 'missing active duration summary card');
     assert(totalDurationCard, 'missing total duration summary card');
-    assert.strictEqual(costCard.value, '$1.25');
+    assert.strictEqual(costCard.value, '$0.8500');
     assert.strictEqual(costCard.label, '预估费用 · 近 7 天');
     assert.ok(!costCard.note);
     assert.match(costCard.title, /覆盖 1\/2 个会话/);
@@ -1100,7 +1100,47 @@ test('sessionUsageSummaryCards falls back to public catalog pricing when provide
     assert.match(costCard.title, /覆盖 1\/1 个会话/);
 });
 
-test('sessionUsageSummaryCards excludes Claude sessions from estimated cost coverage', () => {
+test('sessionUsageSummaryCards estimates Anthropic cache_creation cost via cacheWrite rate', () => {
+    const computed = createSessionComputed();
+    const cards = computed.sessionUsageSummaryCards.call({
+        sessionUsageCharts: {
+            summary: {
+                totalSessions: 1,
+                totalMessages: 4,
+                totalTokens: 400000,
+                totalContextWindow: 200000,
+                activeDurationMs: 30 * 60 * 1000,
+                totalDurationMs: 30 * 60 * 1000,
+                activeDays: 1,
+                avgMessagesPerSession: 4,
+                busiestDay: null,
+                busiestHour: null
+            }
+        },
+        sessionsUsageList: [
+            {
+                source: 'claude',
+                provider: 'claude',
+                model: 'claude-sonnet-4-6',
+                totalTokens: 400000,
+                inputTokens: 200000,
+                cachedInputTokens: 50000,
+                cacheCreationInputTokens: 30000,
+                outputTokens: 100000,
+                reasoningOutputTokens: 0
+            }
+        ],
+        providersList: [],
+        currentProvider: 'claude'
+    });
+
+    const costCard = cards.find((card) => card.key === 'estimated-cost');
+    assert(costCard, 'missing estimated cost summary card');
+    assert.strictEqual(costCard.value, '$1.99');
+    assert.match(costCard.title, /覆盖 1\/1 个会话/);
+});
+
+test('sessionUsageSummaryCards includes Claude sessions in cost estimation', () => {
     const computed = createSessionComputed();
     const cards = computed.sessionUsageSummaryCards.call({
         sessionUsageCharts: {
@@ -1131,7 +1171,7 @@ test('sessionUsageSummaryCards excludes Claude sessions from estimated cost cove
             {
                 source: 'claude',
                 provider: 'claude',
-                model: 'claude-3-7-sonnet',
+                model: 'claude-sonnet-4-6',
                 totalTokens: 250000,
                 inputTokens: 150000,
                 cachedInputTokens: 0,
@@ -1145,10 +1185,8 @@ test('sessionUsageSummaryCards excludes Claude sessions from estimated cost cove
 
     const costCard = cards.find((card) => card.key === 'estimated-cost');
     assert(costCard, 'missing estimated cost summary card');
-    assert.strictEqual(costCard.value, '$1.77');
-    assert.ok(!costCard.note);
-    assert.match(costCard.title, /暂不含 Claude/);
-    assert.match(costCard.title, /覆盖 1\/1 个会话/);
+    assert.ok(!costCard.title.includes('暂不含 Claude'), 'Claude exclusion prefix should not appear');
+    assert.match(costCard.title, /覆盖 2\/2 个会话/);
 });
 
 test('sessionUsageSummaryCards respects configured zero-cost pricing instead of falling back to catalog rates', () => {

@@ -43,6 +43,16 @@ export function createClaudeConfigMethods(options = {}) {
             }
         },
 
+        openCloneClaudeConfigModal(name, config) {
+            this.newClaudeConfig = {
+                name: '',
+                apiKey: config.apiKey || '',
+                baseUrl: config.baseUrl || '',
+                model: config.model || ''
+            };
+            this.showClaudeConfigModal = true;
+        },
+
         openEditConfigModal(name) {
             const config = this.claudeConfigs[name];
             this.editingConfig = {
@@ -182,8 +192,8 @@ export function createClaudeConfigMethods(options = {}) {
             this.newClaudeConfig = {
                 name: '',
                 apiKey: '',
-                baseUrl: 'https://open.bigmodel.cn/api/anthropic',
-                model: 'glm-4.7'
+                baseUrl: '',
+                model: ''
             };
         }
     };

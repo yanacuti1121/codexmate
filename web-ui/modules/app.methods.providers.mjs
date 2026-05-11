@@ -248,6 +248,16 @@ export function createProvidersMethods(options = {}) {
             }
         },
 
+        openCloneProviderModal(provider) {
+            this.newProvider = {
+                name: '',
+                url: normalizeProviderUrl(provider.url || ''),
+                key: '',
+                useTransform: !!(provider.codexmate_bridge || '').trim() || /\/bridge\/openai\//.test(provider.url || '')
+            };
+            this.showAddModal = true;
+        },
+
         async openEditModal(provider) {
             const requestId = Symbol('openEditModal');
             this._openEditModalRequestId = requestId;

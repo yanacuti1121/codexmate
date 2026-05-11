@@ -752,6 +752,8 @@ const DICT = Object.freeze({
         'config.shareCommand.aria': '分享导入命令',
         'config.provider.edit.aria': '编辑提供商：{name}',
         'config.provider.delete.aria': '删除提供商：{name}',
+        'config.provider.clone': '克隆',
+        'config.provider.clone.aria': '克隆提供商：{name}',
         'app.loadingConfig': '加载配置中...'
         ,
         'common.current': '当前 {value}',
@@ -1031,6 +1033,8 @@ const DICT = Object.freeze({
         ,
         'claude.action.editAria': '编辑 Claude 配置：{name}',
         'claude.action.deleteAria': '删除 Claude 配置：{name}',
+        'claude.action.clone': '克隆',
+        'claude.action.cloneAria': '克隆 Claude 配置：{name}',
 
         // OpenClaw config panel
         'openclaw.applyHint': '写入 ~/.openclaw/openclaw.json，支持 JSON5。',
@@ -1804,6 +1808,8 @@ const DICT = Object.freeze({
         'config.shareCommand.aria': 'Share import command',
         'config.provider.edit.aria': 'Edit provider: {name}',
         'config.provider.delete.aria': 'Delete provider: {name}',
+        'config.provider.clone': 'Clone',
+        'config.provider.clone.aria': 'Clone provider: {name}',
         'app.loadingConfig': 'Loading configuration...'
         ,
         'common.current': 'Current {value}',
@@ -2083,6 +2089,8 @@ const DICT = Object.freeze({
         ,
         'claude.action.editAria': 'Edit Claude config: {name}',
         'claude.action.deleteAria': 'Delete Claude config: {name}',
+        'claude.action.clone': 'Clone',
+        'claude.action.cloneAria': 'Clone Claude config: {name}',
 
         // OpenClaw config panel
         'openclaw.applyHint': 'Writes to ~/.openclaw/openclaw.json (JSON5 supported).',

@@ -716,6 +716,42 @@ function isLoopbackAddress(address) {
     return value === '127.0.0.1' || value === '::1' || value === '::ffff:127.0.0.1';
 }
 
+function isTransientNetworkError(error) {
+    const text = String(error || '').trim();
+    if (!text) return false;
+    if (/socket hang up/i.test(text)) return true;
+    if (/ECONNRESET|ECONNREFUSED|EPIPE|EPROTO|ETIMEDOUT/i.test(text)) return true;
+    if (/EAI_AGAIN/i.test(text)) return true;
+    if (/UND_ERR_SOCKET/i.test(text)) return true;
+    if (/disconnected before|secure tls|tls handshake/i.test(text)) return true;
+    return false;
+}
+
+const TRANSIENT_RETRY_DELAYS_MS = [200, 600];
+
+async function retryTransientRequest(executor) {
+    let lastResult = null;
+    for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+        if (attempt > 0) {
+            const delay = TRANSIENT_RETRY_DELAYS_MS[attempt - 1];
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => {
+                const t = setTimeout(r, delay);
+                if (typeof t.unref === 'function') t.unref();
+            });
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const result = await executor(attempt);
+        lastResult = result;
+        if (!result) return result;
+        if (result.ok) return result;
+        if (result.retry) return result;
+        if (result.status && result.status > 0) return result;
+        if (!isTransientNetworkError(result.error)) return result;
+    }
+    return lastResult;
+}
+
 function writeSse(res, eventName, dataObj) {
     if (!res || res.writableEnded || res.destroyed) return;
     if (eventName) {
@@ -758,7 +794,14 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
         const delta = choice && choice.delta && typeof choice.delta === 'object' ? choice.delta : null;
         if (!delta) continue;
 
+        const segments = [];
+        if (typeof delta.reasoning_content === 'string' && delta.reasoning_content) {
+            segments.push(delta.reasoning_content);
+        }
         if (typeof delta.content === 'string' && delta.content) {
+            segments.push(delta.content);
+        }
+        for (const seg of segments) {
             if (!state.messageItem) {
                 state.messageItem = {
                     id: `msg_${crypto.randomBytes(8).toString('hex')}`,
@@ -773,14 +816,14 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
                     item: state.messageItem
                 });
             }
-            state.messageText += delta.content;
+            state.messageText += seg;
             state.messageItem.content[0].text = state.messageText;
             writeSse(state.res, 'response.output_text.delta', {
                 type: 'response.output_text.delta',
                 item_id: state.messageItem.id,
                 output_index: state.output.length - 1,
                 content_index: 0,
-                delta: delta.content,
+                delta: seg,
                 sequence_number: state.nextSeq()
             });
         }
@@ -1266,7 +1309,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 }
 
                 const url = joinApiUrl(upstream.baseUrl, 'models');
-                const result = await proxyRequestJson(url, {
+                const result = await retryTransientRequest(() => proxyRequestJson(url, {
                     method: 'GET',
                     headers: {
                         ...(authHeader ? { Authorization: authHeader } : {}),
@@ -1275,7 +1318,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     maxBytes: maxUpstreamBytes,
                     httpAgent,
                     httpsAgent
-                });
+                }));
                 if (!result.ok) {
                     res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ error: `Upstream request failed: ${result.error}` }));
@@ -1325,7 +1368,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 }
                 const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
                 const chatBody = { ...converted.chat, stream: true };
-                const streamed = await streamChatCompletionsAsResponsesSse(upstreamUrl, {
+                const streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
                     method: 'POST',
                     body: chatBody,
                     headers: {
@@ -1337,7 +1380,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     httpsAgent,
                     res,
                     model: typeof chatBody.model === 'string' ? chatBody.model : ''
-                });
+                }));
                 if (!streamed.ok) {
                     if (res.writableEnded || res.destroyed) {
                         return;
@@ -1357,7 +1400,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             // Maxx-style behavior: prefer upstream /responses if supported.
             // Fallback to /chat/completions conversion when upstream does not implement /responses (404/405).
             const upstreamResponsesUrl = joinApiUrl(upstream.baseUrl, 'responses');
-            const upstreamResponsesResult = await proxyRequestJson(upstreamResponsesUrl, {
+            const upstreamResponsesResult = await retryTransientRequest(() => proxyRequestJson(upstreamResponsesUrl, {
                 method: 'POST',
                 body: toUpstreamNonStreamingResponsesPayload(responsesRequest),
                 headers: {
@@ -1367,7 +1410,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 maxBytes: maxUpstreamBytes,
                 httpAgent,
                 httpsAgent
-            });
+            }));
 
             if (upstreamResponsesResult.ok && upstreamResponsesResult.status >= 200 && upstreamResponsesResult.status < 300) {
                 const upstreamJson = parseJsonOrError(upstreamResponsesResult.bodyText);
@@ -1418,7 +1461,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             }
 
             const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
-            const upstreamResult = await proxyRequestJson(upstreamUrl, {
+            const upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
                 method: 'POST',
                 body: converted.chat,
                 headers: {
@@ -1428,7 +1471,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 maxBytes: maxUpstreamBytes,
                 httpAgent,
                 httpsAgent
-            });
+            }));
             if (!upstreamResult.ok) {
                 res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
                 res.end(JSON.stringify({ error: `Upstream request failed: ${upstreamResult.error}` }));
