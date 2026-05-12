@@ -76,6 +76,27 @@
                                         </div>
                                     </div>
                                 </section>
+
+                                <section class="settings-card" :aria-label="t('settings.webhook.title')">
+                                    <div class="settings-card-header">
+                                        <div class="settings-card-title">Webhook</div>
+                                        <div class="settings-card-meta">配置变更外发通知</div>
+                                    </div>
+                                    <div class="settings-card-body">
+                                        <div class="settings-field-row">
+                                            <span class="settings-field-label">状态</span>
+                                            <span :class="webhookConfig.enabled ? 'status-on' : 'status-off'">{{ webhookConfig.enabled ? '● 已启用' : '○ 已禁用' }}</span>
+                                        </div>
+                                        <div v-if="webhookConfig.url" class="settings-field-row">
+                                            <span class="settings-field-label">URL</span>
+                                            <span class="settings-card-hint" style="word-break:break-all">{{ webhookConfig.url }}</span>
+                                        </div>
+                                        <div class="settings-field-row">
+                                            <span class="settings-field-label">事件</span>
+                                            <span class="settings-card-hint">{{ webhookConfig.events.join('、') || '无' }}</span>
+                                        </div>
+                                    </div>
+                                </section>
                             </div>
                         </div>
                     </div>

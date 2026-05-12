@@ -20,3 +20,12 @@
     font-size: var(--font-size-caption);
     color: var(--color-text-secondary);
 }
+
+.status-on {
+    color: var(--color-success);
+    font-weight: var(--font-weight-secondary);
+}
+
+.status-off {
+    color: var(--color-text-muted);
+}
