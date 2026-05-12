@@ -227,9 +227,9 @@ test('config template keeps expected config tabs in top and side navigation', ()
         /<span class="selector-title">配置重置<\/span>/
     );
     assert.match(html, /class="settings-card-actions"/);
-    assert.match(html, /<div class="settings-card-title">\{\{\s*t\('settings\.deleteBehavior\.title'\)\s*\}\}<\/div>/);
+    assert.match(html, /<div class="settings-card-title">\{\{\s*t\('settings.trashConfig.title'\)\s*\}\}<\/div>/);
     assert.match(html, /<input type="checkbox" :checked="sessionTrashEnabled" @change="setSessionTrashEnabled\(\$event\.target\.checked\)">/);
-    assert.match(html, /\{\{\s*t\('settings\.deleteBehavior\.hint'\)\s*\}\}/);
+    assert.match(html, /\{\{\s*t\('settings.trash.retentionHint'\)\s*\}\}/);
     assert.match(html, /<button class="btn-tool btn-tool-compact" @click="loadSessionTrash\(\{ forceRefresh: true \}\)"/);
     assert.match(html, /<button class="btn-tool btn-tool-compact" @click="clearSessionTrash"/);
     assert.doesNotMatch(html, /<span class="selector-title">会话回收站<\/span>/);

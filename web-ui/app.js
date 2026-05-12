@@ -451,14 +451,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resolvedMainTab = urlMainTab && mainTabSet.has(urlMainTab)
                     ? urlMainTab
                     : nextMainTab;
+                if (nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data')) {
+                    this.settingsTab = nextSettingsTab;
+                }
                 if (nextConfigMode && typeof this.switchConfigMode === 'function') {
                     this.__navStateRestoring = true;
                     try {
                         if (nextConfigMode === 'codex' || nextConfigMode === 'claude' || nextConfigMode === 'openclaw') {
                             this.configMode = nextConfigMode;
-                        }
-                        if (nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data')) {
-                            this.settingsTab = nextSettingsTab;
                         }
                         if (resolvedMainTab && mainTabSet.has(resolvedMainTab) && resolvedMainTab !== this.mainTab) {
                             this.switchMainTab(resolvedMainTab);

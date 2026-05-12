@@ -2474,7 +2474,7 @@ test('listSessionTrashItems skips auto-purge when autoPurge is false', async () 
 });
 
 test('retention days i18n keys exist in both locales', () => {
-    const zhRetention = indexHtmlSource.includes("t('settings.trash.retention')") ||
+    const zhRetention = indexHtmlSource.includes("t('settings.trashConfig.title')") ||
         indexHtmlSource.includes('t(\'settings.trash.retention\')');
     assert(zhRetention, 'retention section should reference i18n key');
 
