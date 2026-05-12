@@ -1,7 +1,5 @@
 /* ============================================
-   Settings Panel (refined layout)
-   - Keep existing warm-neutral theme
-   - Add clearer hierarchy, grid rhythm, and card affordance
+   Settings Panel — refined visual layer
    ============================================ */
 
 .settings-layout {
@@ -11,39 +9,90 @@
 .settings-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 16px;
+    gap: 18px;
 }
 
+/* ---- Card shell ---- */
 .settings-card {
     grid-column: span 6;
     border-radius: var(--radius-xl);
     border: 1px solid rgba(216, 201, 184, 0.42);
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 253, 252, 0.88) 100%);
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 253, 252, 0.9) 100%);
     box-shadow: var(--shadow-card);
-    padding: 14px 14px 12px;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
     min-width: 0;
     position: relative;
     overflow: hidden;
+    transition: box-shadow var(--transition-normal) var(--ease-smooth),
+                transform var(--transition-normal) var(--ease-smooth);
 }
 
+.settings-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-1px);
+}
+
+/* Top accent bar — one per card */
 .settings-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 14px;
+    right: 14px;
+    height: 3px;
+    background: var(--color-brand);
+    border-radius: 0 0 2px 2px;
+    opacity: 0.55;
+    transition: opacity var(--transition-fast) var(--ease-smooth);
+}
+
+.settings-card:hover::before {
+    opacity: 0.85;
+}
+
+.settings-card--danger::before {
+    background: var(--color-error);
+    opacity: 0.5;
+}
+
+.settings-card--danger:hover::before {
+    opacity: 0.78;
+}
+
+/* Subtle ambient glow behind card */
+.settings-card::after {
     content: '';
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(900px 240px at 10% 0%, rgba(199, 116, 98, 0.12) 0%, rgba(199, 116, 98, 0) 55%),
-        radial-gradient(700px 240px at 90% 10%, rgba(199, 116, 98, 0.07) 0%, rgba(199, 116, 98, 0) 60%);
+        radial-gradient(900px 240px at 10% 0%, rgba(199, 116, 98, 0.08) 0%, rgba(199, 116, 98, 0) 55%),
+        radial-gradient(700px 240px at 90% 10%, rgba(199, 116, 98, 0.05) 0%, rgba(199, 116, 98, 0) 60%);
     pointer-events: none;
-    opacity: 0.7;
+    opacity: 0.6;
+}
+
+.settings-card--danger::after {
+    background:
+        radial-gradient(980px 260px at 10% 0%, rgba(196, 69, 54, 0.09) 0%, rgba(196, 69, 54, 0) 55%),
+        radial-gradient(740px 240px at 90% 10%, rgba(199, 116, 98, 0.05) 0%, rgba(199, 116, 98, 0) 60%);
 }
 
 .settings-card > * {
     position: relative;
     z-index: 1;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+.settings-card > *:first-child {
+    padding-top: 16px;
+}
+
+.settings-card > *:last-child {
+    padding-bottom: 14px;
 }
 
 .settings-card--wide {
@@ -51,19 +100,15 @@
 }
 
 .settings-card--danger {
-    border-color: rgba(196, 69, 54, 0.28);
+    border-color: rgba(196, 69, 54, 0.22);
 }
 
-.settings-card--danger::before {
-    background:
-        radial-gradient(980px 260px at 10% 0%, rgba(196, 69, 54, 0.13) 0%, rgba(196, 69, 54, 0) 55%),
-        radial-gradient(740px 240px at 90% 10%, rgba(199, 116, 98, 0.08) 0%, rgba(199, 116, 98, 0) 60%);
-}
-
+/* ---- Card header ---- */
 .settings-card-header {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    padding-bottom: 0;
 }
 
 .settings-card-header-row {
@@ -78,6 +123,22 @@
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.settings-card-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--color-brand-light);
+    color: var(--color-brand-dark);
+    font-size: 12px;
+    flex-shrink: 0;
 }
 
 .settings-card-meta {
@@ -86,6 +147,7 @@
     line-height: 1.35;
 }
 
+/* ---- Card body ---- */
 .settings-card-body {
     display: flex;
     flex-direction: column;
@@ -109,6 +171,7 @@
     color: var(--color-text-secondary);
 }
 
+/* ---- Field row ---- */
 .settings-field-row {
     display: grid;
     grid-template-columns: 88px minmax(0, 1fr);
@@ -123,6 +186,7 @@
     letter-spacing: 0.02em;
 }
 
+/* ---- Actions ---- */
 .settings-actions {
     display: flex;
     flex-wrap: wrap;
@@ -140,51 +204,99 @@
     margin-top: 2px;
 }
 
+/* ---- Toggle switch (replaces checkbox) ---- */
 .settings-toggle {
-    padding: 8px 10px;
-    border-radius: 12px;
-    border: 1px solid rgba(216, 201, 184, 0.4);
-    background: rgba(248, 243, 238, 0.6);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 0;
+    border: none;
+    background: none;
+    border-radius: 0;
+    user-select: none;
 }
 
+.settings-toggle input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    background: rgba(137, 111, 94, 0.22);
+    border: 1px solid rgba(137, 111, 94, 0.16);
+    cursor: pointer;
+    position: relative;
+    transition: background var(--transition-fast) var(--ease-smooth),
+                border-color var(--transition-fast) var(--ease-smooth);
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.settings-toggle input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: transform var(--transition-fast) var(--ease-spring);
+}
+
+.settings-toggle input[type="checkbox"]:checked {
+    background: var(--color-brand);
+    border-color: var(--color-brand);
+}
+
+.settings-toggle input[type="checkbox"]:checked::after {
+    transform: translateX(18px);
+}
+
+.settings-toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+}
+
+.settings-toggle span {
+    font-size: var(--font-size-secondary);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-body);
+}
+
+/* ---- Retention row ---- */
 .settings-retention-row {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: 12px;
     border: 1px solid rgba(216, 201, 184, 0.4);
     background: rgba(248, 243, 238, 0.6);
 }
 
 .settings-retention-input {
-    width: 72px;
+    width: 64px;
     padding: 4px 8px;
     border: 1px solid rgba(216, 201, 184, 0.6);
     border-radius: 8px;
     font-size: 14px;
     text-align: center;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    background: var(--color-surface);
+    transition: border-color var(--transition-fast) var(--ease-smooth);
 }
 
-/* Re-balance action buttons inside cards */
-.settings-card .btn-tool {
-    width: auto;
-    max-width: 100%;
+.settings-retention-input:focus {
+    border-color: var(--color-brand);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-brand-light);
 }
 
-/* Mobile / narrow */
-@media (max-width: 860px) {
-    .settings-card {
-        grid-column: 1 / -1;
-    }
-    .settings-field-row {
-        grid-template-columns: 1fr;
-        align-items: stretch;
-    }
-}
-
-
-/* 备份卡片内双栏 */
+/* ---- Backup grid ---- */
 .settings-backup-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -195,10 +307,15 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
     background: rgba(247, 240, 233, 0.45);
     border: 1px solid var(--color-border-soft);
+    transition: border-color var(--transition-fast) var(--ease-smooth);
+}
+
+.settings-backup-slot:hover {
+    border-color: var(--color-border);
 }
 
 .settings-backup-slot-label {
@@ -208,15 +325,67 @@
     letter-spacing: 0.03em;
 }
 
-/* 废纸篓配置卡片内并排 */
+/* ---- Trash config grid ---- */
 .settings-trash-config-grid {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
+/* ---- Subtab bar ---- */
+.settings-subtabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 22px;
+    padding: 4px;
+    background: rgba(247, 240, 233, 0.4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-soft);
+}
+
+.settings-subtab {
+    position: relative;
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: var(--font-weight-secondary);
+    transition: all var(--transition-fast) var(--ease-smooth);
+    letter-spacing: 0.01em;
+}
+
+.settings-subtab:hover {
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.settings-subtab.active {
+    color: var(--color-brand-dark);
+    font-weight: 700;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-subtle);
+}
+
+/* ---- Buttons inside cards ---- */
+.settings-card .btn-tool {
+    width: auto;
+    max-width: 100%;
+}
+
+/* ---- Mobile ---- */
 @media (max-width: 860px) {
+    .settings-card {
+        grid-column: 1 / -1;
+    }
+    .settings-field-row {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
     .settings-backup-grid {
         grid-template-columns: 1fr;
     }
@@ -224,51 +393,11 @@
         flex-direction: column;
         align-items: stretch;
     }
-}
-
-/* 设置子标签栏 — 下划线风格，区别于 config pill */
-.settings-subtabs-bar {
-    display: flex;
-    gap: 0;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--color-border-soft);
-}
-
-.settings-subtab {
-    position: relative;
-    padding: 10px 20px;
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: var(--font-weight-secondary);
-    transition: color var(--transition-fast) var(--ease-smooth);
-    letter-spacing: 0.01em;
-}
-
-.settings-subtab::after {
-    content: '';
-    position: absolute;
-    left: 20px;
-    right: 20px;
-    bottom: -1px;
-    height: 2px;
-    background: var(--color-brand);
-    border-radius: 1px 1px 0 0;
-    transform: scaleX(0);
-    transition: transform var(--transition-normal) var(--ease-spring);
-}
-
-.settings-subtab:hover {
-    color: var(--color-text-primary);
-}
-
-.settings-subtab.active {
-    color: var(--color-brand);
-    font-weight: 700;
-}
-
-.settings-subtab.active::after {
-    transform: scaleX(1);
+    .settings-subtabs-bar {
+        gap: 2px;
+    }
+    .settings-subtab {
+        padding: 8px 14px;
+        font-size: 12px;
+    }
 }

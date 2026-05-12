@@ -216,18 +216,18 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(html, /id="settings-panel-data"/);
     assert.match(html, /<div[\s\S]*v-show="settingsTab === 'general'"[\s\S]*id="settings-panel-general"[\s\S]*aria-labelledby="settings-tab-general">/);
     assert.match(html, /<div[\s\S]*v-show="settingsTab === 'data'"[\s\S]*id="settings-panel-data"[\s\S]*aria-labelledby="settings-tab-data">/);
-    assert.match(html, /id="settings-panel-general"[\s\S]*?<div class="settings-card-title">\{\{\s*t\('settings\.sharePrefix\.title'\)\s*\}\}<\/div>/);
+    assert.match(html, /id="settings-panel-general"[\s\S]*?<div class="settings-card-title">[\s\S]*?\{\{\s*t\('settings\.sharePrefix\.title'\)\s*\}\}[\s\S]*?<\/div>/);
     assert.match(html, /id="settings-share-prefix"[\s\S]*class="model-select"[\s\S]*:value="shareCommandPrefix"[\s\S]*@change="setShareCommandPrefix\(\$event\.target\.value\)"/);
     assert.match(html, /<option value="npm start">npm start<\/option>/);
     assert.match(html, /<option value="codexmate">codexmate<\/option>/);
-    assert.match(html, /id="settings-panel-data"[\s\S]*?<div class="settings-card-title">\{\{\s*t\('settings\.reset\.title'\)\s*\}\}<\/div>/);
+    assert.match(html, /id="settings-panel-data"[\s\S]*?<div class="settings-card-title">[\s\S]*?\{\{\s*t\('settings\.reset\.title'\)\s*\}\}[\s\S]*?<\/div>/);
     assert.match(html, /id="settings-panel-data"[\s\S]*?@click="resetConfig"/);
     assert.doesNotMatch(
         html.match(/id="panel-config-provider"[\s\S]*?<\/template>/)?.[0] || '',
         /<span class="selector-title">配置重置<\/span>/
     );
     assert.match(html, /class="settings-card-actions"/);
-    assert.match(html, /<div class="settings-card-title">\{\{\s*t\('settings.trashConfig.title'\)\s*\}\}<\/div>/);
+    assert.match(html, /<div class="settings-card-title">[\s\S]*?\{\{\s*t\('settings.trashConfig.title'\)\s*\}\}[\s\S]*?<\/div>/);
     assert.match(html, /<input type="checkbox" :checked="sessionTrashEnabled" @change="setSessionTrashEnabled\(\$event\.target\.checked\)">/);
     assert.match(html, /\{\{\s*t\('settings.trash.retentionHint'\)\s*\}\}/);
     assert.match(html, /<button class="btn-tool btn-tool-compact" @click="loadSessionTrash\(\{ forceRefresh: true \}\)"/);
