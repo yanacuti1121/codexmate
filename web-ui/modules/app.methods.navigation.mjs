@@ -14,7 +14,8 @@ export function createNavigationMethods(options = {}) {
         'market',
         'plugins',
         'docs',
-        'settings'
+        'settings',
+        'trash'
     ]);
     const loadDoctorOverview = async (vm, options = {}) => {
         if (!vm || typeof vm !== 'object') return false;
@@ -426,6 +427,11 @@ export function createNavigationMethods(options = {}) {
                 switchState.ticket += 1;
                 switchState.pendingTarget = '';
                 if (targetTab === 'dashboard' && !this.__doctorLoadedOnce) {
+                if (targetTab === 'trash' && !this.sessionTrashLoadedOnce) {
+                    if (typeof this.loadSessionTrash === 'function') {
+                        void this.loadSessionTrash({ forceRefresh: false });
+                    }
+                }
                     void loadDoctorOverview(this);
                 }
                 if (

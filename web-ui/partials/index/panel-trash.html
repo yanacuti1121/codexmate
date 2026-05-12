@@ -1,0 +1,88 @@
+                <!-- 回收站面板 — 极简·本质 -->
+                <div
+                    v-show="mainTab === 'trash'"
+                    class="mode-content"
+                    id="panel-trash"
+                    role="tabpanel"
+                    aria-labelledby="tab-trash">
+                    <div class="trash-panel-shell">
+                        <!-- 空态 — 宁静的留白 -->
+                        <div v-if="getSessionTrashViewState() === 'empty'" class="trash-empty-state">
+                            <div class="trash-empty-icon">🗑</div>
+                            <div class="trash-empty-title">{{ t('settings.trash.empty') }}</div>
+                            <div class="trash-empty-hint">删除的会话将出现在这里，保留 {{ sessionTrashRetentionDays }} 天后自动清理</div>
+                        </div>
+
+                        <!-- 加载态 -->
+                        <div v-else-if="getSessionTrashViewState() === 'loading'" class="trash-empty-state">
+                            <div class="trash-empty-icon">⟳</div>
+                            <div class="trash-empty-title">{{ t('settings.trash.loading') }}</div>
+                        </div>
+
+                        <!-- 错误态 -->
+                        <div v-else-if="getSessionTrashViewState() === 'retry'" class="trash-empty-state">
+                            <div class="trash-empty-icon">⚠</div>
+                            <div class="trash-empty-title">{{ t('settings.trash.retry') }}</div>
+                            <button class="btn-tool" @click="loadSessionTrash({ forceRefresh: true })">重试</button>
+                        </div>
+
+                        <!-- 列表态 -->
+                        <template v-else>
+                            <div class="trash-toolbar">
+                                <div class="trash-toolbar-left">
+                                    <span class="trash-toolbar-count">{{ sessionTrashCount }} 个已删除会话</span>
+                                    <span class="trash-toolbar-retention">· {{ sessionTrashRetentionDays }} 天后自动清理</span>
+                                </div>
+                                <div class="trash-toolbar-right">
+                                    <button class="btn-mini" @click="loadSessionTrash({ forceRefresh: true })" :disabled="sessionTrashLoading">
+                                        {{ sessionTrashLoading ? '刷新中…' : '刷新' }}
+                                    </button>
+                                    <button class="btn-mini delete" @click="clearSessionTrash" :disabled="sessionTrashClearing || sessionTrashLoading || !(Number(sessionTrashCount) > 0)">
+                                        {{ sessionTrashClearing ? '清空中…' : '清空回收站' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="trash-list">
+                                <div v-for="item in visibleSessionTrashItems" :key="item.trashId" class="trash-item session-item session-card">
+                                    <div class="trash-item-header session-item-header">
+                                        <div class="trash-item-main">
+                                            <div class="trash-item-mainline">
+                                                <div class="trash-item-title">{{ item.title || item.sessionId }}</div>
+                                                <span class="session-count-badge">{{ item.messageCount == null ? 0 : item.messageCount }}</span>
+                                            </div>
+                                            <div class="trash-item-meta session-item-meta">
+                                                <span class="session-source">{{ item.sourceLabel }}</span>
+                                                <span class="trash-item-dot">·</span>
+                                                <span class="trash-item-time">{{ item.deletedAt || item.updatedAt || t('sessions.unknownTime') }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="trash-item-side">
+                                            <div class="trash-item-actions session-item-actions">
+                                                <button class="btn-mini" @click="restoreSessionTrash(item)" :disabled="sessionTrashLoading || sessionTrashClearing || isSessionTrashActionBusy(item)">
+                                                    {{ sessionTrashRestoring[getSessionTrashActionKey(item)] ? '恢复中…' : '恢复' }}
+                                                </button>
+                                                <button class="btn-mini delete" @click="purgeSessionTrash(item)" :disabled="sessionTrashLoading || sessionTrashClearing || isSessionTrashActionBusy(item)">
+                                                    {{ sessionTrashPurging[getSessionTrashActionKey(item)] ? '删除中…' : '彻底删除' }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-if="item.cwd" class="trash-item-path session-item-sub session-item-wrap">
+                                        <span class="trash-item-label">{{ t('settings.trash.workspace') }}</span>
+                                        <span>{{ item.cwd }}</span>
+                                    </div>
+                                    <div class="trash-item-path session-item-sub session-item-wrap">
+                                        <span class="trash-item-label">{{ t('settings.trash.originalFile') }}</span>
+                                        <span>{{ item.originalFilePath }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="sessionTrashHasMoreItems" class="trash-list-footer">
+                                    <button class="btn-tool btn-tool-compact" @click="loadMoreSessionTrashItems" :disabled="sessionTrashLoading || sessionTrashClearing">
+                                        加载更多（还有 {{ sessionTrashHiddenCount }} 条）
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>

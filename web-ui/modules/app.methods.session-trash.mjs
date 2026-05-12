@@ -227,10 +227,6 @@ export function createSessionTrashMethods(options = {}) {
             if (nextTab !== 'data') {
                 return;
             }
-            const forceRefresh = options.forceRefresh === true;
-            if (forceRefresh || !this.sessionTrashLoadedOnce) {
-                await this.loadSessionTrash({ forceRefresh });
-            }
         },
 
         async loadSessionTrashCount(options = {}) {
