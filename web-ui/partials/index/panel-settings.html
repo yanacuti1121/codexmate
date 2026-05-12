@@ -5,14 +5,14 @@
                     id="panel-settings"
                     role="tabpanel"
                     :aria-labelledby="'tab-settings'">
-                    <div class="config-subtabs settings-subtabs" role="tablist" :aria-label="t('settings.tabs.aria')">
+                    <div class="settings-subtabs-bar" role="tablist" :aria-label="t('settings.tabs.aria')">
                         <button
                             id="settings-tab-general"
                             role="tab"
                             aria-controls="settings-panel-general"
                             :aria-selected="settingsTab === 'general'"
                             :tabindex="settingsTab === 'general' ? 0 : -1"
-                            :class="['config-subtab', { active: settingsTab === 'general' }]"
+                            :class="['settings-subtab', { active: settingsTab === 'general' }]"
                             @click="onSettingsTabClick('general')">
                             {{ t('settings.tab.general') }}
                         </button>
@@ -22,7 +22,7 @@
                             aria-controls="settings-panel-data"
                             :aria-selected="settingsTab === 'data'"
                             :tabindex="settingsTab === 'data' ? 0 : -1"
-                            :class="['config-subtab', { active: settingsTab === 'data' }]"
+                            :class="['settings-subtab', { active: settingsTab === 'data' }]"
                             @click="onSettingsTabClick('data')">
                             {{ t('settings.tab.data') }}
                         </button>

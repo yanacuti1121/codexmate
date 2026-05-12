@@ -221,6 +221,9 @@ export function createSessionTrashMethods(options = {}) {
         async switchSettingsTab(tab, options = {}) {
             const nextTab = this.normalizeSettingsTab(tab);
             this.settingsTab = nextTab;
+            if (typeof this.saveNavState === 'function') {
+                this.saveNavState();
+            }
             if (nextTab !== 'data') {
                 return;
             }

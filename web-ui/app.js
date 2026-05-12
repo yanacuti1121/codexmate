@@ -434,6 +434,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? restored.mainTab.trim().toLowerCase()
                     : '';
                 const nextConfigMode = restored && typeof restored.configMode === 'string'
+                const nextSettingsTab = restored && typeof restored.settingsTab === 'string'
+                    ? restored.settingsTab.trim().toLowerCase()
+                    : '';
                     ? restored.configMode.trim().toLowerCase()
                     : '';
                 let urlMainTab = '';
@@ -449,6 +452,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? urlMainTab
                     : nextMainTab;
                 if (nextConfigMode && typeof this.switchConfigMode === 'function') {
+                        if (nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data')) {
+                            this.settingsTab = nextSettingsTab;
+                        }
                     this.__navStateRestoring = true;
                     try {
                         if (nextConfigMode === 'codex' || nextConfigMode === 'claude' || nextConfigMode === 'openclaw') {

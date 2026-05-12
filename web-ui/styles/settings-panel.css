@@ -225,3 +225,50 @@
         align-items: stretch;
     }
 }
+
+/* 设置子标签栏 — 下划线风格，区别于 config pill */
+.settings-subtabs-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-border-soft);
+}
+
+.settings-subtab {
+    position: relative;
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: var(--font-weight-secondary);
+    transition: color var(--transition-fast) var(--ease-smooth);
+    letter-spacing: 0.01em;
+}
+
+.settings-subtab::after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: -1px;
+    height: 2px;
+    background: var(--color-brand);
+    border-radius: 1px 1px 0 0;
+    transform: scaleX(0);
+    transition: transform var(--transition-normal) var(--ease-spring);
+}
+
+.settings-subtab:hover {
+    color: var(--color-text-primary);
+}
+
+.settings-subtab.active {
+    color: var(--color-brand);
+    font-weight: 700;
+}
+
+.settings-subtab.active::after {
+    transform: scaleX(1);
+}
