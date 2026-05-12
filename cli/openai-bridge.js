@@ -281,7 +281,10 @@ function normalizeResponsesInputToChatMessages(input) {
 
     const toRole = (value) => {
         const roleRaw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-        return roleRaw === 'assistant' ? 'assistant' : (roleRaw === 'system' ? 'system' : 'user');
+        if (roleRaw === 'assistant') return 'assistant';
+        // codex 把 AGENTS.md 注入 developer 角色；Responses 的 developer 在 chat 侧等价于 system。
+        if (roleRaw === 'system' || roleRaw === 'developer') return 'system';
+        return 'user';
     };
 
     if (input && typeof input === 'object' && !Array.isArray(input)) {
@@ -439,6 +442,43 @@ function normalizeResponsesToolsForResponsesApi(tools) {
         .filter(Boolean);
 }
 
+function mergeLeadingSystemMessages(messages, leadingInstructions) {
+    const segments = [];
+    const seen = new Set();
+    const pushSegment = (text) => {
+        const trimmed = typeof text === 'string' ? text.trim() : '';
+        if (!trimmed || seen.has(trimmed)) return;
+        seen.add(trimmed);
+        segments.push(trimmed);
+    };
+    if (typeof leadingInstructions === 'string') {
+        pushSegment(leadingInstructions);
+    }
+    const rest = [];
+    for (const msg of messages) {
+        if (msg && msg.role === 'system') {
+            const content = msg.content;
+            if (typeof content === 'string') {
+                pushSegment(content);
+            } else if (Array.isArray(content)) {
+                for (const part of content) {
+                    if (part && typeof part === 'object' && typeof part.text === 'string') {
+                        pushSegment(part.text);
+                    }
+                }
+            }
+            continue;
+        }
+        rest.push(msg);
+    }
+    const out = [];
+    if (segments.length) {
+        out.push({ role: 'system', content: segments.join('\n\n---\n\n') });
+    }
+    for (const msg of rest) out.push(msg);
+    return out;
+}
+
 function convertResponsesRequestToChatCompletions(payload) {
     const body = payload && typeof payload === 'object' ? payload : {};
     const model = typeof body.model === 'string' ? body.model.trim() : '';
@@ -446,12 +486,10 @@ function convertResponsesRequestToChatCompletions(payload) {
         return { error: 'responses 请求缺少 model' };
     }
 
-    const messages = [];
-    // Align with Maxx/CLIProxyAPI style: map "instructions" to a leading system message.
-    if (typeof body.instructions === 'string' && body.instructions.trim()) {
-        messages.push({ role: 'system', content: body.instructions.trim() });
-    }
-    messages.push(...normalizeResponsesInputToChatMessages(body.input));
+    const rawMessages = normalizeResponsesInputToChatMessages(body.input);
+    // codex 同时下发 body.instructions（内置 prompt）与 input 内 developer/system 消息（AGENTS.md）。
+    // 合流为一条领头 system，避免某些上游"只认第一条 system"导致 AGENTS.md 失效。
+    const messages = mergeLeadingSystemMessages(rawMessages, body.instructions);
     if (!messages.length) {
         // codex sometimes sends empty input for probes; tolerate.
         messages.push({ role: 'user', content: '' });
@@ -795,9 +833,10 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
         if (!delta) continue;
 
         const segments = [];
-        if (typeof delta.reasoning_content === 'string' && delta.reasoning_content) {
-            segments.push(delta.reasoning_content);
-        }
+        // DeepSeek-style OpenAI-compatible streams may emit private reasoning in
+        // `reasoning_content` before the final answer. Responses `output_text`
+        // must stay user-visible answer text only; forwarding reasoning here
+        // pollutes Codex output and breaks exact-answer prompts.
         if (typeof delta.content === 'string' && delta.content) {
             segments.push(delta.content);
         }
@@ -832,6 +871,10 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
             for (const toolCall of delta.tool_calls) {
                 appendChatStreamToolCall(state.toolCalls, toolCall);
             }
+        }
+
+        if (typeof choice.finish_reason === 'string' && choice.finish_reason) {
+            state.sawFinishReason = true;
         }
     }
 }
@@ -1049,6 +1092,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
                 toolCalls: [],
                 finished: false,
                 sawDone: false,
+                sawFinishReason: false,
                 nextSeq: () => {
                     sequence += 1;
                     return sequence;
@@ -1103,7 +1147,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
             });
             upstreamRes.on('end', () => {
                 if (buffer.trim()) handleEventBlock(buffer);
-                if (!state.finished && !state.sawDone) {
+                if (!state.finished && !state.sawDone && !state.sawFinishReason) {
                     failChatStreamResponsesSse(state, 'upstream stream ended before [DONE]');
                     finish({ ok: true });
                     return;

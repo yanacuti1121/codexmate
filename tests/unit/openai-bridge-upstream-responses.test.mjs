@@ -169,7 +169,7 @@ test('openai-bridge streams chat/completions directly when Responses client requ
     await rm(tmpDir, { recursive: true, force: true });
 });
 
-test('openai-bridge forwards upstream reasoning_content as output_text delta', async () => {
+test('openai-bridge omits upstream reasoning_content from output_text deltas', async () => {
     const upstream = http.createServer((req, res) => {
         if (req.url === '/v1/chat/completions' && req.method === 'POST') {
             let body = '';
@@ -217,10 +217,67 @@ test('openai-bridge forwards upstream reasoning_content as output_text delta', a
         body: { model: 'deepseek-v4', input: 'ping', stream: true }
     });
     assert.equal(sse.status, 200);
-    assert.match(sse.text, /"delta":"thinking-"/);
-    assert.match(sse.text, /"delta":"step"/);
+    assert.doesNotMatch(sse.text, /"delta":"thinking-"/);
+    assert.doesNotMatch(sse.text, /"delta":"step"/);
     assert.match(sse.text, /"delta":"answer"/);
-    assert.match(sse.text, /"text":"thinking-stepanswer"/);
+    assert.match(sse.text, /"text":"answer"/);
+    assert.match(sse.text, /data: \[DONE\]/);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('openai-bridge completes Responses SSE when upstream chat stream closes after finish_reason without DONE', async () => {
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+            res.write('data: {"id":"chatcmpl_stream","model":"gpt-test","choices":[{"delta":{"content":"answer"}}]}\n\n');
+            res.write('data: {"id":"chatcmpl_stream","model":"gpt-test","choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+            res.end();
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const sse = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer codexmate'
+        },
+        body: {
+            model: 'gpt-test',
+            input: 'ping',
+            stream: true
+        }
+    });
+    assert.equal(sse.status, 200);
+    assert.match(sse.text, /response\.output_text\.delta/);
+    assert.match(sse.text, /event: response\.completed/);
+    assert.match(sse.text, /"output_text":"answer"/);
+    assert.doesNotMatch(sse.text, /event: response\.failed/);
     assert.match(sse.text, /data: \[DONE\]/);
 
     await bridge.close();
@@ -805,6 +862,155 @@ test('openai-bridge falls back to /chat/completions when upstream /responses ret
     assert.equal(parsed.object, 'response');
     assert.equal(parsed.model, 'gpt-test');
     assert.ok(Array.isArray(parsed.output));
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('openai-bridge merges codex developer-role AGENTS.md into a single leading system message', async () => {
+    let capturedChatRequest = null;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/responses') {
+            // 模拟上游接受 /responses 但不可用，强制走 fallback。
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'not implemented' }));
+            return;
+        }
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            let body = '';
+            req.on('data', (c) => (body += c));
+            req.on('end', () => {
+                capturedChatRequest = JSON.parse(body || '{}');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    id: 'chatcmpl_dev',
+                    model: 'gpt-test',
+                    choices: [{ message: { role: 'assistant', content: 'ok' } }]
+                }));
+            });
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const url = `http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`;
+    const resp = await requestText(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer codexmate' },
+        body: {
+            model: 'gpt-test',
+            instructions: 'codex-base-prompt',
+            input: [
+                { role: 'developer', content: [{ type: 'input_text', text: 'MISAKA_TOKEN_XYZ from AGENTS.md' }] },
+                { role: 'user', content: [{ type: 'input_text', text: 'hi there' }] }
+            ],
+            stream: false
+        }
+    });
+
+    assert.equal(resp.status, 200);
+    assert.ok(capturedChatRequest, 'fallback should hit chat/completions');
+    const msgs = capturedChatRequest.messages;
+    assert.ok(Array.isArray(msgs) && msgs.length >= 2, 'should produce system + user');
+    assert.equal(msgs[0].role, 'system', 'first message must be system');
+    assert.match(msgs[0].content, /codex-base-prompt/);
+    assert.match(msgs[0].content, /MISAKA_TOKEN_XYZ from AGENTS\.md/);
+    const systemCount = msgs.filter((m) => m && m.role === 'system').length;
+    assert.equal(systemCount, 1, 'multiple system sources must be merged into one');
+    const devLeak = msgs.find((m) => m && m.role !== 'system' && typeof m.content === 'string' && /MISAKA_TOKEN_XYZ/.test(m.content));
+    assert.equal(devLeak, undefined, 'AGENTS.md must not leak into user/assistant role');
+    const userMsg = msgs.find((m) => m && m.role === 'user');
+    assert.ok(userMsg, 'user message preserved');
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('openai-bridge SSE fast path also merges developer-role AGENTS.md into leading system', async () => {
+    let capturedChatRequest = null;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            let body = '';
+            req.on('data', (c) => (body += c));
+            req.on('end', () => {
+                capturedChatRequest = JSON.parse(body || '{}');
+                res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+                res.write('data: {"id":"x","model":"gpt-test","choices":[{"delta":{"content":"ok"}}]}\n\n');
+                res.end('data: [DONE]\n\n');
+            });
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const url = `http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`;
+    await requestText(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer codexmate'
+        },
+        body: {
+            model: 'gpt-test',
+            instructions: 'codex-base-prompt',
+            input: [
+                { role: 'developer', content: [{ type: 'input_text', text: 'AGENTS_MARK_STREAM' }] },
+                { role: 'user', content: [{ type: 'input_text', text: 'hi' }] }
+            ],
+            stream: true
+        }
+    });
+
+    assert.ok(capturedChatRequest, 'fast path should call chat/completions');
+    const msgs = capturedChatRequest.messages;
+    assert.equal(msgs[0].role, 'system');
+    assert.match(msgs[0].content, /codex-base-prompt/);
+    assert.match(msgs[0].content, /AGENTS_MARK_STREAM/);
+    const leak = msgs.find((m) => m && m.role !== 'system' && typeof m.content === 'string' && /AGENTS_MARK_STREAM/.test(m.content));
+    assert.equal(leak, undefined, 'developer content must not leak into non-system role');
 
     await bridge.close();
     await upstream.close();
