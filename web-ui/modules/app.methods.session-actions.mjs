@@ -181,12 +181,9 @@ export function createSessionActionMethods(options = {}) {
                 return `gemini -r ${arg}`;
             }
             if (source === 'claude') {
-                return `claude -r ${arg}`;
+                return `claude --dangerously-skip-permissions -r ${arg}`;
             }
-            if (this.sessionResumeWithYolo) {
-                return `codex --yolo resume ${arg}`;
-            }
-            return `codex resume ${arg}`;
+            return `codex --yolo resume ${arg}`;
         },
 
         extractClaudeResumeKeyFromFilePath(filePath) {
@@ -254,7 +251,7 @@ export function createSessionActionMethods(options = {}) {
 
         getShareCommandPrefixInvocation() {
             const prefix = this.normalizeShareCommandPrefix(this.shareCommandPrefix);
-            return prefix === 'codexmate' ? 'codexmate' : 'npm start';
+            return prefix === 'codexmate' ? 'codexmate' : 'npm start --';
         },
 
         setShareCommandPrefix(value) {

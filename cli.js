@@ -318,8 +318,16 @@ const CLI_INSTALL_TARGETS = Object.freeze([
     }
 ]);
 
-const HTTP_KEEP_ALIVE_AGENT = new http.Agent({ keepAlive: true });
-const HTTPS_KEEP_ALIVE_AGENT = new https.Agent({ keepAlive: true });
+const HTTP_KEEP_ALIVE_AGENT = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxFreeSockets: 4
+});
+const HTTPS_KEEP_ALIVE_AGENT = new https.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxFreeSockets: 4
+});
 
 const openaiBridgeHandler = createOpenaiBridgeHttpHandler({
     settingsFile: OPENAI_BRIDGE_SETTINGS_FILE,
@@ -3653,12 +3661,19 @@ function readTotalTokensFromUsage(usage) {
         return explicitTotal;
     }
     const inputTokens = readNonNegativeInteger(usage.input_tokens ?? usage.inputTokens);
+    const cachedInputTokens = readNonNegativeInteger(
+        usage.cached_input_tokens ?? usage.cachedInputTokens
+            ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
+    );
+    const cacheCreationInputTokens = readNonNegativeInteger(
+        usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens
+    );
     const outputTokens = readNonNegativeInteger(usage.output_tokens ?? usage.outputTokens);
     const reasoningOutputTokens = readNonNegativeInteger(usage.reasoning_output_tokens ?? usage.reasoningOutputTokens);
-    if (inputTokens === null && outputTokens === null && reasoningOutputTokens === null) {
+    if (inputTokens === null && cachedInputTokens === null && cacheCreationInputTokens === null && outputTokens === null && reasoningOutputTokens === null) {
         return null;
     }
-    return (inputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0);
+    return (inputTokens || 0) + (cachedInputTokens || 0) + (cacheCreationInputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0);
 }
 
 function readUsageTotalsFromUsage(usage) {
@@ -3666,19 +3681,26 @@ function readUsageTotalsFromUsage(usage) {
         return null;
     }
     const inputTokens = readNonNegativeInteger(usage.input_tokens ?? usage.inputTokens);
-    const cachedInputTokens = readNonNegativeInteger(usage.cached_input_tokens ?? usage.cachedInputTokens);
+    const cachedInputTokens = readNonNegativeInteger(
+        usage.cached_input_tokens ?? usage.cachedInputTokens
+            ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
+    );
+    const cacheCreationInputTokens = readNonNegativeInteger(
+        usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens
+    );
     const outputTokens = readNonNegativeInteger(usage.output_tokens ?? usage.outputTokens);
     const reasoningOutputTokens = readNonNegativeInteger(usage.reasoning_output_tokens ?? usage.reasoningOutputTokens);
     const totalTokens = readNonNegativeInteger(usage.total_tokens ?? usage.totalTokens)
-        ?? ((inputTokens === null && cachedInputTokens === null && outputTokens === null && reasoningOutputTokens === null)
+        ?? ((inputTokens === null && cachedInputTokens === null && cacheCreationInputTokens === null && outputTokens === null && reasoningOutputTokens === null)
             ? null
-            : ((inputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0)));
-    if (inputTokens === null && cachedInputTokens === null && outputTokens === null && reasoningOutputTokens === null && totalTokens === null) {
+            : ((inputTokens || 0) + (cachedInputTokens || 0) + (cacheCreationInputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0)));
+    if (inputTokens === null && cachedInputTokens === null && cacheCreationInputTokens === null && outputTokens === null && reasoningOutputTokens === null && totalTokens === null) {
         return null;
     }
     return {
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         totalTokens
@@ -3704,6 +3726,7 @@ function applyUsageTotalsToState(state, usageTotals) {
     const pairs = [
         ['inputTokens', usageTotals.inputTokens],
         ['cachedInputTokens', usageTotals.cachedInputTokens],
+        ['cacheCreationInputTokens', usageTotals.cacheCreationInputTokens],
         ['outputTokens', usageTotals.outputTokens],
         ['reasoningOutputTokens', usageTotals.reasoningOutputTokens],
         ['totalTokens', usageTotals.totalTokens]
@@ -3954,12 +3977,13 @@ function parseCodexSessionSummary(filePath, options = {}) {
     let contextWindow = 0;
     let inputTokens = 0;
     let cachedInputTokens = 0;
+    let cacheCreationInputTokens = 0;
     let outputTokens = 0;
     let reasoningOutputTokens = 0;
     let provider = 'codex';
     let model = '';
     const models = [];
-    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
     const previewMessages = [];
 
     for (const record of records) {
@@ -3972,6 +3996,7 @@ function parseCodexSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4006,6 +4031,7 @@ function parseCodexSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
         provider = readExplicitSessionProviderFromRecord(record) || provider;
@@ -4065,6 +4091,7 @@ function parseCodexSessionSummary(filePath, options = {}) {
         contextWindow,
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         __messageCountExact: isSessionSummaryMessageCountExact(stat, summaryReadBytes),
@@ -4101,12 +4128,13 @@ function parseClaudeSessionSummary(filePath, options = {}) {
     let contextWindow = 0;
     let inputTokens = 0;
     let cachedInputTokens = 0;
+    let cacheCreationInputTokens = 0;
     let outputTokens = 0;
     let reasoningOutputTokens = 0;
     let provider = 'claude';
     let model = '';
     const models = [];
-    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
     const previewMessages = [];
     let createdAt = '';
     let updatedAt = stat.mtime.toISOString();
@@ -4124,6 +4152,7 @@ function parseClaudeSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4157,6 +4186,7 @@ function parseClaudeSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
         provider = readExplicitSessionProviderFromRecord(record) || provider;
@@ -4215,6 +4245,7 @@ function parseClaudeSessionSummary(filePath, options = {}) {
         contextWindow,
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         __messageCountExact: isSessionSummaryMessageCountExact(stat, summaryReadBytes),
@@ -4251,12 +4282,13 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
     let contextWindow = 0;
     let inputTokens = 0;
     let cachedInputTokens = 0;
+    let cacheCreationInputTokens = 0;
     let outputTokens = 0;
     let reasoningOutputTokens = 0;
     let provider = 'codebuddy';
     let model = '';
     const models = [];
-    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
     const previewMessages = [];
     let createdAt = '';
     let updatedAt = stat.mtime.toISOString();
@@ -4274,6 +4306,7 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4312,6 +4345,7 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
         provider = readExplicitSessionProviderFromRecord(record) || provider;
@@ -4372,6 +4406,7 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
         contextWindow,
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         __messageCountExact: isSessionSummaryMessageCountExact(stat, summaryReadBytes),
@@ -4661,17 +4696,19 @@ function listClaudeSessions(limit, options = {}) {
             let contextWindow = 0;
             let inputTokens = 0;
             let cachedInputTokens = 0;
+            let cacheCreationInputTokens = 0;
             let outputTokens = 0;
             let reasoningOutputTokens = 0;
             let model = typeof entry.model === 'string' ? entry.model.trim() : '';
             const models = model ? [model] : [];
 
-            const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+            const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
             applySessionUsageSummaryFromIndexEntry(usageState, entry);
             totalTokens = usageState.totalTokens || 0;
             contextWindow = usageState.contextWindow || 0;
             inputTokens = usageState.inputTokens || 0;
             cachedInputTokens = usageState.cachedInputTokens || 0;
+            cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
             outputTokens = usageState.outputTokens || 0;
             reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4702,6 +4739,7 @@ function listClaudeSessions(limit, options = {}) {
                 contextWindow = usageState.contextWindow || 0;
                 inputTokens = usageState.inputTokens || 0;
                 cachedInputTokens = usageState.cachedInputTokens || 0;
+                cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
                 outputTokens = usageState.outputTokens || 0;
                 reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
                 const filteredQuickMessages = removeLeadingSystemMessage(quickMessages);
@@ -4726,6 +4764,7 @@ function listClaudeSessions(limit, options = {}) {
             contextWindow = usageState.contextWindow || 0;
             inputTokens = usageState.inputTokens || 0;
             cachedInputTokens = usageState.cachedInputTokens || 0;
+            cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
             outputTokens = usageState.outputTokens || 0;
             reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4749,6 +4788,7 @@ function listClaudeSessions(limit, options = {}) {
                 contextWindow,
                 inputTokens,
                 cachedInputTokens,
+                cacheCreationInputTokens,
                 outputTokens,
                 reasoningOutputTokens,
                 model,
@@ -10114,6 +10154,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = {
                                 provider: config.model_provider || '未设置',
                                 model: config.model || '未设置',
+                                currentModels: readCurrentModels(),
                                 serviceTier,
                                 modelReasoningEffort,
                                 modelContextWindow,
@@ -12516,35 +12557,47 @@ function buildMcpProviderListPayload() {
         configReady: !listConfigResult.isVirtual,
         configErrorType: listConfigResult.errorType || '',
         configNotice: listConfigResult.reason || '',
-        providers: Object.entries(providers).map(([name, p]) => ({
-            name,
-            url: p.base_url || '',
-            key: maskKey(p.preferred_auth_method || ''),
-            hasKey: !!(p.preferred_auth_method && p.preferred_auth_method.trim()),
-            models: Array.isArray(p.models)
-                ? p.models
-                    .filter((model) => model && typeof model === 'object' && !Array.isArray(model))
-                    .map((model) => ({
-                        id: typeof model.id === 'string' ? model.id : '',
-                        name: typeof model.name === 'string' ? model.name : '',
-                        cost: model.cost && typeof model.cost === 'object' && !Array.isArray(model.cost)
-                            ? {
-                                input: model.cost.input,
-                                output: model.cost.output,
-                                cacheRead: model.cost.cacheRead,
-                                cacheWrite: model.cost.cacheWrite
-                            }
-                            : null,
-                        contextWindow: model.contextWindow,
-                        maxTokens: model.maxTokens
-                    }))
-                    .filter((model) => model.id)
-                : [],
-            current: name === current,
-            readOnly: isBuiltinManagedProvider(name),
-            nonDeletable: isNonDeletableProvider(name),
-            nonEditable: isNonEditableProvider(name)
-        }))
+        providers: Object.entries(providers).map(([name, p]) => {
+            const bridge = typeof p.codexmate_bridge === 'string' ? p.codexmate_bridge.trim() : '';
+            let upstreamUrl = '';
+            if (bridge === 'openai') {
+                const upstream = resolveOpenaiBridgeUpstream(OPENAI_BRIDGE_SETTINGS_FILE, name);
+                if (upstream && !upstream.error && typeof upstream.baseUrl === 'string') {
+                    upstreamUrl = upstream.baseUrl.trim();
+                }
+            }
+            return {
+                name,
+                url: p.base_url || '',
+                upstreamUrl,
+                codexmate_bridge: bridge,
+                key: maskKey(p.preferred_auth_method || ''),
+                hasKey: !!(p.preferred_auth_method && p.preferred_auth_method.trim()),
+                models: Array.isArray(p.models)
+                    ? p.models
+                        .filter((model) => model && typeof model === 'object' && !Array.isArray(model))
+                        .map((model) => ({
+                            id: typeof model.id === 'string' ? model.id : '',
+                            name: typeof model.name === 'string' ? model.name : '',
+                            cost: model.cost && typeof model.cost === 'object' && !Array.isArray(model.cost)
+                                ? {
+                                    input: model.cost.input,
+                                    output: model.cost.output,
+                                    cacheRead: model.cost.cacheRead,
+                                    cacheWrite: model.cost.cacheWrite
+                                }
+                                : null,
+                            contextWindow: model.contextWindow,
+                            maxTokens: model.maxTokens
+                        }))
+                        .filter((model) => model.id)
+                    : [],
+                current: name === current,
+                readOnly: isBuiltinManagedProvider(name),
+                nonDeletable: isNonDeletableProvider(name),
+                nonEditable: isNonEditableProvider(name)
+            };
+        })
     };
 }
 

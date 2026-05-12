@@ -7,6 +7,7 @@ import {
 import { buildBuiltinCommentPolishTemplate } from './comment-polish/index.mjs';
 import { buildBuiltinRuleAckTemplate } from './rule-ack/index.mjs';
 
+
 function ensureBuiltinTemplates(rawList, builtins) {
     const list = Array.isArray(rawList) ? rawList.filter(Boolean) : [];
     const builtinList = Array.isArray(builtins) ? builtins.filter(Boolean) : [];

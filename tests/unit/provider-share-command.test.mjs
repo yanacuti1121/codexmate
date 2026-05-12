@@ -194,7 +194,7 @@ test('buildProviderShareCommand appends model switch command when model exists',
 
     assert.strictEqual(
         command,
-        "npm start add alpha 'https://api.example.com/v1' sk-alpha && npm start switch alpha && npm start use alpha-share-model"
+        "npm start -- add alpha 'https://api.example.com/v1' sk-alpha && npm start -- switch alpha && npm start -- use alpha-share-model"
     );
 });
 
@@ -208,7 +208,7 @@ test('buildProviderShareCommand keeps legacy command when payload model is empty
         bridge: ''
     });
 
-    assert.strictEqual(command, "npm start add alpha 'https://api.example.com/v1' sk-alpha && npm start switch alpha");
+    assert.strictEqual(command, "npm start -- add alpha 'https://api.example.com/v1' sk-alpha && npm start -- switch alpha");
 });
 
 test('buildProviderShareCommand supports codexmate prefix', () => {
@@ -253,7 +253,7 @@ test('buildClaudeShareCommand respects the configured share prefix', () => {
 
     assert.strictEqual(
         command,
-        "npm start claude 'https://claude.example.com' sk-claude claude-3-7-sonnet"
+        "npm start -- claude 'https://claude.example.com' sk-claude claude-3-7-sonnet"
     );
 });
 
@@ -622,6 +622,7 @@ test('status api case does not synthesize budget defaults after config load erro
             }),
             hasConfigLoadError,
             readPositiveIntegerConfigValue,
+            readCurrentModels: () => ({}),
             consumeInitNotice: () => ''
         }
     );
@@ -632,6 +633,7 @@ test('status api case does not synthesize budget defaults after config load erro
     assert.strictEqual(result.modelAutoCompactTokenLimit, '');
     assert.strictEqual(result.configErrorType, 'parse');
     assert.strictEqual(result.configNotice, 'config.toml 解析失败');
+    assert.deepStrictEqual(result.currentModels, {});
 });
 
 test('status api case keeps lexical declarations scoped to the switch branch', () => {

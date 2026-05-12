@@ -118,6 +118,51 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         return false;
     }
 
+    function shouldFallbackFromUpstreamResponsesFailure(error) {
+        const text = String(error || '').trim();
+        if (!text) return false;
+        if (/timeout/i.test(text)) return true;
+        if (/socket hang up/i.test(text)) return true;
+        if (/ECONNRESET/i.test(text)) return true;
+        return false;
+    }
+
+    function isTransientNetworkError(error) {
+        const text = String(error || '').trim();
+        if (!text) return false;
+        if (/socket hang up/i.test(text)) return true;
+        if (/ECONNRESET|ECONNREFUSED|EPIPE|EPROTO|ETIMEDOUT/i.test(text)) return true;
+        if (/EAI_AGAIN/i.test(text)) return true;
+        if (/UND_ERR_SOCKET/i.test(text)) return true;
+        if (/disconnected before|secure tls|tls handshake/i.test(text)) return true;
+        return false;
+    }
+
+    const TRANSIENT_RETRY_DELAYS_MS = [200, 600];
+
+    async function retryTransientRequest(executor) {
+        let lastResult = null;
+        for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+            if (attempt > 0) {
+                const delay = TRANSIENT_RETRY_DELAYS_MS[attempt - 1];
+                // eslint-disable-next-line no-await-in-loop
+                await new Promise((r) => {
+                    const t = setTimeout(r, delay);
+                    if (typeof t.unref === 'function') t.unref();
+                });
+            }
+            // eslint-disable-next-line no-await-in-loop
+            const result = await executor(attempt);
+            lastResult = result;
+            if (!result) return result;
+            if (result.ok) return result;
+            if (result.retry) return result;
+            if (result.status && result.status > 0) return result;
+            if (!isTransientNetworkError(result.error)) return result;
+        }
+        return lastResult;
+    }
+
     function proxyRequestJson(targetUrl, options = {}) {
         const parsed = new URL(targetUrl);
         const transport = parsed.protocol === 'https:' ? https : http;
@@ -174,68 +219,180 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         });
     }
 
-    function extractChatCompletionResult(payload) {
-        if (!payload || typeof payload !== 'object') return { text: '' };
-        const choice = Array.isArray(payload.choices) ? payload.choices[0] : null;
-        const message = choice && typeof choice === 'object' ? choice.message : null;
-        const content = message && typeof message === 'object' ? message.content : '';
-        let text = '';
-        if (typeof content === 'string') {
-            text = content;
-        } else if (Array.isArray(content)) {
-            text = content
-                .map((item) => {
-                    if (!item) return '';
-                    if (typeof item === 'string') return item;
-                    if (typeof item === 'object') {
-                        if (typeof item.text === 'string') return item.text;
-                        if (typeof item.content === 'string') return item.content;
-                    }
-                    return '';
-                })
-                .filter(Boolean)
-                .join('');
+    function buildUpstreamUrlCandidates(baseUrl, pathSuffix) {
+        const safeSuffix = String(pathSuffix || '').replace(/^\/+/, '');
+        const candidates = [];
+        const push = (url) => {
+            if (url && !candidates.includes(url)) {
+                candidates.push(url);
+            }
+        };
+        push(joinApiUrl(baseUrl, safeSuffix));
+        const trimmed = normalizeBaseUrl(baseUrl);
+        if (trimmed && safeSuffix) {
+            push(`${trimmed}/${safeSuffix}`);
         }
-        return { text };
+        return candidates;
+    }
+
+    async function proxyRequestJsonWithFallbackUrls(baseUrl, pathSuffix, options = {}) {
+        const urls = buildUpstreamUrlCandidates(baseUrl, pathSuffix);
+        if (urls.length === 0) {
+            return { ok: false, error: 'failed to build upstream URL' };
+        }
+        let lastResult = null;
+        for (let index = 0; index < urls.length; index += 1) {
+            const result = await retryTransientRequest(() => proxyRequestJson(urls[index], options));
+            lastResult = result;
+            if (!result.ok) {
+                return result;
+            }
+            if (!(result.status === 404 || result.status === 405)) {
+                return result;
+            }
+        }
+        return lastResult || { ok: false, error: 'failed to build upstream URL' };
+    }
+
+    function stringifyJsonValue(value, fallback = '') {
+        if (typeof value === 'string') return value;
+        if (value == null) return fallback;
+        try {
+            return JSON.stringify(value);
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    function normalizeChatUsageToResponsesUsage(usage) {
+        if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return undefined;
+        const pickNumber = (...keys) => {
+            for (const key of keys) {
+                if (Number.isFinite(usage[key])) return usage[key];
+            }
+            return undefined;
+        };
+        const inputTokens = pickNumber('input_tokens', 'prompt_tokens');
+        const outputTokens = pickNumber('output_tokens', 'completion_tokens');
+        const totalTokens = pickNumber('total_tokens');
+        const result = {};
+        if (inputTokens != null) result.input_tokens = inputTokens;
+        if (outputTokens != null) result.output_tokens = outputTokens;
+        if (totalTokens != null) result.total_tokens = totalTokens;
+        if (usage.input_tokens_details && typeof usage.input_tokens_details === 'object') {
+            result.input_tokens_details = usage.input_tokens_details;
+        } else if (usage.prompt_tokens_details && typeof usage.prompt_tokens_details === 'object') {
+            result.input_tokens_details = usage.prompt_tokens_details;
+        }
+        if (usage.output_tokens_details && typeof usage.output_tokens_details === 'object') {
+            result.output_tokens_details = usage.output_tokens_details;
+        } else if (usage.completion_tokens_details && typeof usage.completion_tokens_details === 'object') {
+            result.output_tokens_details = usage.completion_tokens_details;
+        }
+        return Object.keys(result).length > 0 ? result : usage;
+    }
+
+    function mapChatFinishReasonToResponses(choice) {
+        const finishReason = choice && typeof choice === 'object' && typeof choice.finish_reason === 'string'
+            ? choice.finish_reason
+            : '';
+        if (finishReason === 'length') {
+            return { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } };
+        }
+        if (finishReason === 'content_filter') {
+            return { status: 'incomplete', incomplete_details: { reason: 'content_filter' } };
+        }
+        return { status: 'completed' };
+    }
+
+    function normalizeChatMessageContentToResponsesContent(content, refusal = '') {
+        const blocks = [];
+        const pushText = (text) => {
+            if (typeof text === 'string' && text) {
+                blocks.push({ type: 'output_text', text });
+            }
+        };
+        if (typeof content === 'string') {
+            pushText(content);
+        } else if (Array.isArray(content)) {
+            for (const item of content) {
+                if (!item) continue;
+                if (typeof item === 'string') {
+                    pushText(item);
+                    continue;
+                }
+                if (typeof item !== 'object') continue;
+                const type = typeof item.type === 'string' ? item.type : '';
+                if ((type === 'text' || type === 'output_text') && typeof item.text === 'string') {
+                    pushText(item.text);
+                    continue;
+                }
+                if (typeof item.content === 'string') {
+                    pushText(item.content);
+                }
+            }
+        }
+        if (typeof refusal === 'string' && refusal) {
+            blocks.push({ type: 'refusal', refusal });
+        }
+        return blocks;
+    }
+
+    function buildResponsesPayloadFromChatCompletion(payload, fallbackModel = '') {
+        const base = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+        const choice = Array.isArray(base.choices) ? base.choices[0] : null;
+        const message = choice && typeof choice === 'object' && choice.message && typeof choice.message === 'object'
+            ? choice.message
+            : {};
+        const output = [];
+        const messageContent = normalizeChatMessageContentToResponsesContent(message.content, message.refusal);
+        if (messageContent.length > 0 || !Array.isArray(message.tool_calls) || message.tool_calls.length === 0) {
+            output.push({
+                type: 'message',
+                role: 'assistant',
+                content: messageContent.length > 0 ? messageContent : [{ type: 'output_text', text: '' }]
+            });
+        }
+        if (Array.isArray(message.tool_calls)) {
+            for (const toolCall of message.tool_calls) {
+                if (!toolCall || typeof toolCall !== 'object') continue;
+                const fn = toolCall.function && typeof toolCall.function === 'object' ? toolCall.function : {};
+                const name = typeof fn.name === 'string' ? fn.name : '';
+                if (!name) continue;
+                output.push({
+                    type: 'function_call',
+                    call_id: typeof toolCall.id === 'string' && toolCall.id ? toolCall.id : `call_${crypto.randomBytes(8).toString('hex')}`,
+                    name,
+                    arguments: stringifyJsonValue(fn.arguments, '{}')
+                });
+            }
+        }
+        const finish = mapChatFinishReasonToResponses(choice);
+        return ensureResponseMetadata({
+            id: typeof base.id === 'string' ? base.id : undefined,
+            model: typeof base.model === 'string' ? base.model : fallbackModel,
+            status: finish.status,
+            ...(finish.incomplete_details ? { incomplete_details: finish.incomplete_details } : {}),
+            output,
+            usage: normalizeChatUsageToResponsesUsage(base.usage)
+        });
     }
 
     function normalizeResponsesInputToChatMessages(input) {
-        // 支持：
-        // - string
-        // - { role, content }（单条 message）
-        // - { type:"input_text"|"input_image", ... }（单个 block）
-        // - [{ role, content: [{type:"input_text"|"input_image", ...}] }]
-        // - [{ type:"input_text"|"input_image", ... }]（视为单条 user 消息）
-        if (typeof input === 'string') {
-            return [{ role: 'user', content: input }];
-        }
-        if (input && typeof input === 'object' && !Array.isArray(input)) {
-            if (typeof input.role === 'string' && input.content != null) {
-                const role = input.role.trim() || 'user';
-                const content = Array.isArray(input.content)
-                    ? toChatContent(input.content)
-                    : input.content;
-                return content ? [{ role, content }] : [];
-            }
-            // 单个 block：{type:"input_text"|"input_image", ...}
-            if (typeof input.type === 'string') {
-                const content = toChatContent([input]);
-                return content ? [{ role: 'user', content }] : [];
-            }
-            return [];
-        }
-        if (!Array.isArray(input)) {
-            return [];
-        }
-
+        // 参考 cc-switch 的 Responses 转换形态：message content 保持为消息，function_call /
+        // function_call_output 提升为 OpenAI Chat 的 assistant tool_calls / tool 消息。
         const toChatContent = (blocks) => {
             if (!Array.isArray(blocks)) return '';
             const out = [];
             for (const block of blocks) {
                 if (!block || typeof block !== 'object') continue;
                 const type = typeof block.type === 'string' ? block.type : '';
-                if (type === 'input_text' && typeof block.text === 'string') {
+                if ((type === 'input_text' || type === 'output_text' || type === 'text') && typeof block.text === 'string') {
                     out.push({ type: 'text', text: block.text });
+                    continue;
+                }
+                if (type === 'refusal' && typeof block.refusal === 'string') {
+                    out.push({ type: 'text', text: block.refusal });
                     continue;
                 }
                 if (type === 'input_image') {
@@ -248,11 +405,6 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     }
                     continue;
                 }
-                // 容错：兼容已是 chat content 的 {type:"text"} / {type:"image_url"}
-                if (type === 'text' && typeof block.text === 'string') {
-                    out.push({ type: 'text', text: block.text });
-                    continue;
-                }
                 if (type === 'image_url' && block.image_url) {
                     out.push({ type: 'image_url', image_url: block.image_url });
                 }
@@ -261,31 +413,165 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             return out;
         };
 
-        const messages = [];
-        for (const item of input) {
-            if (!item || typeof item !== 'object') continue;
+        const messageFromResponsesItem = (item) => {
+            if (!item || typeof item !== 'object') return null;
+            const type = typeof item.type === 'string' ? item.type : '';
+            if (type === 'function_call') {
+                const name = typeof item.name === 'string' ? item.name : '';
+                if (!name) return null;
+                return {
+                    role: 'assistant',
+                    content: null,
+                    tool_calls: [{
+                        id: typeof item.call_id === 'string' && item.call_id ? item.call_id : (typeof item.id === 'string' ? item.id : `call_${crypto.randomBytes(8).toString('hex')}`),
+                        type: 'function',
+                        function: {
+                            name,
+                            arguments: stringifyJsonValue(item.arguments, '{}')
+                        }
+                    }]
+                };
+            }
+            if (type === 'function_call_output') {
+                const callId = typeof item.call_id === 'string' ? item.call_id : '';
+                return {
+                    role: 'tool',
+                    tool_call_id: callId,
+                    content: stringifyJsonValue(item.output, '')
+                };
+            }
             if (typeof item.role === 'string' && item.content != null) {
                 const role = item.role.trim() || 'user';
                 const content = Array.isArray(item.content)
                     ? toChatContent(item.content)
                     : item.content;
-                if (content) {
-                    messages.push({ role, content });
-                }
-                continue;
+                return content || content === null ? { role, content } : null;
             }
+            if (type) {
+                const content = toChatContent([item]);
+                return content ? { role: 'user', content } : null;
+            }
+            return null;
+        };
+
+        if (typeof input === 'string') {
+            return [{ role: 'user', content: input }];
+        }
+        if (input && typeof input === 'object' && !Array.isArray(input)) {
+            const message = messageFromResponsesItem(input);
+            return message ? [message] : [];
+        }
+        if (!Array.isArray(input)) {
+            return [];
         }
 
+        const messages = [];
+        for (const item of input) {
+            const message = messageFromResponsesItem(item);
+            if (message) messages.push(message);
+        }
         if (messages.length > 0) {
             return messages;
         }
 
-        // 退化：把 input array 当作单条 user content blocks
         const fallbackContent = toChatContent(input);
         if (fallbackContent) {
             return [{ role: 'user', content: fallbackContent }];
         }
         return [];
+    }
+
+    function normalizeResponsesToolsToChatTools(tools) {
+        if (!Array.isArray(tools)) return tools;
+        return tools
+            .map((tool) => {
+                if (!tool || typeof tool !== 'object') return null;
+                if (tool.type !== 'function') return tool;
+                const sourceFn = tool.function && typeof tool.function === 'object' && !Array.isArray(tool.function)
+                    ? tool.function
+                    : {};
+                const name = typeof sourceFn.name === 'string' && sourceFn.name.trim()
+                    ? sourceFn.name.trim()
+                    : (typeof tool.name === 'string' ? tool.name.trim() : '');
+                if (!name) return null;
+                const description = typeof sourceFn.description === 'string'
+                    ? sourceFn.description
+                    : (typeof tool.description === 'string' ? tool.description : undefined);
+                const parameters = sourceFn.parameters && typeof sourceFn.parameters === 'object' && !Array.isArray(sourceFn.parameters)
+                    ? sourceFn.parameters
+                    : (tool.parameters && typeof tool.parameters === 'object' && !Array.isArray(tool.parameters) ? tool.parameters : {});
+                const strict = typeof sourceFn.strict === 'boolean'
+                    ? sourceFn.strict
+                    : (typeof tool.strict === 'boolean' ? tool.strict : undefined);
+                const fn = { name, parameters };
+                if (description !== undefined) fn.description = description;
+                if (strict !== undefined) fn.strict = strict;
+                return { type: 'function', function: fn };
+            })
+            .filter(Boolean);
+    }
+
+    function normalizeResponsesToolChoiceToChatToolChoice(toolChoice) {
+        if (!toolChoice || typeof toolChoice !== 'object' || Array.isArray(toolChoice)) return toolChoice;
+        if (toolChoice.type === 'function' && typeof toolChoice.name === 'string') {
+            return { type: 'function', function: { name: toolChoice.name } };
+        }
+        return toolChoice;
+    }
+
+    function buildChatCompletionsBodyFromResponsesPayload(payload) {
+        const source = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+        const messages = normalizeResponsesInputToChatMessages(source.input);
+        const instructions = typeof source.instructions === 'string' ? source.instructions.trim() : '';
+        if (instructions) {
+            messages.unshift({ role: 'system', content: instructions });
+        }
+
+        const chatBody = {
+            model: typeof source.model === 'string' ? source.model : '',
+            messages,
+            stream: false
+        };
+
+        const passthroughKeys = [
+            'frequency_penalty',
+            'presence_penalty',
+            'response_format',
+            'stop',
+            'temperature',
+            'top_p',
+            'tools',
+            'tool_choice',
+            'logprobs',
+            'top_logprobs',
+            'kbs',
+            'is_online',
+            'user',
+            'seed',
+            'n',
+            'modalities',
+            'audio',
+            'reasoning_effort'
+        ];
+        for (const key of passthroughKeys) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+                if (key === 'tools') {
+                    chatBody[key] = normalizeResponsesToolsToChatTools(source[key]);
+                } else if (key === 'tool_choice') {
+                    chatBody[key] = normalizeResponsesToolChoiceToChatToolChoice(source[key]);
+                } else {
+                    chatBody[key] = source[key];
+                }
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(source, 'max_tokens')) {
+            chatBody.max_tokens = source.max_tokens;
+        } else if (source.max_output_tokens != null) {
+            chatBody.max_tokens = source.max_output_tokens;
+        }
+
+        return chatBody;
     }
 
     function ensureResponseMetadata(payload) {
@@ -385,6 +671,360 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
         writeSse(res, 'response.completed', { type: 'response.completed', response });
         writeSse(res, 'done', '[DONE]');
+    }
+
+    function appendChatStreamToolCall(target, toolCall) {
+        if (!toolCall || typeof toolCall !== 'object') return;
+        const index = Number.isFinite(toolCall.index) ? toolCall.index : target.length;
+        if (!target[index]) {
+            target[index] = {
+                id: '',
+                type: 'function',
+                function: { name: '', arguments: '' }
+            };
+        }
+        const current = target[index];
+        if (typeof toolCall.id === 'string' && toolCall.id) current.id = toolCall.id;
+        if (typeof toolCall.type === 'string' && toolCall.type) current.type = toolCall.type;
+        const fn = toolCall.function && typeof toolCall.function === 'object' ? toolCall.function : null;
+        if (fn) {
+            if (typeof fn.name === 'string' && fn.name) current.function.name = fn.name;
+            if (typeof fn.arguments === 'string') current.function.arguments += fn.arguments;
+        }
+    }
+
+    function writeChatCompletionChunkAsResponsesSse(state, chunk) {
+        if (!chunk || typeof chunk !== 'object') return;
+        if (typeof chunk.model === 'string' && chunk.model) {
+            state.model = chunk.model;
+        }
+        const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
+        for (const choice of choices) {
+            const delta = choice && choice.delta && typeof choice.delta === 'object' ? choice.delta : null;
+            if (!delta) continue;
+
+            if (typeof delta.content === 'string' && delta.content) {
+                if (!state.messageItem) {
+                    state.messageItem = {
+                        id: `msg_${crypto.randomBytes(8).toString('hex')}`,
+                        type: 'message',
+                        role: 'assistant',
+                        content: [{ type: 'output_text', text: '' }]
+                    };
+                    state.output.push(state.messageItem);
+                    writeSse(state.res, 'response.output_item.added', {
+                        type: 'response.output_item.added',
+                        output_index: state.output.length - 1,
+                        item: state.messageItem
+                    });
+                }
+                state.messageText += delta.content;
+                state.messageItem.content[0].text = state.messageText;
+                writeSse(state.res, 'response.output_text.delta', {
+                    type: 'response.output_text.delta',
+                    item_id: state.messageItem.id,
+                    output_index: state.output.length - 1,
+                    content_index: 0,
+                    delta: delta.content,
+                    sequence_number: state.nextSeq()
+                });
+            }
+
+            if (Array.isArray(delta.tool_calls)) {
+                for (const toolCall of delta.tool_calls) {
+                    appendChatStreamToolCall(state.toolCalls, toolCall);
+                }
+            }
+        }
+    }
+
+    function stopChatStreamHeartbeat(state) {
+        if (!state || !state.heartbeatTimer) return;
+        clearInterval(state.heartbeatTimer);
+        state.heartbeatTimer = null;
+    }
+
+    function startChatStreamHeartbeat(state) {
+        if (!state || state.heartbeatTimer) return;
+        const timer = setInterval(() => {
+            if (state.finished) {
+                stopChatStreamHeartbeat(state);
+                return;
+            }
+            const target = state.res;
+            if (!target || target.writableEnded || target.destroyed) {
+                stopChatStreamHeartbeat(state);
+                return;
+            }
+            try { target.write(': keepalive\n\n'); } catch (_) {}
+        }, 15000);
+        if (typeof timer.unref === 'function') timer.unref();
+        state.heartbeatTimer = timer;
+    }
+
+    function finishChatStreamResponsesSse(state) {
+        if (state.finished) return;
+        state.finished = true;
+        stopChatStreamHeartbeat(state);
+
+        if (state.messageItem) {
+            const outputIndex = state.output.indexOf(state.messageItem);
+            writeSse(state.res, 'response.output_text.done', {
+                type: 'response.output_text.done',
+                item_id: state.messageItem.id,
+                output_index: outputIndex,
+                content_index: 0,
+                text: state.messageText,
+                sequence_number: state.nextSeq()
+            });
+            writeSse(state.res, 'response.output_item.done', {
+                type: 'response.output_item.done',
+                output_index: outputIndex,
+                item: state.messageItem,
+                sequence_number: state.nextSeq()
+            });
+        }
+
+        for (const toolCall of state.toolCalls) {
+            if (!toolCall) continue;
+            const item = {
+                type: 'function_call',
+                call_id: toolCall.id || `call_${crypto.randomBytes(8).toString('hex')}`,
+                name: toolCall.function && typeof toolCall.function.name === 'string' ? toolCall.function.name : '',
+                arguments: toolCall.function && typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : ''
+            };
+            const outputIndex = state.output.length;
+            state.output.push(item);
+            writeSse(state.res, 'response.output_item.added', {
+                type: 'response.output_item.added',
+                output_index: outputIndex,
+                item
+            });
+            writeSse(state.res, 'response.output_item.done', {
+                type: 'response.output_item.done',
+                output_index: outputIndex,
+                item,
+                sequence_number: state.nextSeq()
+            });
+        }
+
+        const response = ensureResponseMetadata({
+            id: state.responseId,
+            model: state.model,
+            created_at: state.createdAt,
+            status: 'completed',
+            output: state.output
+        });
+        writeSse(state.res, 'response.completed', { type: 'response.completed', response });
+        writeSse(state.res, 'done', '[DONE]');
+        state.res.end();
+    }
+
+    function failResponsesSseRaw(res, message) {
+        if (!res || res.writableEnded || res.destroyed) return;
+        try {
+            writeSse(res, 'response.failed', { type: 'response.failed', error: message || 'upstream stream failed' });
+            writeSse(res, 'done', '[DONE]');
+            res.end();
+        } catch (_) {}
+    }
+
+    function failChatStreamResponsesSse(state, message) {
+        if (!state || state.finished) return;
+        state.finished = true;
+        stopChatStreamHeartbeat(state);
+        failResponsesSseRaw(state.res, message);
+    }
+
+    function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
+        const parsed = new URL(targetUrl);
+        const transport = parsed.protocol === 'https:' ? https : http;
+        const bodyText = options.body ? JSON.stringify(options.body) : '';
+        const headers = {
+            'Accept': 'text/event-stream',
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+        };
+        if (options.body) {
+            headers['Content-Length'] = Buffer.byteLength(bodyText, 'utf-8');
+        }
+        const timeoutMs = Number.isFinite(options.timeoutMs)
+            ? Math.max(1000, Number(options.timeoutMs))
+            : 30000;
+        const res = options.res;
+        const model = typeof options.model === 'string' ? options.model : '';
+
+        return new Promise((resolve) => {
+            let settled = false;
+            const finish = (value) => {
+                if (settled) return;
+                settled = true;
+                resolve(value);
+            };
+            const req = transport.request({
+                protocol: parsed.protocol,
+                hostname: parsed.hostname,
+                port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+                method: options.method || 'POST',
+                path: `${parsed.pathname}${parsed.search}`,
+                headers,
+                agent: parsed.protocol === 'https:' ? HTTPS_KEEP_ALIVE_AGENT : HTTP_KEEP_ALIVE_AGENT
+            }, (upstreamRes) => {
+                const status = upstreamRes.statusCode || 0;
+                const chunks = [];
+                const contentType = String(upstreamRes.headers && upstreamRes.headers['content-type'] || '');
+                let streamState = null;
+
+                const handleAbort = (reason) => {
+                    if (settled) return;
+                    if (streamState) {
+                        failChatStreamResponsesSse(streamState, reason);
+                        finish({ ok: true });
+                        return;
+                    }
+                    if (res.headersSent) {
+                        failResponsesSseRaw(res, reason);
+                        finish({ ok: true });
+                        return;
+                    }
+                    finish({
+                        ok: false,
+                        status,
+                        error: reason,
+                        bodyText: chunks.length ? Buffer.concat(chunks).toString('utf-8') : ''
+                    });
+                };
+                upstreamRes.on('error', (err) => handleAbort(err && err.message ? err.message : 'upstream stream failed'));
+                upstreamRes.on('aborted', () => handleAbort('upstream stream aborted'));
+
+                if (status === 404 || status === 405) {
+                    upstreamRes.on('data', (chunk) => chunk && chunks.push(chunk));
+                    upstreamRes.on('end', () => finish({ retry: true, status, bodyText: chunks.length ? Buffer.concat(chunks).toString('utf-8') : '' }));
+                    return;
+                }
+
+                if (status >= 400) {
+                    upstreamRes.on('data', (chunk) => chunk && chunks.push(chunk));
+                    upstreamRes.on('end', () => finish({ ok: false, status, bodyText: chunks.length ? Buffer.concat(chunks).toString('utf-8') : '' }));
+                    return;
+                }
+
+                res.writeHead(200, {
+                    'Content-Type': 'text/event-stream; charset=utf-8',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'X-Accel-Buffering': 'no'
+                });
+
+                if (!/text\/event-stream/i.test(contentType)) {
+                    upstreamRes.on('data', (chunk) => chunk && chunks.push(chunk));
+                    upstreamRes.on('end', () => {
+                        const text = chunks.length ? Buffer.concat(chunks).toString('utf-8') : '';
+                        const parsedJson = parseJsonOrError(text);
+                        if (parsedJson.error) {
+                            writeSse(res, 'response.failed', { type: 'response.failed', error: `invalid upstream response: ${parsedJson.error}` });
+                            writeSse(res, 'done', '[DONE]');
+                            res.end();
+                            finish({ ok: true });
+                            return;
+                        }
+                        sendResponsesSse(res, buildResponsesPayloadFromChatCompletion(parsedJson.value, model));
+                        res.end();
+                        finish({ ok: true });
+                    });
+                    return;
+                }
+
+                let sequence = 0;
+                const state = {
+                    res,
+                    responseId: `resp_${crypto.randomBytes(10).toString('hex')}`,
+                    model,
+                    createdAt: Math.floor(Date.now() / 1000),
+                    output: [],
+                    messageItem: null,
+                    messageText: '',
+                    toolCalls: [],
+                    finished: false,
+                    nextSeq: () => {
+                        sequence += 1;
+                        return sequence;
+                    }
+                };
+                streamState = state;
+                startChatStreamHeartbeat(state);
+                if (typeof res.on === 'function') {
+                    res.on('close', () => stopChatStreamHeartbeat(state));
+                }
+                writeSse(res, 'response.created', {
+                    type: 'response.created',
+                    response: {
+                        id: state.responseId,
+                        model: state.model,
+                        created_at: state.createdAt
+                    }
+                });
+
+                let buffer = '';
+                const handleEventBlock = (block) => {
+                    const dataLines = String(block || '')
+                        .split(/\r?\n/)
+                        .filter((line) => line.startsWith('data:'))
+                        .map((line) => line.slice(5).trimStart());
+                    if (dataLines.length === 0) return;
+                    const data = dataLines.join('\n').trim();
+                    if (!data) return;
+                    if (data === '[DONE]') {
+                        finishChatStreamResponsesSse(state);
+                        finish({ ok: true });
+                        return;
+                    }
+                    const parsedChunk = parseJsonOrError(data);
+                    if (!parsedChunk.error) {
+                        writeChatCompletionChunkAsResponsesSse(state, parsedChunk.value);
+                    }
+                };
+
+                upstreamRes.on('data', (chunk) => {
+                    buffer += chunk.toString('utf-8');
+                    let boundary = buffer.search(/\r?\n\r?\n/);
+                    while (boundary >= 0) {
+                        const block = buffer.slice(0, boundary);
+                        const match = buffer.slice(boundary).match(/^\r?\n\r?\n/);
+                        buffer = buffer.slice(boundary + (match ? match[0].length : 2));
+                        handleEventBlock(block);
+                        boundary = buffer.search(/\r?\n\r?\n/);
+                    }
+                });
+                upstreamRes.on('end', () => {
+                    if (buffer.trim()) handleEventBlock(buffer);
+                    finishChatStreamResponsesSse(state);
+                    finish({ ok: true });
+                });
+            });
+            req.setTimeout(timeoutMs, () => {
+                try { req.destroy(new Error('timeout')); } catch (_) {}
+                finish({ ok: false, error: 'timeout' });
+            });
+            req.on('error', (err) => finish({ ok: false, error: err && err.message ? err.message : 'request failed' }));
+            if (bodyText) req.write(bodyText);
+            req.end();
+        });
+    }
+
+    async function streamChatCompletionsAsResponsesSseWithFallbackUrls(baseUrl, pathSuffix, options = {}) {
+        const urls = buildUpstreamUrlCandidates(baseUrl, pathSuffix);
+        if (urls.length === 0) {
+            return { ok: false, error: 'failed to build upstream URL' };
+        }
+        let lastResult = null;
+        for (const url of urls) {
+            const result = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(url, options));
+            lastResult = result;
+            if (result && result.retry) continue;
+            return result;
+        }
+        return lastResult || { ok: false, error: 'failed to build upstream URL' };
     }
 
     function canListenPort(host, port) {
@@ -761,15 +1401,12 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         'X-Codexmate-Proxy': '1'
                     };
 
-                    const upstreamResponsesUrl = joinApiUrl(upstream.baseUrl, 'responses');
-                    const upstreamResponses = upstreamResponsesUrl
-                        ? await proxyRequestJson(upstreamResponsesUrl, {
-                            method: 'POST',
-                            headers: commonHeaders,
-                            timeoutMs,
-                            body: { ...payload, stream: false }
-                        })
-                        : { ok: false, error: 'failed to build upstream URL' };
+                    const upstreamResponses = await proxyRequestJsonWithFallbackUrls(upstream.baseUrl, 'responses', {
+                        method: 'POST',
+                        headers: commonHeaders,
+                        timeoutMs,
+                        body: { ...payload, stream: false }
+                    });
 
                     // 优先走上游 /responses（如果支持）。若上游报错且不是“端点不支持”，则直接透传错误。
                     if (upstreamResponses.ok && upstreamResponses.status >= 200 && upstreamResponses.status < 300) {
@@ -806,30 +1443,42 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     }
 
                     if (!upstreamResponses.ok) {
-                        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-                        res.end(JSON.stringify({ error: upstreamResponses.error || 'Upstream request failed' }));
-                        return;
+                        if (!shouldFallbackFromUpstreamResponsesFailure(upstreamResponses.error)) {
+                            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+                            res.end(JSON.stringify({ error: upstreamResponses.error || 'Upstream request failed' }));
+                            return;
+                        }
+                        // Some OpenAI-compatible gateways accept /responses but never complete it.
+                        // Treat that as an unsupported Responses endpoint and try the chat fallback.
                     }
 
                     const model = typeof payload.model === 'string' ? payload.model : '';
-                    const messages = normalizeResponsesInputToChatMessages(payload.input);
-                    const chatBody = {
-                        model,
-                        messages,
-                        stream: false
-                    };
-                    if (payload.max_output_tokens != null && chatBody.max_tokens == null) {
-                        chatBody.max_tokens = payload.max_output_tokens;
-                    }
+                    const chatBody = buildChatCompletionsBodyFromResponsesPayload(payload);
 
-                    const upstreamChatUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
-                    if (!upstreamChatUrl) {
-                        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-                        res.end(JSON.stringify({ error: 'failed to build upstream URL' }));
+                    if (wantsStream) {
+                        const streamingChatBody = { ...chatBody, stream: true };
+                        const streamed = await streamChatCompletionsAsResponsesSseWithFallbackUrls(upstream.baseUrl, 'chat/completions', {
+                            method: 'POST',
+                            headers: commonHeaders,
+                            timeoutMs,
+                            body: streamingChatBody,
+                            res,
+                            model
+                        });
+                        if (!streamed.ok) {
+                            if (!res.headersSent) {
+                                res.writeHead(streamed.status && streamed.status >= 400 ? streamed.status : 502, { 'Content-Type': 'application/json; charset=utf-8' });
+                                res.end(streamed.bodyText || JSON.stringify({ error: streamed.error || 'proxy request failed' }));
+                            } else if (!res.writableEnded) {
+                                writeSse(res, 'response.failed', { type: 'response.failed', error: streamed.error || streamed.bodyText || 'proxy request failed' });
+                                writeSse(res, 'done', '[DONE]');
+                                res.end();
+                            }
+                        }
                         return;
                     }
 
-                    const upstreamChat = await proxyRequestJson(upstreamChatUrl, {
+                    const upstreamChat = await proxyRequestJsonWithFallbackUrls(upstream.baseUrl, 'chat/completions', {
                         method: 'POST',
                         headers: commonHeaders,
                         timeoutMs,
@@ -841,6 +1490,12 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         return;
                     }
 
+                    if (upstreamChat.status >= 400) {
+                        res.writeHead(upstreamChat.status, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(upstreamChat.bodyText || JSON.stringify({ error: 'Upstream error' }));
+                        return;
+                    }
+
                     const chatJson = parseJsonOrError(upstreamChat.bodyText);
                     if (chatJson.error) {
                         res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -848,16 +1503,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         return;
                     }
 
-                    const { text } = extractChatCompletionResult(chatJson.value);
-                    const responsesPayload = ensureResponseMetadata({
-                        model,
-                        output: [{
-                            type: 'message',
-                            role: 'assistant',
-                            content: [{ type: 'output_text', text }]
-                        }],
-                        usage: chatJson.value && chatJson.value.usage ? chatJson.value.usage : undefined
-                    });
+                    const responsesPayload = buildResponsesPayloadFromChatCompletion(chatJson.value, model);
 
                     if (wantsStream) {
                         res.writeHead(200, {
