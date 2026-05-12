@@ -77,23 +77,25 @@
                                     </div>
                                 </section>
 
-                                <section class="settings-card" :aria-label="t('settings.webhook.title')">
-                                    <div class="settings-card-header">
-                                        <div class="settings-card-title">Webhook</div>
-                                        <div class="settings-card-meta">配置变更外发通知</div>
+                                <section class="settings-card settings-card--wide" :aria-label="t('settings.webhook.title')">
+                                    <div class="settings-card-header settings-card-header-row">
+                                        <div>
+                                            <div class="settings-card-title">Webhook</div>
+                                            <div class="settings-card-meta">配置变更外发通知</div>
+                                        </div>
+                                        <span :class="webhookConfig.enabled ? 'status-on' : 'status-off'">{{ webhookConfig.enabled ? '● 已启用' : '○ 已禁用' }}</span>
                                     </div>
                                     <div class="settings-card-body">
-                                        <div class="settings-field-row">
-                                            <span class="settings-field-label">状态</span>
-                                            <span :class="webhookConfig.enabled ? 'status-on' : 'status-off'">{{ webhookConfig.enabled ? '● 已启用' : '○ 已禁用' }}</span>
+                                        <div v-if="webhookConfig.url" class="webhook-readonly-row">
+                                            <span class="webhook-readonly-label">URL</span>
+                                            <code class="webhook-readonly-value">{{ webhookConfig.url }}</code>
                                         </div>
-                                        <div v-if="webhookConfig.url" class="settings-field-row">
-                                            <span class="settings-field-label">URL</span>
-                                            <span class="settings-card-hint" style="word-break:break-all">{{ webhookConfig.url }}</span>
-                                        </div>
-                                        <div class="settings-field-row">
-                                            <span class="settings-field-label">事件</span>
-                                            <span class="settings-card-hint">{{ webhookConfig.events.join('、') || '无' }}</span>
+                                        <div class="webhook-readonly-row">
+                                            <span class="webhook-readonly-label">事件</span>
+                                            <div class="webhook-readonly-tags">
+                                                <span v-for="ev in webhookConfig.events" :key="ev" class="webhook-event-tag">{{ ev }}</span>
+                                                <span v-if="!webhookConfig.events.length" class="settings-card-hint">无</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>

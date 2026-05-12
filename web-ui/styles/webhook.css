@@ -29,3 +29,53 @@
 .status-off {
     color: var(--color-text-muted);
 }
+
+/* 只读展示行 */
+.webhook-readonly-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0;
+}
+
+.webhook-readonly-row + .webhook-readonly-row {
+    border-top: 1px solid var(--color-border-soft);
+}
+
+.webhook-readonly-label {
+    flex: 0 0 56px;
+    font-size: var(--font-size-caption);
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-secondary);
+    padding-top: 2px;
+}
+
+.webhook-readonly-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: var(--font-family-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(247, 240, 233, 0.55);
+    color: var(--color-text-secondary);
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.webhook-readonly-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.webhook-event-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-brand-light);
+    color: var(--color-brand-dark);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-secondary);
+}

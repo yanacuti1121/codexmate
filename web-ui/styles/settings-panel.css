@@ -11,7 +11,7 @@
 .settings-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 12px;
+    gap: 16px;
 }
 
 .settings-card {
@@ -70,7 +70,7 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 12px;
+    gap: 16px;
 }
 
 .settings-card-title {
