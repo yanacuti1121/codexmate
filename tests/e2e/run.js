@@ -32,7 +32,6 @@ const testWebUiSessionBrowser = require('./test-web-ui-session-browser');
 const testWebUiUsageInteractions = require('./test-web-ui-usage-interactions');
 const testInstallStatus = require('./test-install-status');
 const testWebhook = require('./test-webhook');
-const testTerminal = require('./test-terminal');
 
 async function main() {
     const realHome = os.homedir();
@@ -163,7 +162,6 @@ async function main() {
         await testTaskOrchestration(ctx);
         await testInstallStatus(ctx);
         await testWebhook(ctx);
-        await testTerminal(ctx);
         await testWebUiAssets(ctx);
         await testWebUiSessionBrowser(ctx);
         await testWebUiUsageInteractions(ctx);

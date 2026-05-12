@@ -1,0 +1,22 @@
+/* webhook 行 — 对齐暖色设计系统 */
+.webhook-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.webhook-events {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0;
+}
+
+.webhook-event-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-caption);
+    color: var(--color-text-secondary);
+}

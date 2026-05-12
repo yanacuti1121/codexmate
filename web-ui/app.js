@@ -404,15 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 webhookSaving: false,
                 webhookTestResult: null,
                 webhookTesting: false,
-                terminalPanelOpen: false,
-                terminalLines: [],
-                terminalPaused: false,
-                terminalSearchQuery: '',
-                terminalCommandInput: 'codexmate codex hello',
-                terminalRunning: false,
-                terminalSocket: null,
-                terminalPendingBuffer: [],
-                terminalMaxLines: 2000
             };
         },
 

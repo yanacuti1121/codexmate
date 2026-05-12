@@ -90,13 +90,6 @@ const {
     saveWebhookConfig,
     notifyWebhook
 } = require('./lib/cli-webhook');
-const {
-    performHandshake: performWsHandshake,
-    sendText: wsSendText,
-    sendJson: wsSendJson,
-    sendClose: wsSendClose,
-    makeFrameReader: makeWsFrameReader
-} = require('./lib/cli-ws-server');
 const { buildConfigHealthReport: buildConfigHealthReportCore } = require('./cli/config-health');
 const { buildDoctorReport, buildDoctorLegacyPayload, renderDoctorMarkdown } = require('./cli/doctor-core');
 const {
@@ -9818,89 +9811,6 @@ const PUBLIC_WEB_UI_STATIC_ASSETS = new Set([
     'session-helpers.mjs'
 ]);
 
-const TERMINAL_WS_ALLOWED_COMMAND_BASENAMES = new Set([
-    'codexmate', 'codexmate.cmd', 'codexmate.exe',
-    'node', 'node.exe',
-    'echo', 'echo.exe'
-]);
-
-function isTerminalWsCommandAllowed(cmd) {
-    if (!cmd || typeof cmd !== 'string') return false;
-    const trimmed = cmd.trim();
-    if (!trimmed) return false;
-    const base = path.basename(trimmed).toLowerCase();
-    return TERMINAL_WS_ALLOWED_COMMAND_BASENAMES.has(base);
-}
-
-function attachTerminalSession(socket) {
-    let child = null;
-    let closed = false;
-    const close = () => {
-        if (closed) return;
-        closed = true;
-        if (child && !child.killed) {
-            try { child.kill(); } catch (_) {}
-        }
-        try { wsSendClose(socket, 1000); } catch (_) {}
-    };
-    socket.on('error', close);
-    socket.on('end', close);
-    socket.on('close', close);
-
-    const reader = makeWsFrameReader((message) => {
-        if (closed) return;
-        let parsed;
-        try { parsed = JSON.parse(message); } catch (_) { return; }
-        if (!parsed || typeof parsed !== 'object') return;
-        if (parsed.type === 'run') {
-            if (child) {
-                wsSendJson(socket, { type: 'error', message: 'busy' });
-                return;
-            }
-            const cmd = String(parsed.cmd || '').trim();
-            const argv = Array.isArray(parsed.args) ? parsed.args.map(String) : [];
-            if (!isTerminalWsCommandAllowed(cmd)) {
-                wsSendJson(socket, { type: 'error', message: 'command not allowed' });
-                wsSendClose(socket, 1008);
-                return;
-            }
-            try {
-                child = spawn(cmd, argv, {
-                    cwd: process.cwd(),
-                    env: process.env,
-                    windowsHide: true,
-                    shell: false
-                });
-            } catch (e) {
-                wsSendJson(socket, { type: 'error', message: e && e.message ? e.message : String(e) });
-                wsSendClose(socket, 1011);
-                return;
-            }
-            wsSendJson(socket, { type: 'started', pid: child.pid });
-            child.stdout.on('data', (chunk) => {
-                wsSendJson(socket, { type: 'data', stream: 'stdout', text: chunk.toString('utf-8') });
-            });
-            child.stderr.on('data', (chunk) => {
-                wsSendJson(socket, { type: 'data', stream: 'stderr', text: chunk.toString('utf-8') });
-            });
-            child.on('error', (err) => {
-                wsSendJson(socket, { type: 'error', message: err && err.message ? err.message : String(err) });
-            });
-            child.on('exit', (code, signal) => {
-                wsSendJson(socket, { type: 'exit', code: code, signal: signal || '' });
-                wsSendClose(socket, 1000);
-            });
-        } else if (parsed.type === 'kill') {
-            if (child && !child.killed) {
-                try { child.kill(); } catch (_) {}
-            }
-        } else if (parsed.type === 'ping') {
-            wsSendJson(socket, { type: 'pong' });
-        }
-    }, close);
-    socket.on('data', reader);
-}
-
 function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser }) {
     const connections = new Set();
     const probeWebUiReadiness = (callback) => {
@@ -10888,36 +10798,6 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
     server.on('connection', (socket) => {
         connections.add(socket);
         socket.on('close', () => connections.delete(socket));
-    });
-
-    server.on('upgrade', (req, socket, head) => {
-        const requestPath = (req.url || '/').split('?')[0];
-        if (requestPath !== '/ws/terminal') {
-            try { socket.destroy(); } catch (_) {}
-            return;
-        }
-        const remoteAddr = socket && socket.remoteAddress ? socket.remoteAddress : '';
-        const isLoopback = !remoteAddr
-            || remoteAddr === '127.0.0.1'
-            || remoteAddr === '::1'
-            || remoteAddr === '::ffff:127.0.0.1';
-        if (!isLoopback) {
-            const expected = typeof process.env.CODEXMATE_HTTP_TOKEN === 'string'
-                ? process.env.CODEXMATE_HTTP_TOKEN.trim()
-                : '';
-            const headers = req && req.headers ? req.headers : {};
-            const auth = typeof headers.authorization === 'string' ? headers.authorization.trim() : '';
-            const match = auth ? auth.match(/^bearer\s+(.+)$/i) : null;
-            const token = match && match[1]
-                ? match[1].trim()
-                : (typeof headers['x-codexmate-token'] === 'string' ? String(headers['x-codexmate-token']).trim() : '');
-            if (!expected || token !== expected) {
-                try { socket.destroy(); } catch (_) {}
-                return;
-            }
-        }
-        if (!performWsHandshake(req, socket)) return;
-        attachTerminalSession(socket);
     });
 
     server.once('error', (err) => {
