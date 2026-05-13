@@ -1,11 +1,11 @@
-                <!-- 回收站面板 — 极简·本质 -->
+﻿                <!-- 回收站面板 — 极简·本质 -->
                 <div
                     v-show="mainTab === 'trash'"
                     class="mode-content"
                     id="panel-trash"
                     role="tabpanel"
                     aria-labelledby="tab-trash">
-                    <div class="trash-panel-shell">
+                    <div v-if="!loading" class="trash-panel-shell">
                         <!-- 空态 — 宁静的留白 -->
                         <div v-if="getSessionTrashViewState() === 'empty'" class="trash-empty-state">
                             <div class="trash-empty-icon">🗑</div>

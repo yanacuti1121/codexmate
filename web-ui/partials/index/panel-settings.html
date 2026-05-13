@@ -1,4 +1,4 @@
-                <!-- 设置面板 -->
+﻿                <!-- 设置面板 -->
                 <div
                     v-show="mainTab === 'settings'"
                     class="mode-content"
@@ -37,7 +37,7 @@
                             <div class="settings-grid">
                                 <section class="settings-card settings-card--wide" :aria-label="t('settings.sharePrefix.title')">
                                     <div class="settings-card-header">
-                                        <div class="settings-card-title"><span class='settings-card-title-icon'>⚙</span>{{ t('settings.sharePrefix.title') }}</div>
+                                        <div class="settings-card-title">{{ t('settings.sharePrefix.title') }}</div>
                                         <div class="settings-card-meta">{{ t('settings.sharePrefix.meta') }}</div>
                                     </div>
                                     <div class="settings-card-body">
@@ -60,7 +60,7 @@
 
                                 <section class="settings-card settings-card--wide" :aria-label="t('settings.templateConfirm.title')">
                                     <div class="settings-card-header">
-                                        <div class="settings-card-title"><span class='settings-card-title-icon'>✓</span>{{ t('settings.templateConfirm.title') }}</div>
+                                        <div class="settings-card-title">{{ t('settings.templateConfirm.title') }}</div>
                                         <div class="settings-card-meta">{{ t('settings.templateConfirm.meta') }}</div>
                                     </div>
                                     <div class="settings-card-body">
@@ -80,7 +80,7 @@
                                 <section class="settings-card settings-card--wide" :aria-label="t('settings.webhook.title')">
                                     <div class="settings-card-header settings-card-header-row">
                                         <div>
-                                            <div class="settings-card-title"><span class='settings-card-title-icon'>⚡</span>Webhook</div>
+                                            <div class="settings-card-title">Webhook</div>
                                             <div class="settings-card-meta">配置变更外发通知</div>
                                         </div>
                                         <span :class="webhookConfig.enabled ? 'status-on' : 'status-off'">{{ webhookConfig.enabled ? '● 已启用' : '○ 已禁用' }}</span>
@@ -113,7 +113,7 @@
                                 <section class="settings-card settings-card--wide" :aria-label="t('settings.backup.title')">
                                     <div class="settings-card-header settings-card-header-row">
                                         <div>
-                                            <div class="settings-card-title"><span class='settings-card-title-icon'>📦</span>{{ t('settings.backup.title') }}</div>
+                                            <div class="settings-card-title">{{ t('settings.backup.title') }}</div>
                                             <div class="settings-card-meta">{{ t('settings.backup.meta') }}</div>
                                         </div>
                                     </div>
@@ -150,7 +150,7 @@
                                 <section class="settings-card settings-card--wide" :aria-label="t('settings.trashConfig.title')">
                                     <div class="settings-card-header settings-card-header-row">
                                         <div>
-                                            <div class="settings-card-title"><span class='settings-card-title-icon'>🗑</span>{{ t('settings.trashConfig.title') }}</div>
+                                            <div class="settings-card-title">{{ t('settings.trashConfig.title') }}</div>
                                             <div class="settings-card-meta">{{ t('settings.trashConfig.meta') }}</div>
                                         </div>
                                     </div>
@@ -172,7 +172,7 @@
 
                                 <section class="settings-card settings-card--wide settings-card--danger" :aria-label="t('settings.reset.title')">
                                     <div class="settings-card-header">
-                                        <div class="settings-card-title"><span class='settings-card-title-icon'>↺</span>{{ t('settings.reset.title') }}</div>
+                                        <div class="settings-card-title">{{ t('settings.reset.title') }}</div>
                                         <div class="settings-card-meta">{{ t('settings.reset.meta') }}</div>
                                     </div>
                                     <div class="settings-card-body">
