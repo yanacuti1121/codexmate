@@ -83,6 +83,13 @@ const {
     dispatchAutomationNotifiers,
     formatTaskRunNotificationPayload
 } = require('./lib/automation');
+const {
+    ALLOWED_EVENTS: WEBHOOK_ALLOWED_EVENTS,
+    defaultConfigPath: defaultWebhookConfigPath,
+    loadWebhookConfig,
+    saveWebhookConfig,
+    notifyWebhook
+} = require('./lib/cli-webhook');
 const { buildConfigHealthReport: buildConfigHealthReportCore } = require('./cli/config-health');
 const { buildDoctorReport, buildDoctorLegacyPayload, renderDoctorMarkdown } = require('./cli/doctor-core');
 const {
@@ -10174,6 +10181,10 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'apply-claude-md-file':
                             result = applyClaudeMdFile(params || {});
+                            if (result && !result.error) {
+                                const mdTarget = (params && params.targetPath) ? String(params.targetPath) : 'CLAUDE.md';
+                                notifyWebhook('claude-md-edit', 'CLAUDE.md modified: ' + mdTarget, { targetPath: mdTarget }).catch(function () {});
+                            }
                             break;
                         case 'preview-agents-diff':
                             result = buildAgentsDiff(params || {});
@@ -10249,7 +10260,32 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'apply-claude-config':
                             result = applyToClaudeSettings(params.config);
+                            if (result && !result.error) {
+                                const cfgName = (params && params.config && typeof params.config.name === 'string') ? params.config.name : '';
+                                const cfgFrom = (params && typeof params.previousName === 'string') ? params.previousName : '';
+                                const summary = cfgFrom
+                                    ? ('Provider switched: ' + cfgFrom + ' -> ' + cfgName)
+                                    : ('Provider applied: ' + cfgName);
+                                notifyWebhook('provider-switch', summary, { name: cfgName, previousName: cfgFrom }).catch(function () {});
+                            }
                             break;
+                        case 'get-webhook-config':
+                            result = loadWebhookConfig();
+                            break;
+                        case 'set-webhook-config':
+                            result = saveWebhookConfig(params && params.config ? params.config : {});
+                            break;
+                        case 'test-webhook': {
+                            const overrideCfg = params && params.config ? params.config : null;
+                            const probe = await notifyWebhook(
+                                'provider-switch',
+                                'codexmate webhook test ping',
+                                { test: true },
+                                overrideCfg ? { config: overrideCfg } : {}
+                            );
+                            result = probe;
+                            break;
+                        }
                         case 'export-claude-share':
                             result = buildClaudeSharePayload(params && params.config ? params.config : {});
                             break;

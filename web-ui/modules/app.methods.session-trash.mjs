@@ -221,12 +221,11 @@ export function createSessionTrashMethods(options = {}) {
         async switchSettingsTab(tab, options = {}) {
             const nextTab = this.normalizeSettingsTab(tab);
             this.settingsTab = nextTab;
+            if (typeof this.saveNavState === 'function') {
+                this.saveNavState();
+            }
             if (nextTab !== 'data') {
                 return;
-            }
-            const forceRefresh = options.forceRefresh === true;
-            if (forceRefresh || !this.sessionTrashLoadedOnce) {
-                await this.loadSessionTrash({ forceRefresh });
             }
         },
 

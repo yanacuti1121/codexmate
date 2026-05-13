@@ -1,4 +1,4 @@
-export function createNavigationMethods(options = {}) {
+﻿export function createNavigationMethods(options = {}) {
     const {
         configModeSet,
         switchMainTabHelper,
@@ -14,7 +14,8 @@ export function createNavigationMethods(options = {}) {
         'market',
         'plugins',
         'docs',
-        'settings'
+        'settings',
+        'trash'
     ]);
     const loadDoctorOverview = async (vm, options = {}) => {
         if (!vm || typeof vm !== 'object') return false;
@@ -67,7 +68,9 @@ export function createNavigationMethods(options = {}) {
             : vm.configMode;
         const mainTab = typeof mainTabSource === 'string' ? mainTabSource.trim().toLowerCase() : '';
         const configMode = typeof configModeSource === 'string' ? configModeSource.trim().toLowerCase() : '';
+        const settingsTab = typeof vm.settingsTab === 'string' ? vm.settingsTab.trim().toLowerCase() : 'general';
         const snapshot = {
+            settingsTab: settingsTab === 'data' ? 'data' : 'general',
             mainTab: MAIN_TAB_SET.has(mainTab) ? mainTab : 'dashboard',
             configMode: configModeSet && configModeSet.has(configMode) ? configMode : 'codex'
         };
@@ -77,6 +80,9 @@ export function createNavigationMethods(options = {}) {
     };
 
     return {
+        saveNavState() {
+            persistNavState(this);
+        },
         restoreNavStateFromStorage() {
             if (this.__navStateRestoring) return false;
             const restored = readNavState();
@@ -89,13 +95,20 @@ export function createNavigationMethods(options = {}) {
                 : '';
             const shouldUpdateConfigMode = !!(nextConfigMode && configModeSet && configModeSet.has(nextConfigMode));
             const shouldUpdateMainTab = !!(nextMainTab && MAIN_TAB_SET.has(nextMainTab) && nextMainTab !== this.mainTab);
-            if (!shouldUpdateConfigMode && !shouldUpdateMainTab) {
+            const nextSettingsTab = restored && typeof restored.settingsTab === 'string'
+                ? restored.settingsTab.trim().toLowerCase()
+                : '';
+            const shouldUpdateSettingsTab = !!(nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data') && nextSettingsTab !== this.settingsTab);
+            if (!shouldUpdateConfigMode && !shouldUpdateMainTab && !shouldUpdateSettingsTab) {
                 return false;
             }
             this.__navStateRestoring = true;
             try {
                 if (shouldUpdateConfigMode) {
                     this.configMode = nextConfigMode;
+                }
+                if (shouldUpdateSettingsTab) {
+                    this.settingsTab = nextSettingsTab;
                 }
                 if (shouldUpdateMainTab) {
                     this.switchMainTab(nextMainTab);
@@ -411,6 +424,11 @@ export function createNavigationMethods(options = {}) {
                 switchState.ticket += 1;
                 switchState.pendingTarget = '';
                 if (targetTab === 'dashboard' && !this.__doctorLoadedOnce) {
+                if (targetTab === 'trash' && !this.sessionTrashLoadedOnce) {
+                    if (typeof this.loadSessionTrash === 'function') {
+                        void this.loadSessionTrash({ forceRefresh: false });
+                    }
+                }
                     void loadDoctorOverview(this);
                 }
                 if (

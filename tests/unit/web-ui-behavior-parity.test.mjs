@@ -1,4 +1,4 @@
-import assert from 'assert';
+﻿import assert from 'assert';
 import {
     captureBehaviorParityBaselineAppOptions,
     captureCurrentBundledAppOptions,
@@ -331,6 +331,11 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'openclawPendingAuthProfileUpdates',
         'sessionTrashEnabled',
         'sessionTrashRetentionDays',
+        'webhookConfig',
+        'webhookEventOptions',
+        'webhookSaving',
+        'webhookTestResult',
+        'webhookTesting',
         'shareCommandPrefix',
         'sessionsUsageLoadedLimit',
         'taskOrchestrationTabEnabled',
@@ -359,6 +364,11 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'taskOrchestrationTabEnabled',
         'taskOrchestration',
         '_taskOrchestrationPollTimer',
+        'webhookConfig',
+        'webhookEventOptions',
+        'webhookSaving',
+        'webhookTestResult',
+        'webhookTesting',
         'openCloneClaudeConfigModal',
         'openCloneProviderModal'
     ];
@@ -446,6 +456,10 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'normalizeLang',
         'setLang',
         't',
+        'loadWebhookSettings',
+        'saveWebhookSettings',
+        'testWebhook',
+        'toggleWebhookEvent',
         'restoreNavStateFromStorage',
         'cancelScheduledSessionListViewportFill',
         'canSubmitProvider',
@@ -509,7 +523,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'syncTaskOrchestrationPolling',
         'resetTaskOrchestrationDraft',
         'appendTaskWorkflowId',
-        'openClaudeMdEditor'
+        'openClaudeMdEditor',
+        'saveNavState'
     ];
     allowedExtraCurrentMethodKeys.push(
         'hasActiveSessionFilters',

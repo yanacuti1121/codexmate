@@ -398,13 +398,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastLoadedAt: '',
                     lastError: ''
                 },
-                _taskOrchestrationPollTimer: 0
+                _taskOrchestrationPollTimer: 0,
+                webhookConfig: { enabled: false, url: '', events: ['provider-switch', 'claude-md-edit'] },
+                webhookEventOptions: ['provider-switch', 'claude-md-edit'],
+                webhookSaving: false,
+                webhookTestResult: null,
+                webhookTesting: false,
             };
         },
 
         mounted() {
             if (typeof this.initI18n === 'function') {
                 this.initI18n();
+            }
+            if (typeof this.loadWebhookSettings === 'function') {
+                this.loadWebhookSettings();
             }
             if (typeof this.t === 'function') {
                 this.confirmDialogConfirmText = this.t('confirm.ok');
@@ -414,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             {
                 const NAV_STATE_STORAGE_KEY = 'codexmateNavState.v1';
-                const mainTabSet = new Set(['dashboard', 'config', 'sessions', 'usage', 'orchestration', 'market', 'plugins', 'docs', 'settings']);
+                const mainTabSet = new Set(['dashboard', 'config', 'sessions', 'usage', 'orchestration', 'market', 'plugins', 'docs', 'settings', 'trash']);
                 let restored = null;
                 try {
                     const raw = localStorage.getItem(NAV_STATE_STORAGE_KEY) || '';
@@ -428,6 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const nextConfigMode = restored && typeof restored.configMode === 'string'
                     ? restored.configMode.trim().toLowerCase()
                     : '';
+                const nextSettingsTab = restored && typeof restored.settingsTab === 'string'
+                    ? restored.settingsTab.trim().toLowerCase()
+                    : '';
                 let urlMainTab = '';
                 try {
                     const url = new URL(window.location.href);
@@ -440,6 +451,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resolvedMainTab = urlMainTab && mainTabSet.has(urlMainTab)
                     ? urlMainTab
                     : nextMainTab;
+                if (nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data')) {
+                    this.settingsTab = nextSettingsTab;
+                }
                 if (nextConfigMode && typeof this.switchConfigMode === 'function') {
                     this.__navStateRestoring = true;
                     try {
