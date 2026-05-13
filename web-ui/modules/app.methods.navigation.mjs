@@ -1,4 +1,4 @@
-export function createNavigationMethods(options = {}) {
+﻿export function createNavigationMethods(options = {}) {
     const {
         configModeSet,
         switchMainTabHelper,
@@ -171,9 +171,6 @@ export function createNavigationMethods(options = {}) {
         ensureImmediateNavDomState() {
             if (typeof document === 'undefined') {
                 return {
-        saveNavState() {
-            persistNavState(this);
-        },
                     navNodes: [],
                     sessionPanelEl: null
                 };
@@ -500,18 +497,12 @@ export function createNavigationMethods(options = {}) {
             if (typeof requestIdleCallback === 'function') {
                 const id = requestIdleCallback(callback, { timeout });
                 return {
-        saveNavState() {
-            persistNavState(this);
-        },
                     type: 'idle',
                     id
                 };
             }
             const id = setTimeout(callback, timeout);
             return {
-        saveNavState() {
-            persistNavState(this);
-        },
                 type: 'timeout',
                 id
             };

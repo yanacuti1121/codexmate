@@ -1,4 +1,4 @@
-import assert from 'assert';
+﻿import assert from 'assert';
 import {
     captureBehaviorParityBaselineAppOptions,
     captureCurrentBundledAppOptions,
@@ -523,7 +523,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'syncTaskOrchestrationPolling',
         'resetTaskOrchestrationDraft',
         'appendTaskWorkflowId',
-        'openClaudeMdEditor'
+        'openClaudeMdEditor',
+        'saveNavState'
     ];
     allowedExtraCurrentMethodKeys.push(
         'hasActiveSessionFilters',
