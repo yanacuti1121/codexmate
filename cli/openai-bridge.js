@@ -1,11 +1,16 @@
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { StringDecoder } = require('string_decoder');
 const { readJsonFile, writeJsonAtomic } = require('../lib/cli-file-utils');
 const { isValidHttpUrl, normalizeBaseUrl, joinApiUrl } = require('../lib/cli-utils');
 
 const DEFAULT_BRIDGE_TOKEN = 'codexmate';
 const SETTINGS_VERSION = 1;
+// 推理模型 reasoning 阶段可能长时间无字节输出，需匹配 codex 的 stream_idle_timeout_ms=300000。
+const STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+const RESPONSES_UNSUPPORTED_TTL_MS = 30 * 60 * 1000;
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -748,6 +753,30 @@ function shouldFallbackFromUpstreamResponses(status, bodyText) {
     return false;
 }
 
+// 仅识别"端点级别不支持"——可缓存，与 per-request 的 tool 格式错误区分。
+function isResponsesEndpointUnsupported(status, bodyText) {
+    if (!Number.isFinite(status)) return false;
+    if (status === 404 || status === 405 || status === 501) return true;
+    const text = String(bodyText || '');
+    if (!text) return false;
+    if (/not implemented/i.test(text)) return true;
+    if (/convert_request_failed/i.test(text)) return true;
+    if (/unknown (endpoint|route)/i.test(text)) return true;
+    if (/unsupported.*\/?v1\/responses/i.test(text)) return true;
+    if (/does not support.*responses/i.test(text)) return true;
+    try {
+        const parsed = JSON.parse(text);
+        const code = parsed && parsed.error && typeof parsed.error.code === 'string' ? parsed.error.code : '';
+        const msg = parsed && parsed.error && typeof parsed.error.message === 'string' ? parsed.error.message : '';
+        if (code === 'convert_request_failed') return true;
+        if (/not implemented/i.test(msg)) return true;
+        if (/unknown (endpoint|route)/i.test(msg)) return true;
+        if (/unsupported.*\/?v1\/responses/i.test(msg)) return true;
+        if (/does not support.*responses/i.test(msg)) return true;
+    } catch (_) {}
+    return false;
+}
+
 function isLoopbackAddress(address) {
     if (!address) return false;
     const value = String(address);
@@ -989,7 +1018,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
     }
     const timeoutMs = Number.isFinite(options.timeoutMs)
         ? Math.max(1000, Number(options.timeoutMs))
-        : 30000;
+        : STREAM_IDLE_TIMEOUT_MS;
     const res = options.res;
     const fallbackModel = typeof options.model === 'string' ? options.model : '';
 
@@ -1108,6 +1137,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
             });
 
             let buffer = '';
+            const utf8Decoder = new StringDecoder('utf8');
             const handleEventBlock = (block) => {
                 const dataLines = String(block || '')
                     .split(/\r?\n/)
@@ -1135,7 +1165,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
 
             upstreamRes.on('data', (chunk) => {
                 if (!chunk) return;
-                buffer += chunk.toString('utf-8');
+                buffer += utf8Decoder.write(chunk);
                 let boundary = buffer.search(/\r?\n\r?\n/);
                 while (boundary >= 0) {
                     const block = buffer.slice(0, boundary);
@@ -1146,6 +1176,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
                 }
             });
             upstreamRes.on('end', () => {
+                buffer += utf8Decoder.end();
                 if (buffer.trim()) handleEventBlock(buffer);
                 if (!state.finished && !state.sawDone && !state.sawFinishReason) {
                     failChatStreamResponsesSse(state, 'upstream stream ended before [DONE]');
@@ -1192,7 +1223,7 @@ async function proxyRequestJson(targetUrl, options = {}) {
 
     const timeoutMs = Number.isFinite(options.timeoutMs)
         ? Math.max(1000, Number(options.timeoutMs))
-        : 30000;
+        : REQUEST_TIMEOUT_MS;
     return new Promise((resolve) => {
         let settled = false;
         const finish = (value) => {
@@ -1263,6 +1294,27 @@ function createOpenaiBridgeHttpHandler(options = {}) {
     if (!settingsFile) {
         throw new Error('createOpenaiBridgeHttpHandler 缺少 settingsFile');
     }
+
+    // 端点不支持的缓存（per-baseUrl, TTL 30 分钟）：避免每次非流式请求重复探测 /v1/responses。
+    const unsupportedResponses = new Map();
+    const isResponsesKnownUnsupported = (baseUrl) => {
+        if (!baseUrl) return false;
+        const entry = unsupportedResponses.get(baseUrl);
+        if (!entry) return false;
+        if (entry.expiresAt <= Date.now()) {
+            unsupportedResponses.delete(baseUrl);
+            return false;
+        }
+        return true;
+    };
+    const markResponsesUnsupported = (baseUrl) => {
+        if (!baseUrl) return;
+        unsupportedResponses.set(baseUrl, { expiresAt: Date.now() + RESPONSES_UNSUPPORTED_TTL_MS });
+    };
+    const clearResponsesUnsupported = (baseUrl) => {
+        if (!baseUrl) return;
+        unsupportedResponses.delete(baseUrl);
+    };
 
     const matchPath = (requestPath) => {
         const normalized = String(requestPath || '');
@@ -1443,20 +1495,25 @@ function createOpenaiBridgeHttpHandler(options = {}) {
 
             // Maxx-style behavior: prefer upstream /responses if supported.
             // Fallback to /chat/completions conversion when upstream does not implement /responses (404/405).
+            // 已知不支持的上游：直接跳过探测，节省一次 round-trip。
+            const skipResponsesProbe = isResponsesKnownUnsupported(upstream.baseUrl);
             const upstreamResponsesUrl = joinApiUrl(upstream.baseUrl, 'responses');
-            const upstreamResponsesResult = await retryTransientRequest(() => proxyRequestJson(upstreamResponsesUrl, {
-                method: 'POST',
-                body: toUpstreamNonStreamingResponsesPayload(responsesRequest),
-                headers: {
-                    ...(authHeader ? { Authorization: authHeader } : {}),
-                    ...upstreamHeaders
-                },
-                maxBytes: maxUpstreamBytes,
-                httpAgent,
-                httpsAgent
-            }));
+            const upstreamResponsesResult = skipResponsesProbe
+                ? { ok: true, status: 404, bodyText: '' }
+                : await retryTransientRequest(() => proxyRequestJson(upstreamResponsesUrl, {
+                    method: 'POST',
+                    body: toUpstreamNonStreamingResponsesPayload(responsesRequest),
+                    headers: {
+                        ...(authHeader ? { Authorization: authHeader } : {}),
+                        ...upstreamHeaders
+                    },
+                    maxBytes: maxUpstreamBytes,
+                    httpAgent,
+                    httpsAgent
+                }));
 
             if (upstreamResponsesResult.ok && upstreamResponsesResult.status >= 200 && upstreamResponsesResult.status < 300) {
+                clearResponsesUnsupported(upstream.baseUrl);
                 const upstreamJson = parseJsonOrError(upstreamResponsesResult.bodyText);
                 if (upstreamJson.error) {
                     res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -1487,6 +1544,9 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     res.writeHead(upstreamResponsesResult.status, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(upstreamResponsesResult.bodyText || JSON.stringify({ error: 'Upstream error' }));
                     return;
+                }
+                if (!skipResponsesProbe && isResponsesEndpointUnsupported(upstreamResponsesResult.status, upstreamResponsesResult.bodyText)) {
+                    markResponsesUnsupported(upstream.baseUrl);
                 }
                 // fallthrough to chat/completions conversion
             }
@@ -1572,5 +1632,22 @@ module.exports = {
     readOpenaiBridgeSettings,
     upsertOpenaiBridgeProvider,
     resolveOpenaiBridgeUpstream,
-    createOpenaiBridgeHttpHandler
+    createOpenaiBridgeHttpHandler,
+    // exported for local-bridge reuse
+    convertResponsesRequestToChatCompletions,
+    streamChatCompletionsAsResponsesSse,
+    proxyRequestJson,
+    ensureResponseMetadata,
+    sendResponsesSse,
+    extractAuthorizationToken,
+    readRequestBody,
+    parseJsonOrError,
+    extractChatCompletionResult,
+    buildResponsesPayloadFromChatResult,
+    retryTransientRequest,
+    normalizeOpenaiUpstreamBaseUrl,
+    extractResponsesOutputText,
+    shouldFallbackFromUpstreamResponses,
+    isTransientNetworkError,
+    isLoopbackAddress
 };

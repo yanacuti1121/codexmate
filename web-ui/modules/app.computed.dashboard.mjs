@@ -35,6 +35,7 @@ export function createDashboardComputed() {
             return (name) => {
                 const target = String(name || '').trim();
                 if (!target) return '';
+                if (target === 'local') return '';
                 const dict = this.currentModels && typeof this.currentModels === 'object' ? this.currentModels : {};
                 const fromDict = typeof dict[target] === 'string' ? dict[target].trim() : '';
                 if (fromDict) return fromDict;
@@ -82,12 +83,20 @@ export function createDashboardComputed() {
             return current;
         },
         displayProvidersList() {
-            const list = Array.isArray(this.providersList) ? this.providersList : [];
+            const list = Array.isArray(this.providersList) ? [...this.providersList] : [];
+            list.sort((a, b) => {
+                if (a.name === 'local') return -1;
+                if (b.name === 'local') return 1;
+                return 0;
+            });
             return list;
         },
 
         displayProviderUrl() {
-            return (provider) => getProviderDisplayUrl(provider);
+            return (provider) => {
+                if (provider && provider.name === 'local') return '';
+                return getProviderDisplayUrl(provider);
+            };
         },
 
         isTransformProvider() {
