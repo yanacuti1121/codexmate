@@ -236,10 +236,10 @@
                                     <span>{{ provider.name }}</span>
                                     <span v-if="provider.readOnly" class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
                                 </div>
-                                <div class="card-subtitle card-subtitle-model">
+                                <div v-if="provider.name !== 'local'" class="card-subtitle card-subtitle-model">
                                     {{ activeProviderModel(provider.name) || t('config.model.unset') }}
                                 </div>
-                                <div class="card-subtitle card-subtitle-url">
+                                <div v-if="provider.name !== 'local'" class="card-subtitle card-subtitle-url">
                                     {{ displayProviderUrl(provider) || t('config.url.unset') }}
                                 </div>
                             </div>
@@ -319,5 +319,19 @@
                         </div>
                     </div>
                 </div>
+
+                <div v-if="displayCurrentProvider === 'local'" class="local-bridge-panel" style="margin-top:12px;padding:12px;background:var(--card-bg);border-radius:8px;border:1px solid var(--border-color)">
+                    <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">轮询池 — 勾选参与负载均衡的提供商</div>
+                    <div v-if="localBridgeCandidateProviders().length === 0" style="font-size:12px;color:var(--text-muted)">暂无可用上游 provider，请先添加直连 provider</div>
+                    <label v-for="cp in localBridgeCandidateProviders()" :key="cp.name"
+                        style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px">
+                        <input type="checkbox"
+                            :checked="!isLocalBridgeExcluded(cp.name)"
+                            @change="toggleLocalBridgeExcluded(cp.name)"
+                            style="accent-color:var(--accent-color)" />
+                        <span>{{ cp.name }}</span>
+                    </label>
+                </div>
+
                 </template>
             </div>

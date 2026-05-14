@@ -344,7 +344,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'displayProviderUrl',
         'isTransformProvider',
         'openCloneClaudeConfigModal',
-        'openCloneProviderModal'
+        'openCloneProviderModal',
+        'localBridgeExcluded'
     ] : [
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
@@ -370,7 +371,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'webhookTestResult',
         'webhookTesting',
         'openCloneClaudeConfigModal',
-        'openCloneProviderModal'
+        'openCloneProviderModal',
+        'localBridgeExcluded'
     ];
     const allowedMissingCurrentKeys = [
         'localProxyRunning',
@@ -524,7 +526,11 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'resetTaskOrchestrationDraft',
         'appendTaskWorkflowId',
         'openClaudeMdEditor',
-        'saveNavState'
+        'saveNavState',
+        'isLocalBridgeExcluded',
+        'loadLocalBridgeExcluded',
+        'toggleLocalBridgeExcluded',
+        'localBridgeCandidateProviders'
     ];
     allowedExtraCurrentMethodKeys.push(
         'hasActiveSessionFilters',

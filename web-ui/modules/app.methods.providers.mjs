@@ -1,5 +1,6 @@
 const PROVIDER_NAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
 const RESERVED_PROXY_PROVIDER_NAME = 'codexmate-proxy';
+const RESERVED_LOCAL_PROVIDER_NAME = 'local';
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -21,7 +22,7 @@ function isValidHttpUrl(value) {
 
 function isReservedProviderCreationNameInput(name) {
     const normalized = normalizeText(name).toLowerCase();
-    return normalized === RESERVED_PROXY_PROVIDER_NAME;
+    return normalized === RESERVED_PROXY_PROVIDER_NAME || normalized === RESERVED_LOCAL_PROVIDER_NAME;
 }
 
 function isValidProviderNameInputValue(name) {
@@ -488,6 +489,41 @@ export function createProvidersMethods(options = {}) {
                 : null;
             const key = config ? config.apiKey : '';
             return this.formatKey(key);
+        },
+
+        async loadLocalBridgeExcluded() {
+            try {
+                const res = await api('local-bridge-get-excluded');
+                if (res && Array.isArray(res.excludedProviders)) {
+                    this.localBridgeExcluded = res.excludedProviders;
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        async toggleLocalBridgeExcluded(providerName) {
+            const name = String(providerName || '').trim();
+            if (!name) return;
+            const idx = this.localBridgeExcluded.indexOf(name);
+            const next = [...this.localBridgeExcluded];
+            if (idx >= 0) {
+                next.splice(idx, 1);
+            } else {
+                next.push(name);
+            }
+            try {
+                const res = await api('local-bridge-set-excluded', { names: next });
+                if (res && !res.error) {
+                    this.localBridgeExcluded = next;
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        isLocalBridgeExcluded(providerName) {
+            return this.localBridgeExcluded.indexOf(String(providerName || '').trim()) >= 0;
+        },
+
+        localBridgeCandidateProviders() {
+            return (this.providersList || []).filter(p => p && p.name !== 'local' && p.name !== 'codexmate-proxy' && p.codexmate_bridge !== 'local');
         }
     };
 }

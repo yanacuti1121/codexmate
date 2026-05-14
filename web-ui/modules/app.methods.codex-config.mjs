@@ -236,6 +236,10 @@ export function createCodexConfigMethods(options = {}) {
                     }
                 }
             }
+
+            if (typeof this.loadLocalBridgeExcluded === 'function') {
+                this.loadLocalBridgeExcluded();
+            }
         },
 
         async switchProvider(name) {

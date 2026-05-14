@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 modelAutoCompactTokenLimitInput: String(DEFAULT_MODEL_AUTO_COMPACT_TOKEN_LIMIT),
                 editingCodexBudgetField: '',
                 providersList: [],
+                localBridgeExcluded: [],
                 models: [],
                 codexModelsLoading: false,
                 modelsSource: 'remote',
