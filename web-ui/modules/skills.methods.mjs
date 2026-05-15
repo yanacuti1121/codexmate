@@ -54,6 +54,7 @@ export function createSkillsMethods({ api }) {
             if (nextTarget !== this.skillsTargetApp) {
                 this.skillsTargetApp = nextTarget;
                 this.resetSkillsTargetState();
+                if (typeof this.saveNavState === 'function') this.saveNavState();
             }
             if (!refresh) {
                 return true;

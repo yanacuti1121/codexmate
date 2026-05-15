@@ -132,15 +132,15 @@
                             </div>
                             <div class="market-action-grid">
                                 <button type="button" class="market-action-card" @click="openSkillsManager" :disabled="loading || !!initError || skillsMarketBusy">
-                                    <span class="market-action-title">{{ t('market.action.manage.title') }}</span>
+                                    <span class="market-action-title"><svg style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3"/><path d="M7 7h6M7 10h4"/></svg>{{ t('market.action.manage.title') }}</span>
                                     <span class="market-action-copy">{{ t('market.action.manage.copy', { target: skillsTargetLabel }) }}</span>
                                 </button>
                                 <button type="button" class="market-action-card" @click="scanImportableSkills({ silent: false })" :disabled="loading || !!initError || skillsMarketBusy">
-                                    <span class="market-action-title">{{ t('market.action.crossImport.title') }}</span>
+                                    <span class="market-action-title"><svg style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l3-3 3 3"/><path d="M7 3v6"/><path d="M13 7l3 3 3-3"/><path d="M16 16V7"/></svg>{{ t('market.action.crossImport.title') }}</span>
                                     <span class="market-action-copy">{{ t('market.action.crossImport.copy', { target: skillsTargetLabel }) }}</span>
                                 </button>
                                 <button type="button" class="market-action-card" @click="triggerSkillsZipImport" :disabled="loading || !!initError || skillsMarketBusy">
-                                    <span class="market-action-title">{{ t('market.action.zipImport.title') }}</span>
+                                    <span class="market-action-title"><svg style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l3-3 3 3"/><path d="M7 4v7"/><rect x="12" y="4" width="5" height="12" rx="1"/></svg>{{ t('market.action.zipImport.title') }}</span>
                                     <span class="market-action-copy">{{ t('market.action.zipImport.copy') }}</span>
                                 </button>
                             </div>

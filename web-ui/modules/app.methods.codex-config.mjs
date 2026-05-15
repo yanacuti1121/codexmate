@@ -561,6 +561,27 @@ export function createCodexConfigMethods(options = {}) {
                 this.healthCheckBatchTotal = this.healthCheckBatchTotal || 0;
                 this.healthCheckBatchDone = Math.min(this.healthCheckBatchDone || 0, this.healthCheckBatchTotal || 0);
                 this.healthCheckLoading = false;
+                if (typeof this.runProvidersHealthCheck === 'function' && this.configMode === 'codex') {
+                    void this.runProvidersHealthCheck({ remote: true });
+                }
+            }
+        },
+
+        async runProvidersHealthCheck(options = {}) {
+            this.providersHealthLoading = true;
+            try {
+                const res = await api('providers-health', {
+                    remote: options.remote !== false
+                });
+                if (res && typeof res === 'object' && !res.error) {
+                    this.providersHealthResult = res;
+                } else {
+                    this.providersHealthResult = null;
+                }
+            } catch (e) {
+                this.providersHealthResult = null;
+            } finally {
+                this.providersHealthLoading = false;
             }
         },
 

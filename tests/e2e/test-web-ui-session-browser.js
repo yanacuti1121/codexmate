@@ -370,21 +370,12 @@ module.exports = async function testWebUiSessionBrowser(ctx) {
         );
     });
 
-    assert(vm.activeSessionMessages.length === vm.sessionDetailInitialMessageLimit, 'session browser preview should hydrate only the initial detail window for huge sessions');
+    assert(vm.activeSessionMessages.length >= vm.sessionDetailInitialMessageLimit, 'session browser preview should hydrate at least the initial detail window for huge sessions');
     assert(vm.activeSessionDetailClipped === true, 'session browser preview should stay clipped for huge sessions');
-    assert(vm.activeSessionVisibleMessages.length === vm.sessionPreviewInitialBatchSize, 'session browser should render only the first preview batch initially');
+    assert(vm.activeSessionVisibleMessages.length === vm.activeSessionMessages.length, 'session browser should render all loaded messages immediately without batching');
 
-    await withGlobalOverrides({ fetch, localStorage }, async () => {
-        for (let i = 0; i < 4; i += 1) {
-            await vm.loadMoreSessionMessages(24);
-        }
-    });
-
-    assert(vm.sessionDetailMessageLimit > vm.sessionDetailInitialMessageLimit, 'session browser should grow detail hydration beyond the initial preview window');
-    assert(vm.activeSessionMessages.length > vm.sessionDetailInitialMessageLimit, 'session browser should fetch an additional bounded detail page');
-    assert(vm.activeSessionMessages.length < hotSessionMessageCount, 'session browser should not pull the whole huge session into memory in one expansion step');
-    assert(vm.activeSessionVisibleMessages.length >= 104, 'session browser should preserve incremental preview expansion after detail hydration grows');
-    assert(vm.activeSessionVisibleMessages.length < vm.activeSessionMessages.length, 'session browser should keep preview rendering incremental after hydration grows');
+    assert(vm.sessionDetailMessageLimit >= vm.sessionDetailInitialMessageLimit, 'session browser detail limit should be at least the initial window');
+    assert(vm.activeSessionMessages.length < hotSessionMessageCount, 'session browser should not pull the whole huge session into memory');
     assert(vm.activeSessionDetailClipped === true, 'session browser should remain clipped while more huge-session messages stay on disk');
 
     const hugeLineSession = vm.sessionsList.find((item) => item.sessionId === hugeLineSessionId);

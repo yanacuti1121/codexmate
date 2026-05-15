@@ -90,7 +90,7 @@ const {
     saveWebhookConfig,
     notifyWebhook
 } = require('./lib/cli-webhook');
-const { buildConfigHealthReport: buildConfigHealthReportCore } = require('./cli/config-health');
+const { buildConfigHealthReport: buildConfigHealthReportCore, buildAllProvidersHealthReport: buildAllProvidersHealthReportCore } = require('./cli/config-health');
 const { buildDoctorReport, buildDoctorLegacyPayload, renderDoctorMarkdown } = require('./cli/doctor-core');
 const {
     createAuthProfileController
@@ -1744,6 +1744,14 @@ async function buildConfigHealthReport(params = {}) {
     return buildConfigHealthReportCore(params, {
         readConfigOrVirtualDefault,
         readModels
+    });
+}
+
+async function buildAllProvidersHealthReport(params = {}) {
+    return buildAllProvidersHealthReportCore(params, {
+        readConfigOrVirtualDefault,
+        readCurrentModels,
+        probeJsonPost
     });
 }
 
@@ -10272,6 +10280,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'config-health-check':
                             result = await buildConfigHealthReport(params || {});
+                            break;
+                        case 'providers-health':
+                            result = await buildAllProvidersHealthReport(params || {});
                             break;
                         case 'doctor':
                             {

@@ -1,6 +1,5 @@
 .session-preview.active {
     box-shadow: var(--shadow-float);
-    transform: translateX(0);
 }
 
 .session-preview-scroll {
@@ -23,7 +22,7 @@
 }
 
 .session-preview-header {
-    padding: 12px var(--spacing-sm);
+    padding: 14px var(--spacing-sm);
     border-bottom: 1px solid var(--color-border-soft);
     display: flex;
     align-items: flex-start;
@@ -32,8 +31,8 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%);
-    backdrop-filter: blur(6px);
+    background: var(--color-surface-elevated);
+    backdrop-filter: blur(12px);
 }
 
 .session-preview-header > div:first-child {
@@ -100,17 +99,17 @@
 .session-preview-body {
     flex: 1;
     min-height: 0;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .session-preview-messages {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     contain: layout style;
 }
 
@@ -122,9 +121,9 @@
     width: 44px;
     height: auto;
     border-radius: 12px;
-    border: 1px solid rgba(208, 196, 182, 0.5);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.92) 0%, rgba(252, 246, 239, 0.94) 100%);
-    box-shadow: 0 4px 12px rgba(31, 26, 23, 0.06);
+    border: 1px solid var(--color-border-soft);
+    background: var(--color-surface-elevated);
+    box-shadow: var(--shadow-card);
     padding: 6px 4px 28px;
     z-index: 3;
 }
@@ -136,7 +135,7 @@
     bottom: 32px;
     width: 2px;
     transform: translateX(-50%);
-    background: linear-gradient(to bottom, rgba(166, 149, 130, 0.3) 0%, rgba(166, 149, 130, 0.65) 100%);
+    background: var(--color-border-soft);
     border-radius: 999px;
 }
 
@@ -146,27 +145,24 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    border: 1px solid rgba(139, 118, 104, 0.7);
-    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
     transform: translate(-50%, -50%);
     cursor: pointer;
     padding: 0;
-    transition: none;
-    will-change: auto;
+    transition: border-color var(--transition-fast) var(--ease-spring), background var(--transition-fast) var(--ease-spring), box-shadow var(--transition-fast) var(--ease-spring);
 }
 
 .session-timeline-node:hover {
-    transform: translate(-50%, -50%);
-    border-color: rgba(201, 94, 75, 0.85);
-    background: rgba(255, 255, 255, 1);
-    box-shadow: none;
+    border-color: var(--color-brand);
+    background: var(--color-surface);
+    box-shadow: 0 0 0 3px rgba(210, 107, 90, 0.15);
 }
 
 .session-timeline-node.active {
-    transform: translate(-50%, -50%);
-    border-color: rgba(201, 94, 75, 0.95);
-    background: rgba(201, 94, 75, 0.95);
-    box-shadow: none;
+    border-color: var(--color-brand);
+    background: var(--color-brand);
+    box-shadow: 0 0 0 3px rgba(210, 107, 90, 0.2);
 }
 
 .session-timeline-current {
@@ -184,18 +180,18 @@
 }
 
 .session-msg {
-    border-radius: 10px;
-    padding: 10px 12px 10px 18px;
-    border: 1px solid rgba(208, 196, 182, 0.45);
-    background: rgba(255, 255, 255, 0.75);
+    border-radius: var(--radius-md);
+    padding: 10px 14px 10px 20px;
+    border: 1px solid var(--color-border-soft);
+    background: var(--color-surface);
     position: relative;
-    box-shadow: 0 2px 6px rgba(31, 26, 23, 0.04);
+    box-shadow: var(--shadow-subtle);
     contain: layout style paint;
 }
 
 .session-msg.user {
-    border-color: rgba(210, 107, 90, 0.35);
-    background: rgba(210, 107, 90, 0.08);
+    border-color: rgba(210, 107, 90, 0.3);
+    background: rgba(210, 107, 90, 0.05);
 }
 
 .session-msg::before {
@@ -206,15 +202,15 @@
     bottom: 10px;
     width: 3px;
     border-radius: 999px;
-    background: rgba(139, 118, 104, 0.45);
+    background: var(--color-border-soft);
 }
 
 .session-msg.user::before {
-    background: rgba(210, 107, 90, 0.85);
+    background: var(--color-brand);
 }
 
 .session-msg.assistant::before {
-    background: rgba(90, 139, 106, 0.6);
+    background: rgba(90, 139, 106, 0.5);
 }
 
 .session-msg-header {
@@ -249,7 +245,7 @@
 
 .session-msg-content {
     font-size: var(--font-size-secondary);
-    line-height: 1.55;
+    line-height: 1.6;
     color: var(--color-text-primary);
     white-space: pre-wrap;
     word-break: break-word;
@@ -270,11 +266,11 @@
 
 .session-preview-empty::before {
     content: "";
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: rgba(210, 107, 90, 0.12);
-    box-shadow: inset 0 0 0 6px rgba(255, 255, 255, 0.7);
+    background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-dark) 100%);
+    opacity: 0.18;
 }
 
 @media (max-width: 1100px) {

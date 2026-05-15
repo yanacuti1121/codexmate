@@ -229,6 +229,20 @@ export function createDashboardComputed() {
                 this.t('docs.tip.unix.2'),
                 this.t('docs.tip.unix.3')
             ];
+        },
+        providersHealthSummary() {
+            if (!this.providersHealthResult || !this.providersHealthResult.summary) {
+                return { total: 0, green: 0, yellow: 0, red: 0 };
+            }
+            return this.providersHealthResult.summary;
+        },
+        providersHealthTone() {
+            if (!this.providersHealthResult) return '';
+            const s = this.providersHealthResult.summary;
+            if (!s) return '';
+            if (s.red > 0) return 'error';
+            if (s.yellow > 0) return 'warn';
+            return 'ok';
         }
     };
 }

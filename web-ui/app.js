@@ -203,8 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeSessionDetailClipped: false,
                 sessionDetailLoading: false,
                 sessionDetailRequestSeq: 0,
-                sessionDetailInitialMessageLimit: 80,
-                sessionDetailFetchStep: 80,
+                sessionDetailInitialMessageLimit: 300,
+                sessionDetailFetchStep: 300,
                 sessionDetailMessageLimit: 80,
                 sessionDetailMessageLimitCap: 1000,
                 sessionTimelineActiveKey: '',
@@ -222,8 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionPreviewHeaderResizeObserver: null,
                 sessionListRenderEnabled: false,
                 sessionListVisibleCount: 0,
-                sessionListInitialBatchSize: 20,
-                sessionListLoadStep: 40,
+                sessionListInitialBatchSize: 40,
+                sessionListLoadStep: 80,
                 sessionPreviewRenderEnabled: false,
                 sessionTabRenderTicket: 0,
                 sessionPreviewVisibleCount: 0,
@@ -337,6 +337,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 healthCheckLoading: false,
                 healthCheckResult: null,
                 healthCheckRemote: false,
+                providersHealthLoading: false,
+                providersHealthResult: null,
                 claudeDownloadLoading: false,
                 claudeDownloadProgress: 0,
                 claudeDownloadTimer: null,
@@ -568,6 +570,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             this.__doctorLoadedOnce = true;
                             if (typeof this.runHealthCheck === 'function') {
                                 void this.runHealthCheck({ doctor: true, silent: true });
+                            }
+                            if (typeof this.runProvidersHealthCheck === 'function') {
+                                void this.runProvidersHealthCheck({ remote: true });
                             }
                         }
                     }

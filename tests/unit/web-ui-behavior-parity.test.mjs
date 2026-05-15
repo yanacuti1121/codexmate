@@ -345,7 +345,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'isTransformProvider',
         'openCloneClaudeConfigModal',
         'openCloneProviderModal',
-        'localBridgeExcluded'
+        'localBridgeExcluded',
+        'providersHealthLoading',
+        'providersHealthResult'
     ] : [
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
@@ -372,7 +374,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'webhookTesting',
         'openCloneClaudeConfigModal',
         'openCloneProviderModal',
-        'localBridgeExcluded'
+        'localBridgeExcluded',
+        'providersHealthLoading',
+        'providersHealthResult'
     ];
     const allowedMissingCurrentKeys = [
         'localProxyRunning',
@@ -578,7 +582,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'isInstallTargetInstalled',
         'shouldShowCliInstallPlaceholder',
         'openCloneClaudeConfigModal',
-        'openCloneProviderModal'
+        'openCloneProviderModal',
+        'runProvidersHealthCheck'
     );
     const allowedMissingCurrentMethodKeys = [
         'closeInstallModal',
@@ -667,7 +672,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'activeProviderModel',
         'codexModelOptions',
         'codexModelHasList',
-        'codexProviderTemplates'
+        'codexProviderTemplates',
+        'providersHealthSummary',
+        'providersHealthTone'
     ];
     const allowedMissingCurrentComputedKeys = [
         'hasLocalAndProxy',

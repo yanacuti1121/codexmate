@@ -332,7 +332,123 @@ async function buildConfigHealthReport(params = {}, deps = {}) {
     };
 }
 
+async function buildAllProvidersHealthReport(params = {}, deps = {}) {
+    const {
+        readConfigOrVirtualDefault,
+        readCurrentModels,
+        probeJsonPost: probeJsonPostDep
+    } = deps;
+
+    if (typeof readConfigOrVirtualDefault !== 'function') {
+        throw new Error('buildAllProvidersHealthReport 缺少 readConfigOrVirtualDefault 依赖');
+    }
+
+    const status = readConfigOrVirtualDefault();
+    const config = status.config || {};
+    const providerEntries = config.model_providers && typeof config.model_providers === 'object'
+        ? Object.entries(config.model_providers)
+        : [];
+    const currentProvider = typeof config.model_provider === 'string' ? config.model_provider.trim() : '';
+    const currentModels = typeof readCurrentModels === 'function' ? readCurrentModels() : {};
+
+    if (!providerEntries.length) {
+        return {
+            ok: true,
+            currentProvider,
+            providers: [],
+            summary: { total: 0, green: 0, yellow: 0, red: 0 }
+        };
+    }
+
+    const remote = !!(params && params.remote);
+    const timeoutMs = Number.isFinite(params && params.timeoutMs) ? Number(params.timeoutMs) : DEFAULT_TIMEOUT_MS;
+
+    const entries = providerEntries.map(([name, provider]) => {
+        const baseUrl = typeof provider.base_url === 'string' ? provider.base_url.trim() : '';
+        const requiresAuth = provider.requires_openai_auth !== false;
+        const apiKey = typeof provider.preferred_auth_method === 'string'
+            ? provider.preferred_auth_method.trim() : '';
+        const modelName = currentModels[name] || (name === currentProvider ? (config.model || '').trim() : '');
+
+        const checks = {
+            baseUrlValid: isValidHttpUrl(baseUrl),
+            apiKeyPresent: !requiresAuth || !!apiKey
+        };
+
+        const issues = [];
+        if (!baseUrl) {
+            issues.push({ code: 'base-url-empty', message: `${name} 的 base_url 为空`, suggestion: '设置 base_url' });
+        } else if (!checks.baseUrlValid) {
+            issues.push({ code: 'base-url-invalid', message: `${name} 的 base_url 无效`, suggestion: '设置为 http/https 完整 URL' });
+        }
+        if (!checks.apiKeyPresent) {
+            issues.push({ code: 'api-key-missing', message: `${name} 未配置 API Key`, suggestion: '设置 preferred_auth_method' });
+        }
+
+        return { name, provider, baseUrl, modelName, checks, issues };
+    });
+
+    if (remote) {
+        const remotePromises = entries.map(async (entry) => {
+            if (!entry.checks.baseUrlValid || !entry.modelName) {
+                entry.remote = null;
+                return;
+            }
+            try {
+                const report = await runRemoteHealthCheck(entry.name, entry.provider, entry.modelName, {
+                    timeoutMs,
+                    probeJsonPost: probeJsonPostDep
+                });
+                entry.remote = report.remote;
+                entry.issues.push(...report.issues);
+            } catch (e) {
+                entry.remote = null;
+                entry.issues.push({
+                    code: 'remote-probe-error',
+                    message: `${entry.name} 远程探测异常: ${e.message}`,
+                    suggestion: '检查网络连接与 endpoint'
+                });
+            }
+        });
+        await Promise.allSettled(remotePromises);
+    }
+
+    const providers = entries.map((entry) => {
+        const hasConfigIssue = !entry.checks.baseUrlValid || !entry.checks.apiKeyPresent;
+        const remoteFailed = entry.remote && !entry.remote.ok;
+        let statusValue = 'green';
+        if (remoteFailed) {
+            statusValue = 'red';
+        } else if (hasConfigIssue) {
+            statusValue = 'yellow';
+        }
+        return {
+            provider: entry.name,
+            isCurrent: entry.name === currentProvider,
+            status: statusValue,
+            checks: entry.checks,
+            remote: entry.remote || null,
+            issues: entry.issues
+        };
+    });
+
+    const summary = {
+        total: providers.length,
+        green: providers.filter((p) => p.status === 'green').length,
+        yellow: providers.filter((p) => p.status === 'yellow').length,
+        red: providers.filter((p) => p.status === 'red').length
+    };
+
+    return {
+        ok: summary.red === 0 && summary.yellow === 0,
+        currentProvider,
+        providers,
+        summary
+    };
+}
+
 module.exports = {
     runRemoteHealthCheck,
-    buildConfigHealthReport
+    buildConfigHealthReport,
+    buildAllProvidersHealthReport
 };
