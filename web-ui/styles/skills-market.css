@@ -154,33 +154,44 @@
 }
 
 .skills-summary-item {
-    border: 1px solid rgba(160, 145, 130, 0.2);
+    border: 1px solid var(--color-border-soft);
     border-radius: var(--radius-sm);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.93) 0%, rgba(255, 255, 255, 0.78) 100%);
-    padding: 10px 12px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.96) 0%, rgba(255,248,241,0.7) 100%);
+    padding: 10px 14px;
     min-width: 0;
     box-shadow: var(--shadow-subtle);
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    transition: transform var(--transition-fast) var(--ease-spring), box-shadow var(--transition-fast) var(--ease-spring);
+}
+
+.skills-summary-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(92,68,52,0.08);
 }
 
 .skills-summary-label {
     font-size: var(--font-size-caption);
     color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: var(--font-weight-caption);
 }
 
 .skills-summary-value {
     font-size: var(--font-size-large);
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+    font-weight: 600;
     line-height: 1.2;
 }
 
 .skills-panel {
-    border: 1px solid rgba(160, 145, 130, 0.24);
-    border-radius: var(--radius-md);
-    padding: 12px;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.72) 100%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-sm);
+    background: linear-gradient(to bottom, rgba(255,255,255,0.92) 0%, rgba(255,248,241,0.7) 100%);
+    box-shadow: var(--shadow-subtle);
     margin-bottom: var(--spacing-sm);
 }
 
@@ -223,18 +234,15 @@
     align-items: center;
 }
 
-/* 缩减顶部操作按钮尺寸（刷新概览 / 打开 Skills 管理），并确保两者对齐 */
+/* Compact header action buttons */
 .selector-header.market-overview-header .market-header-actions .btn-tool-compact,
 .selector-header.market-overview-header .market-header-actions .btn-tool.btn-tool-compact {
-    min-height: 22px !important;
-    padding: 2px 7px !important;
-    font-size: 10px !important;
-    line-height: 1 !important;
+    min-height: 28px;
+    padding: 4px 10px;
+    font-size: var(--font-size-caption);
+    line-height: 1.3;
     white-space: nowrap;
-    width: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    border-radius: var(--radius-sm);
 }
 
 @media (max-width: 720px) {
@@ -259,30 +267,35 @@
 }
 
 .market-target-chip {
-    border: 1px solid rgba(160, 145, 130, 0.28);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: rgba(255,255,255,0.9);
     color: var(--color-text-secondary);
-    padding: 8px 14px;
+    padding: 8px 18px;
     font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-secondary);
+    font-weight: var(--font-weight-caption);
     cursor: pointer;
-    transition: border-color var(--transition-fast) var(--ease-smooth), background var(--transition-fast) var(--ease-smooth), color var(--transition-fast) var(--ease-smooth), box-shadow var(--transition-fast) var(--ease-smooth);
+    transition: all var(--transition-fast) var(--ease-spring);
 }
 
 .market-target-chip:disabled,
 .market-target-chip[disabled] {
     cursor: not-allowed;
-    opacity: 0.64;
+    opacity: 0.5;
     pointer-events: none;
     box-shadow: none;
 }
 
 .market-target-chip.active {
-    border-color: rgba(208, 88, 58, 0.4);
-    background: linear-gradient(to bottom, rgba(255, 243, 236, 0.98) 0%, rgba(255, 232, 220, 0.86) 100%);
-    color: #8c3a1f;
-    box-shadow: var(--shadow-subtle);
+    border-color: rgba(200,121,99,0.4);
+    background: linear-gradient(to bottom, rgba(255,243,236,0.98) 0%, rgba(255,232,220,0.86) 100%);
+    color: var(--color-brand-dark);
+    box-shadow: 0 2px 8px rgba(200,121,99,0.12);
+}
+
+.market-target-chip:hover:not(.active):not(:disabled) {
+    border-color: rgba(200,121,99,0.3);
+    background: rgba(255,243,236,0.4);
 }
 
 .market-root-box {
@@ -315,13 +328,19 @@
 
 .market-preview-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: var(--spacing-xs);
     padding: 10px 12px;
-    border: 1px solid rgba(160, 145, 130, 0.18);
+    border: 1px solid var(--color-border-soft);
     border-radius: var(--radius-sm);
-    background: rgba(255, 255, 255, 0.64);
+    background: rgba(255,255,255,0.55);
+    transition: all var(--transition-fast) var(--ease-spring);
+}
+
+.market-preview-item:hover {
+    background: rgba(255,255,255,0.75);
+    border-color: var(--color-border);
 }
 
 .market-preview-main {
@@ -352,39 +371,43 @@
 }
 
 .market-action-card {
-    border: 1px solid rgba(160, 145, 130, 0.24);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.96) 0%, rgba(255, 248, 242, 0.84) 100%);
-    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: linear-gradient(to bottom, rgba(255,255,255,0.96) 0%, rgba(255,248,241,0.8) 100%);
+    color: var(--color-text-primary);
     text-align: left;
-    padding: 14px;
+    padding: var(--spacing-sm) 16px;
     display: flex;
     flex-direction: column;
     gap: 6px;
     cursor: pointer;
-    transition: transform var(--transition-fast) var(--ease-smooth), box-shadow var(--transition-fast) var(--ease-smooth), border-color var(--transition-fast) var(--ease-smooth);
+    transition: all var(--transition-fast) var(--ease-spring);
 }
 
 .market-action-card:hover:not(:disabled) {
-    transform: translateY(-1px);
-    border-color: rgba(208, 88, 58, 0.34);
-    box-shadow: var(--shadow-subtle);
+    transform: translateY(-2px);
+    border-color: rgba(200,121,99,0.4);
+    box-shadow: var(--shadow-card);
+}
+
+.market-action-card:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 .market-action-card:disabled {
     cursor: not-allowed;
-    opacity: 0.64;
+    opacity: 0.5;
 }
 
 .market-action-title {
     font-size: var(--font-size-body);
-    font-weight: var(--font-weight-secondary);
+    font-weight: var(--font-weight-primary);
 }
 
 .market-action-copy {
     font-size: var(--font-size-caption);
     color: var(--color-text-tertiary);
-    line-height: 1.45;
+    line-height: 1.5;
 }
 
 .skills-filter-row {

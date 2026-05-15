@@ -187,9 +187,7 @@ export function switchMainTab(tab) {
         void Promise.resolve(marketOverviewLoad).catch(() => {});
     }
     if (enteringPluginsTab && typeof this.loadPluginsOverview === 'function') {
-        // Default behavior: always land on Prompt Templates + Compose when entering Plugins.
         this.pluginsActiveId = 'prompt-templates';
-        this.promptTemplatesMode = 'compose';
         this.promptComposerPickerVisible = false;
         let pluginsLoad = null;
         try {
@@ -456,6 +454,26 @@ export async function loadActiveSessionDetail(api, options = {}) {
             }
         }
         this.sessionPreviewPendingVisibleCount = 0;
+        if (this.activeSessionDetailClipped) {
+            const autoFetchSession = currentActiveSession;
+            this.$nextTick(() => {
+                if (this.activeSession !== autoFetchSession) return;
+                if (this.sessionDetailLoading) return;
+                if (!this.activeSessionDetailClipped) return;
+                const currentLimit = Number(this.sessionDetailMessageLimit);
+                const fetchStep = Number.isFinite(this.sessionDetailFetchStep)
+                    ? Math.max(1, Math.floor(this.sessionDetailFetchStep))
+                    : 300;
+                const limitCap = Number.isFinite(this.sessionDetailMessageLimitCap)
+                    ? Math.max(1, Math.floor(this.sessionDetailMessageLimitCap))
+                    : 1000;
+                const nextLimit = Math.min(currentLimit + fetchStep, limitCap);
+                if (nextLimit <= currentLimit) return;
+                this.sessionDetailMessageLimit = nextLimit;
+                this.sessionPreviewPendingVisibleCount = nextLimit;
+                void this.loadActiveSessionDetail({ preserveVisibleCount: true });
+            });
+        }
         this.$nextTick(() => {
             if (this.mainTab !== 'sessions' || !this.sessionPreviewRenderEnabled) {
                 return;

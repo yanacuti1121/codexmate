@@ -54,13 +54,13 @@
                                         role="tab"
                                         :aria-selected="promptTemplatesMode === 'compose'"
                                         :class="['mode-pill', { active: promptTemplatesMode === 'compose' }]"
-                                        @click="promptTemplatesMode = 'compose'">{{ t('plugins.promptTemplates.mode.compose') }}</button>
+                                        @click="promptTemplatesMode = 'compose'; if(typeof saveNavState==='function')saveNavState()"><svg style="width:12px;height:12px;vertical-align:-1px;margin-right:4px" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h12v12H4z"/><path d="M8 8h4M8 11h2"/></svg>{{ t('plugins.promptTemplates.mode.compose') }}</button>
                                     <button
                                         type="button"
                                         role="tab"
                                         :aria-selected="promptTemplatesMode !== 'compose'"
                                         :class="['mode-pill', { active: promptTemplatesMode !== 'compose' }]"
-                                        @click="promptTemplatesMode = 'manage'">{{ t('plugins.promptTemplates.mode.manage') }}</button>
+                                        @click="promptTemplatesMode = 'manage'; if(typeof saveNavState==='function')saveNavState()"><svg style="width:12px;height:12px;vertical-align:-1px;margin-right:4px" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h10M3 15h12"/></svg>{{ t('plugins.promptTemplates.mode.manage') }}</button>
                                 </div>
 
                                 <div v-if="promptTemplatesMode === 'compose'" class="prompt-compose">

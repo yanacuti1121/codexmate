@@ -49,11 +49,11 @@
     display: flex;
     align-items: flex-start;
     gap: var(--spacing-xs);
-    border: 1px dashed var(--color-border-soft);
+    border: 1px solid var(--color-border-soft);
     border-radius: var(--radius-sm);
     padding: var(--spacing-xs);
-    background: var(--color-surface-alt);
-    transition: border-color var(--transition-fast) var(--ease-spring), background-color var(--transition-fast) var(--ease-spring);
+    background: rgba(255,255,255,0.5);
+    transition: all var(--transition-fast) var(--ease-spring);
 }
 
 .skill-item-main {
@@ -92,23 +92,25 @@
 }
 
 .skill-item:hover {
-    border-color: rgba(201, 94, 75, 0.35);
+    border-color: rgba(200,121,99,0.35);
+    background: rgba(255,243,236,0.3);
 }
 
 .skill-item.selected {
-    border-color: rgba(201, 94, 75, 0.55);
-    background: linear-gradient(to bottom, rgba(201, 94, 75, 0.10) 0%, rgba(201, 94, 75, 0.04) 100%);
+    border-color: rgba(200,121,99,0.5);
+    background: linear-gradient(to right, rgba(255,243,236,0.7) 0%, rgba(255,255,255,0.6) 100%);
+    box-shadow: inset 3px 0 0 var(--color-brand);
 }
 
 .skills-empty-state {
     margin-bottom: var(--spacing-sm);
-    border: 1px dashed var(--color-border-soft);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.58) 100%);
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    background: linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,248,241,0.5) 100%);
     color: var(--color-text-tertiary);
     font-size: var(--font-size-secondary);
     text-align: center;
-    padding: 18px 12px;
+    padding: 24px var(--spacing-sm);
 }
 
 .skills-import-block {
