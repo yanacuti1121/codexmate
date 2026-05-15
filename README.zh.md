@@ -6,9 +6,11 @@
 
 **一个面板管好所有本地 AI 编码工具 — 跨 Codex / Claude Code / OpenClaw 切 provider、管会话、改配置、编排任务。内置 OpenAI 兼容桥接、Usage 统计与提示词模板。纯本地，零上云。**
 
-[![Build](https://img.shields.io/github/actions/workflow/status/SakuraByteCore/codexmate/release.yml?label=build&style=flat)](https://github.com/SakuraByteCore/codexmate/actions/workflows/release.yml)
 [![Version](https://img.shields.io/npm/v/codexmate?label=version&style=flat)](https://www.npmjs.com/package/codexmate)
+[![Build](https://img.shields.io/github/actions/workflow/status/SakuraByteCore/codexmate/release.yml?label=build&style=flat)](https://github.com/SakuraByteCore/codexmate/actions/workflows/release.yml)
 [![Downloads](https://img.shields.io/npm/dt/codexmate?label=downloads&style=flat)](https://www.npmjs.com/package/codexmate)
+[![Install](https://img.shields.io/badge/install-curl%20%7C%20npm-0A0?style=flat)](#curl-一键安装独立包无需-npm)
+[![Platform](https://img.shields.io/badge/platform-Termux%20%7C%20Linux%20%7C%20macOS%20%7C%20Windows-555?style=flat)](#快速开始)
 [![Node](https://img.shields.io/node/v/codexmate?label=Node.js&style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/npm/l/codexmate?label=license&style=flat)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/SakuraByteCore/codexmate?label=stars&style=flat)](https://github.com/SakuraByteCore/codexmate/stargazers)
@@ -177,6 +179,21 @@ codexmate run
 默认监听 `0.0.0.0:3737`，支持局域网访问，并尝试自动打开浏览器。
 
 > 安全提示：默认监听会在当前局域网暴露未鉴权的管理界面。若包含 API Key、provider 配置或 skills 管理，请仅在可信网络中使用；如需仅本机访问，可设置 `CODEXMATE_HOST=127.0.0.1` 或启动时传入 `--host 127.0.0.1`。
+
+### curl 一键安装（独立包，无需 npm）
+
+下载包含 `node_modules` 的自包含安装包，不依赖 npm：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SakuraByteCore/codexmate/main/scripts/install.sh | bash
+```
+
+安装到 `~/.codexmate`，自动软链接到 `~/.local/bin/codexmate`，并添加 PATH。
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `CODEXMATE_INSTALL_DIR` | `~/.codexmate` | 安装目录 |
+| `CODEXMATE_BIN_DIR` | `~/.local/bin` | 软链接目录 |
 
 ### 安装 Codex CLI / Claude Code / Gemini CLI / CodeBuddy Code（可选）
 
