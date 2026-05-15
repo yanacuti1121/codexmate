@@ -189,7 +189,6 @@
                             </div>
                             <div class="session-item-meta">
                                 <span class="session-source">{{ session.sourceLabel }}</span>
-                                <span v-if="isDerivedSession(session)" class="session-derived-badge">{{ t('sessions.derivedBadge') }}</span>
                                 <span class="session-item-time">{{ session.updatedAt || t('sessions.unknownTime') }}</span>
                                 <span v-if="getSessionHotLabel(session)" class="session-item-hot">{{ getSessionHotLabel(session) }}</span>
                                 <span v-if="session.cwd" class="session-item-cwd session-item-sub">{{ session.cwd }}</span>
@@ -206,9 +205,6 @@
                                         <div class="session-preview-title">{{ activeSession.title || activeSession.sessionId }}</div>
                                         <div class="session-preview-meta">
                                             <span class="session-preview-meta-item">{{ activeSession.sourceLabel }}</span>
-                                            <span v-if="isDerivedSession(activeSession)" class="session-preview-meta-item session-derived-badge">{{ t('sessions.derivedBadge') }}</span>
-                                            <span v-if="activeSession.convertedFromLabel" class="session-preview-meta-item">{{ t('sessions.convertedFrom', { source: activeSession.convertedFromLabel }) }}</span>
-                                            <span v-if="isDerivedSession(activeSession)" class="session-preview-meta-item">{{ t('sessions.nativeAvailable', { value: isSessionNativeAvailable(activeSession) ? t('common.yes') : t('common.no') }) }}</span>
                                             <span class="session-preview-meta-item">{{ activeSession.updatedAt || t('sessions.unknownTime') }}</span>
                                         </div>
                                         <div class="session-preview-meta" v-if="activeSession.cwd">
@@ -233,23 +229,10 @@
                                             {{ (activeSession && sessionExporting[getSessionExportKey(activeSession)]) ? t('sessions.preview.exporting') : t('sessions.preview.export') }}
                                         </button>
                                         <button
-                                            class="btn-session-export"
-                                            @click="convertSession(activeSession)"
-                                            :disabled="!activeSession || sessionConverting[getSessionExportKey(activeSession)] || !isSessionConvertAvailable(activeSession)">
-                                            {{ (activeSession && sessionConverting[getSessionExportKey(activeSession)]) ? t('sessions.preview.converting') : t('sessions.preview.convert') }}
-                                        </button>
-                                        <button
-                                            v-if="isImportToNativeAvailable(activeSession)"
-                                            class="btn-session-export"
-                                            @click="importDerivedSessionToNative(activeSession)"
-                                            :disabled="!activeSession || sessionImportingNative[getSessionExportKey(activeSession)]">
-                                            {{ (activeSession && sessionImportingNative[getSessionExportKey(activeSession)]) ? t('sessions.preview.importingNative') : t('sessions.preview.importNative') }}
-                                        </button>
-                                        <button
                                             class="btn-session-open"
-                                            @click="openSessionStandalone(activeSession)"
+                                            @click="copySessionLink(activeSession)"
                                             :disabled="!activeSession">
-                                            {{ t('sessions.preview.openStandalone') }}
+                                            {{ t('sessions.preview.copyLink') }}
                                         </button>
                                     </div>
                                 </div>

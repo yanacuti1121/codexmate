@@ -422,27 +422,6 @@ export async function loadActiveSessionDetail(api, options = {}) {
         if (res.sourceLabel) {
             this.activeSession.sourceLabel = res.sourceLabel;
         }
-        if (typeof res.derived === 'boolean') {
-            this.activeSession.derived = res.derived;
-        }
-        if (typeof res.nativeAvailable === 'boolean') {
-            this.activeSession.nativeAvailable = res.nativeAvailable;
-        }
-        if (typeof res.nativeImportAvailable === 'boolean') {
-            this.activeSession.nativeImportAvailable = res.nativeImportAvailable;
-        }
-        if (res.nativePath) {
-            this.activeSession.nativePath = res.nativePath;
-        }
-        if (res.derivedPath) {
-            this.activeSession.derivedPath = res.derivedPath;
-        }
-        if (res.convertedFrom) {
-            this.activeSession.convertedFrom = res.convertedFrom;
-        }
-        if (res.convertedFromLabel) {
-            this.activeSession.convertedFromLabel = res.convertedFromLabel;
-        }
         if (res.sessionId) {
             this.activeSession.sessionId = res.sessionId;
             if (!this.activeSession.title) {

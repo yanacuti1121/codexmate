@@ -10,130 +10,8 @@ export function createSessionActionMethods(options = {}) {
     } = options;
 
     return {
-        isDerivedSessionId(value) {
-            const sessionId = typeof value === 'string' ? value.trim() : String(value || '');
-            if (!sessionId) return false;
-            return /-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(sessionId);
-        },
-
-        isDerivedSession(session) {
-            if (!session || typeof session !== 'object') return false;
-            if (session.derived === true) return true;
-            if (this.isDerivedSessionId(session.sessionId)) return true;
-            if (session.convertedFrom) return true;
-            const rawFilePath = typeof session.filePath === 'string' ? session.filePath.trim() : '';
-            if (!rawFilePath) return false;
-            const normalized = rawFilePath.replace(/\\/g, '/');
-            if (normalized.includes('/.codexmate/sessions/derived/')) return true;
-            if (normalized.includes('/codexmate-derived/')) return true;
-            return false;
-        },
-
-        isSessionNativeAvailable(session) {
-            if (!session || typeof session !== 'object') return false;
-            if (session.nativeAvailable === false) return false;
-            return true;
-        },
-
-        isImportToNativeAvailable(session) {
-            if (!this.isDerivedSession(session)) return false;
-            if (session.nativeAvailable === true) return false;
-            if (session.nativeImportAvailable === false) return false;
-            const source = String(session.source || '').trim().toLowerCase();
-            return source === 'codex' || source === 'claude';
-        },
-
         getResumeCommandTitle(session) {
-            const tr = (key, fallback) => (typeof this.t === 'function' ? this.t(key) : fallback);
-            if (!this.isSessionNativeAvailable(session)) {
-                return tr('sessions.resume.nativeUnavailableTitle', 'Session not in native directory, resume may fail');
-            }
-            return tr('sessions.copyResume', 'Copy resume command');
-        },
-
-        async importDerivedSessionToNative(session) {
-            const tr = (key, fallback, params = null) => (typeof this.t === 'function' ? this.t(key, params) : fallback);
-            if (!this.isImportToNativeAvailable(session)) {
-                this.showMessage(tr('sessions.preview.importNative.unsupported', 'This operation is not supported'), 'error');
-                return;
-            }
-            const key = this.getSessionExportKey(session);
-            const targetKey = key;
-            if (this.sessionImportingNative && this.sessionImportingNative[key]) return;
-            if (!this.sessionImportingNative) this.sessionImportingNative = {};
-            this.sessionImportingNative[key] = true;
-            try {
-                let res = await api('import-derived-session', {
-                    source: session.source,
-                    sessionId: session.sessionId,
-                    filePath: session.filePath
-                });
-                if (res && res.conflict) {
-                    const ok = typeof this.requestConfirmDialog === 'function'
-                        ? await this.requestConfirmDialog({
-                            title: tr('sessions.preview.importNative.confirmTitle', 'Overwrite native session file?'),
-                            message: tr('sessions.preview.importNative.confirmMessage', 'A native session file already exists. Overwriting will replace the matching session in the target tool native directory.'),
-                            confirmText: tr('sessions.preview.importNative.confirmText', 'Overwrite'),
-                            cancelText: tr('confirm.cancel', 'Cancel'),
-                            danger: true
-                        })
-                        : false;
-                    if (!ok) {
-                        this.showMessage(tr('sessions.preview.importNative.cancelled', 'Import cancelled'), 'info');
-                        return;
-                    }
-                    res = await api('import-derived-session', {
-                        source: session.source,
-                        sessionId: session.sessionId,
-                        filePath: session.filePath,
-                        overwrite: true
-                    });
-                }
-                if (res && res.error) {
-                    const errorCode = typeof res.errorCode === 'string' ? res.errorCode : '';
-                    const message = errorCode === 'NATIVE_SESSION_EXISTS' || res.error === 'Native session already exists'
-                        ? tr('sessions.preview.importNative.conflict', 'Native session already exists')
-                        : (errorCode === 'INVALID_SOURCE'
-                            ? tr('sessions.preview.importNative.invalidSource', 'Invalid session source')
-                            : (errorCode === 'SESSION_FILE_NOT_FOUND'
-                                ? tr('sessions.preview.importNative.fileNotFound', 'Session file not found')
-                                : (errorCode === 'NATIVE_SESSION_PATH_UNAVAILABLE'
-                                    ? tr('sessions.preview.importNative.nativePathUnavailable', 'Native session path unavailable')
-                                    : (errorCode === 'IMPORT_DERIVED_SESSION_FAILED' || String(res.error || '').startsWith('Import to native failed:')
-                                        ? tr('sessions.preview.importNative.failedWithReason', 'Import to native failed: {reason}', { reason: res.reason || String(res.error).replace(/^Import to native failed:\s*/, '') })
-                                        : res.error))));
-                    this.showMessage(message, 'error');
-                    return;
-                }
-                const converted = res && res.session ? res.session : null;
-                if (converted) {
-                    const list = Array.isArray(this.sessionsList) ? this.sessionsList : [];
-                    this.sessionsList = [converted, ...list.filter(item => !(item && item.filePath === converted.filePath && item.source === converted.source))];
-                    if (typeof this.selectSession === 'function') {
-                        await this.selectSession(converted);
-                    } else {
-                        this.activeSession = converted;
-                    }
-                } else {
-                    const list = Array.isArray(this.sessionsList) ? this.sessionsList : [];
-                    const targetSession = list.find(item => item && this.getSessionExportKey(item) === targetKey)
-                        || (this.activeSession && this.getSessionExportKey(this.activeSession) === targetKey ? this.activeSession : null)
-                        || session;
-                    if (targetSession && typeof targetSession === 'object') {
-                        targetSession.nativeAvailable = true;
-                        targetSession.nativePath = res.nativePath || targetSession.nativePath;
-                    }
-                    if (this.activeSession && this.getSessionExportKey(this.activeSession) === targetKey) {
-                        this.activeSession.nativeAvailable = true;
-                        this.activeSession.nativePath = res.nativePath || this.activeSession.nativePath;
-                    }
-                }
-                this.showMessage(tr('sessions.preview.importNative.success', 'Imported to native directory'), 'success');
-            } catch (e) {
-                this.showMessage(tr('sessions.preview.importNative.failed', 'Import failed'), 'error');
-            } finally {
-                this.sessionImportingNative[key] = false;
-            }
+            return (typeof this.t === 'function' ? this.t('sessions.copyResume') : 'Copy resume command');
         },
 
         getSessionStandaloneContext() {
@@ -230,13 +108,25 @@ export function createSessionActionMethods(options = {}) {
             return `${origin}/session?${params.toString()}`;
         },
 
-        openSessionStandalone(session) {
+        async copySessionLink(session) {
             const url = this.buildSessionStandaloneUrl(session);
             if (!url) {
                 this.showMessage('无法生成链接', 'error');
                 return;
             }
-            window.open(url, '_blank', 'noopener');
+            const ok = this.fallbackCopyText(url);
+            if (ok) {
+                this.showMessage('已复制链接', 'success');
+                return;
+            }
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(url);
+                    this.showMessage('已复制链接', 'success');
+                    return;
+                }
+            } catch (_) {}
+            this.showMessage('复制失败', 'error');
         },
 
         getSessionExportKey(session) {
@@ -456,15 +346,14 @@ export function createSessionActionMethods(options = {}) {
             }
             const command = this.buildResumeCommand(session);
             const ok = this.fallbackCopyText(command);
-            const nativeOk = !(session && session.nativeAvailable === false);
             if (ok) {
-                this.showMessage(nativeOk ? '已复制' : '已复制，但该会话不在原生目录，恢复可能失败', nativeOk ? 'success' : 'info');
+                this.showMessage('已复制', 'success');
                 return;
             }
             try {
                 if (navigator.clipboard && window.isSecureContext) {
                     await navigator.clipboard.writeText(command);
-                    this.showMessage(nativeOk ? '已复制' : '已复制，但该会话不在原生目录，恢复可能失败', nativeOk ? 'success' : 'info');
+                    this.showMessage('已复制', 'success');
                     return;
                 }
             } catch (_) {}
