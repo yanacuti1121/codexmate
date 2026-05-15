@@ -337,6 +337,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 healthCheckLoading: false,
                 healthCheckResult: null,
                 healthCheckRemote: false,
+                providersHealthLoading: false,
+                providersHealthResult: null,
                 claudeDownloadLoading: false,
                 claudeDownloadProgress: 0,
                 claudeDownloadTimer: null,
@@ -568,6 +570,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             this.__doctorLoadedOnce = true;
                             if (typeof this.runHealthCheck === 'function') {
                                 void this.runHealthCheck({ doctor: true, silent: true });
+                            }
+                            if (typeof this.runProvidersHealthCheck === 'function') {
+                                void this.runProvidersHealthCheck({ remote: true });
                             }
                         }
                     }

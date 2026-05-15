@@ -278,6 +278,11 @@ const DICT = Object.freeze({
         'dashboard.usage.range': '范围 {value}',
         'dashboard.tasks.queue': 'run {running} / queue {queued}',
         'dashboard.skills.count': 'installed {installed} / import {importable}',
+        'dashboard.providersHealth.title': 'Provider 健康状态',
+        'dashboard.providersHealth.current': '(当前)',
+        'dashboard.providersHealth.checking': '检查中...',
+        'dashboard.providersHealth.allOk': '所有 Provider 正常',
+        'dashboard.providersHealth.hasIssues': '{count} 个 Provider 存在问题',
 
         // Plugins panel
         'plugins.sidebar.title': 'Plugins',
@@ -1322,6 +1327,11 @@ const DICT = Object.freeze({
         'dashboard.usage.range': '範囲 {value}',
         'dashboard.tasks.queue': '実行 {running} / キュー {queued}',
         'dashboard.skills.count': 'インストール済 {installed} / インポート可 {importable}',
+        'dashboard.providersHealth.title': 'Provider 健全性',
+        'dashboard.providersHealth.current': '(現在)',
+        'dashboard.providersHealth.checking': 'チェック中...',
+        'dashboard.providersHealth.allOk': 'すべての Provider が正常',
+        'dashboard.providersHealth.hasIssues': '{count} 件の Provider に問題あり',
 
         // Plugins panel
         'plugins.sidebar.title': 'Plugins',
@@ -2366,6 +2376,11 @@ const DICT = Object.freeze({
         'dashboard.usage.range': 'Range {value}',
         'dashboard.tasks.queue': 'run {running} / queue {queued}',
         'dashboard.skills.count': 'installed {installed} / import {importable}',
+        'dashboard.providersHealth.title': 'Provider Health',
+        'dashboard.providersHealth.current': '(current)',
+        'dashboard.providersHealth.checking': 'Checking...',
+        'dashboard.providersHealth.allOk': 'All providers OK',
+        'dashboard.providersHealth.hasIssues': '{count} provider(s) have issues',
 
         // Plugins panel
         'plugins.sidebar.title': 'Plugins',
