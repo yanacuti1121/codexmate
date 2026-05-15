@@ -83,7 +83,14 @@ const {
     dispatchAutomationNotifiers,
     formatTaskRunNotificationPayload
 } = require('./lib/automation');
-const { buildConfigHealthReport: buildConfigHealthReportCore } = require('./cli/config-health');
+const {
+    ALLOWED_EVENTS: WEBHOOK_ALLOWED_EVENTS,
+    defaultConfigPath: defaultWebhookConfigPath,
+    loadWebhookConfig,
+    saveWebhookConfig,
+    notifyWebhook
+} = require('./lib/cli-webhook');
+const { buildConfigHealthReport: buildConfigHealthReportCore, buildAllProvidersHealthReport: buildAllProvidersHealthReportCore } = require('./cli/config-health');
 const { buildDoctorReport, buildDoctorLegacyPayload, renderDoctorMarkdown } = require('./cli/doctor-core');
 const {
     createAuthProfileController
@@ -100,6 +107,9 @@ const {
     readOpenaiBridgeSettings,
     resolveOpenaiBridgeUpstream
 } = require('./cli/openai-bridge');
+const {
+    createLocalBridgeHttpHandler
+} = require('./cli/local-bridge');
 const {
     createOpenclawConfigController
 } = require('./cli/openclaw-config');
@@ -181,6 +191,7 @@ const INIT_MARK_FILE = path.join(CONFIG_DIR, 'codexmate-init.json');
 const BUILTIN_PROXY_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-proxy.json');
 const BUILTIN_CLAUDE_PROXY_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-claude-proxy.json');
 const OPENAI_BRIDGE_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-openai-bridge.json');
+const LOCAL_BRIDGE_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-local-bridge.json');
 const CODEX_SESSIONS_DIR = path.join(CONFIG_DIR, 'sessions');
 const SESSION_TRASH_DIR = path.join(CONFIG_DIR, 'codexmate-session-trash');
 const SESSION_TRASH_FILES_DIR = path.join(SESSION_TRASH_DIR, 'files');
@@ -261,6 +272,7 @@ const DEFAULT_EXTRACT_SUFFIXES = Object.freeze(['.json']);
 const g_taskRunControllers = new Map();
 let g_taskQueueProcessor = null;
 const BUILTIN_PROXY_PROVIDER_NAME = 'codexmate-proxy';
+const BUILTIN_LOCAL_PROVIDER_NAME = 'local';
 const DEFAULT_BUILTIN_PROXY_SETTINGS = Object.freeze({
     enabled: false,
     host: '127.0.0.1',
@@ -304,11 +316,29 @@ const CLI_INSTALL_TARGETS = Object.freeze([
     }
 ]);
 
-const HTTP_KEEP_ALIVE_AGENT = new http.Agent({ keepAlive: true });
-const HTTPS_KEEP_ALIVE_AGENT = new https.Agent({ keepAlive: true });
+const HTTP_KEEP_ALIVE_AGENT = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxFreeSockets: 4
+});
+const HTTPS_KEEP_ALIVE_AGENT = new https.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxFreeSockets: 4
+});
 
 const openaiBridgeHandler = createOpenaiBridgeHttpHandler({
     settingsFile: OPENAI_BRIDGE_SETTINGS_FILE,
+    expectedToken: typeof process.env.CODEXMATE_HTTP_TOKEN === 'string' ? process.env.CODEXMATE_HTTP_TOKEN.trim() : '',
+    maxBodySize: MAX_API_BODY_SIZE,
+    httpAgent: HTTP_KEEP_ALIVE_AGENT,
+    httpsAgent: HTTPS_KEEP_ALIVE_AGENT
+});
+
+const localBridgeHandler = createLocalBridgeHttpHandler({
+    readConfigFn: readConfig,
+    openaiBridgeFile: OPENAI_BRIDGE_SETTINGS_FILE,
+    localBridgeSettingsFile: LOCAL_BRIDGE_SETTINGS_FILE,
     expectedToken: typeof process.env.CODEXMATE_HTTP_TOKEN === 'string' ? process.env.CODEXMATE_HTTP_TOKEN.trim() : '',
     maxBodySize: MAX_API_BODY_SIZE,
     httpAgent: HTTP_KEEP_ALIVE_AGENT,
@@ -574,16 +604,17 @@ model_auto_compact_token_limit = ${DEFAULT_MODEL_AUTO_COMPACT_TOKEN_LIMIT}
 disable_response_storage = true
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-model_provider = "maxx"
+model_provider = "local"
 personality = "pragmatic"
 web_search = "live"
 
-[model_providers.maxx]
-name = "maxx"
-base_url = "https://maxx-direct.cloverstd.com"
+[model_providers.local]
+name = "local"
+base_url = "http://127.0.0.1:3737/bridge/local/v1"
 wire_api = "responses"
-requires_openai_auth = false
-preferred_auth_method = "sk-"
+requires_openai_auth = true
+preferred_auth_method = "codexmate"
+codexmate_bridge = "local"
 request_max_retries = 4
 stream_max_retries = 10
 stream_idle_timeout_ms = 300000
@@ -605,12 +636,16 @@ function isBuiltinProxyProvider(providerName) {
     return typeof providerName === 'string' && providerName.trim().toLowerCase() === BUILTIN_PROXY_PROVIDER_NAME.toLowerCase();
 }
 
+function isLocalProvider(providerName) {
+    return typeof providerName === 'string' && providerName.trim().toLowerCase() === BUILTIN_LOCAL_PROVIDER_NAME.toLowerCase();
+}
+
 function isReservedProviderNameForCreation(providerName) {
-    return false;
+    return isLocalProvider(providerName);
 }
 
 function isBuiltinManagedProvider(providerName) {
-    return isBuiltinProxyProvider(providerName);
+    return isBuiltinProxyProvider(providerName) || isLocalProvider(providerName);
 }
 
 function isNonDeletableProvider(providerName) {
@@ -1649,6 +1684,7 @@ const {
     DEFAULT_MODEL_AUTO_COMPACT_TOKEN_LIMIT,
     CODEXMATE_MANAGED_MARKER,
     BUILTIN_PROXY_PROVIDER_NAME,
+    BUILTIN_LOCAL_PROVIDER_NAME,
     EMPTY_CONFIG_FALLBACK_TEMPLATE
 });
 
@@ -1711,6 +1747,14 @@ async function buildConfigHealthReport(params = {}) {
     return buildConfigHealthReportCore(params, {
         readConfigOrVirtualDefault,
         readModels
+    });
+}
+
+async function buildAllProvidersHealthReport(params = {}) {
+    return buildAllProvidersHealthReportCore(params, {
+        readConfigOrVirtualDefault,
+        readCurrentModels,
+        probeJsonPost
     });
 }
 
@@ -2047,7 +2091,7 @@ function addProviderToConfig(params = {}) {
         return { error: '提供商名称不可用' };
     }
     if (isBuiltinProxyProvider(name) && !allowManaged) {
-        return { error: 'codexmate-proxy 为保留名称，不可手动添加' };
+        return { error: `${"codexmate-proxy"} 为保留名称，不可手动添加` }; // keep literal for codexmate-proxy
     }
 
     ensureConfigDir();
@@ -2147,7 +2191,7 @@ function updateProviderInConfig(params = {}) {
         return { error: 'URL 仅支持 http/https' };
     }
     if (isNonEditableProvider(name) && !allowManaged) {
-        return { error: 'codexmate-proxy 为保留名称，不可编辑' };
+        return { error: `${name} 为保留名称，不可编辑` };
     }
 
     try {
@@ -2162,7 +2206,7 @@ function deleteProviderFromConfig(params = {}) {
     const name = typeof params.name === 'string' ? params.name.trim() : '';
     if (!name) return { error: '名称不能为空' };
     if (isNonDeletableProvider(name)) {
-        return { error: 'codexmate-proxy 为保留名称，不可删除' };
+        return { error: `${name} 为保留名称，不可删除` };
     }
     if (!fs.existsSync(CONFIG_FILE)) {
         return { error: 'config.toml 不存在' };
@@ -2190,7 +2234,7 @@ function deleteProviderFromConfig(params = {}) {
 function performProviderDeletion(name, options = {}) {
     const silent = !!options.silent;
     if (isNonDeletableProvider(name)) {
-        const msg = 'codexmate-proxy 为保留名称，不可删除';
+        const msg = `${name} 为保留名称，不可删除`;
         if (!silent) console.error('错误:', msg);
         return { error: msg };
     }
@@ -3642,12 +3686,19 @@ function readTotalTokensFromUsage(usage) {
         return explicitTotal;
     }
     const inputTokens = readNonNegativeInteger(usage.input_tokens ?? usage.inputTokens);
+    const cachedInputTokens = readNonNegativeInteger(
+        usage.cached_input_tokens ?? usage.cachedInputTokens
+            ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
+    );
+    const cacheCreationInputTokens = readNonNegativeInteger(
+        usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens
+    );
     const outputTokens = readNonNegativeInteger(usage.output_tokens ?? usage.outputTokens);
     const reasoningOutputTokens = readNonNegativeInteger(usage.reasoning_output_tokens ?? usage.reasoningOutputTokens);
-    if (inputTokens === null && outputTokens === null && reasoningOutputTokens === null) {
+    if (inputTokens === null && cachedInputTokens === null && cacheCreationInputTokens === null && outputTokens === null && reasoningOutputTokens === null) {
         return null;
     }
-    return (inputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0);
+    return (inputTokens || 0) + (cachedInputTokens || 0) + (cacheCreationInputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0);
 }
 
 function readUsageTotalsFromUsage(usage) {
@@ -3655,19 +3706,26 @@ function readUsageTotalsFromUsage(usage) {
         return null;
     }
     const inputTokens = readNonNegativeInteger(usage.input_tokens ?? usage.inputTokens);
-    const cachedInputTokens = readNonNegativeInteger(usage.cached_input_tokens ?? usage.cachedInputTokens);
+    const cachedInputTokens = readNonNegativeInteger(
+        usage.cached_input_tokens ?? usage.cachedInputTokens
+            ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
+    );
+    const cacheCreationInputTokens = readNonNegativeInteger(
+        usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens
+    );
     const outputTokens = readNonNegativeInteger(usage.output_tokens ?? usage.outputTokens);
     const reasoningOutputTokens = readNonNegativeInteger(usage.reasoning_output_tokens ?? usage.reasoningOutputTokens);
     const totalTokens = readNonNegativeInteger(usage.total_tokens ?? usage.totalTokens)
-        ?? ((inputTokens === null && cachedInputTokens === null && outputTokens === null && reasoningOutputTokens === null)
+        ?? ((inputTokens === null && cachedInputTokens === null && cacheCreationInputTokens === null && outputTokens === null && reasoningOutputTokens === null)
             ? null
-            : ((inputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0)));
-    if (inputTokens === null && cachedInputTokens === null && outputTokens === null && reasoningOutputTokens === null && totalTokens === null) {
+            : ((inputTokens || 0) + (cachedInputTokens || 0) + (cacheCreationInputTokens || 0) + (outputTokens || 0) + (reasoningOutputTokens || 0)));
+    if (inputTokens === null && cachedInputTokens === null && cacheCreationInputTokens === null && outputTokens === null && reasoningOutputTokens === null && totalTokens === null) {
         return null;
     }
     return {
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         totalTokens
@@ -3693,6 +3751,7 @@ function applyUsageTotalsToState(state, usageTotals) {
     const pairs = [
         ['inputTokens', usageTotals.inputTokens],
         ['cachedInputTokens', usageTotals.cachedInputTokens],
+        ['cacheCreationInputTokens', usageTotals.cacheCreationInputTokens],
         ['outputTokens', usageTotals.outputTokens],
         ['reasoningOutputTokens', usageTotals.reasoningOutputTokens],
         ['totalTokens', usageTotals.totalTokens]
@@ -3943,12 +4002,13 @@ function parseCodexSessionSummary(filePath, options = {}) {
     let contextWindow = 0;
     let inputTokens = 0;
     let cachedInputTokens = 0;
+    let cacheCreationInputTokens = 0;
     let outputTokens = 0;
     let reasoningOutputTokens = 0;
     let provider = 'codex';
     let model = '';
     const models = [];
-    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
     const previewMessages = [];
 
     for (const record of records) {
@@ -3961,6 +4021,7 @@ function parseCodexSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -3995,6 +4056,7 @@ function parseCodexSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
         provider = readExplicitSessionProviderFromRecord(record) || provider;
@@ -4054,6 +4116,7 @@ function parseCodexSessionSummary(filePath, options = {}) {
         contextWindow,
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         __messageCountExact: isSessionSummaryMessageCountExact(stat, summaryReadBytes),
@@ -4090,12 +4153,13 @@ function parseClaudeSessionSummary(filePath, options = {}) {
     let contextWindow = 0;
     let inputTokens = 0;
     let cachedInputTokens = 0;
+    let cacheCreationInputTokens = 0;
     let outputTokens = 0;
     let reasoningOutputTokens = 0;
     let provider = 'claude';
     let model = '';
     const models = [];
-    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
     const previewMessages = [];
     let createdAt = '';
     let updatedAt = stat.mtime.toISOString();
@@ -4113,6 +4177,7 @@ function parseClaudeSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4146,6 +4211,7 @@ function parseClaudeSessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
         provider = readExplicitSessionProviderFromRecord(record) || provider;
@@ -4204,6 +4270,7 @@ function parseClaudeSessionSummary(filePath, options = {}) {
         contextWindow,
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         __messageCountExact: isSessionSummaryMessageCountExact(stat, summaryReadBytes),
@@ -4240,12 +4307,13 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
     let contextWindow = 0;
     let inputTokens = 0;
     let cachedInputTokens = 0;
+    let cacheCreationInputTokens = 0;
     let outputTokens = 0;
     let reasoningOutputTokens = 0;
     let provider = 'codebuddy';
     let model = '';
     const models = [];
-    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+    const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
     const previewMessages = [];
     let createdAt = '';
     let updatedAt = stat.mtime.toISOString();
@@ -4263,6 +4331,7 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4301,6 +4370,7 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
         contextWindow = usageState.contextWindow || 0;
         inputTokens = usageState.inputTokens || 0;
         cachedInputTokens = usageState.cachedInputTokens || 0;
+        cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
         outputTokens = usageState.outputTokens || 0;
         reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
         provider = readExplicitSessionProviderFromRecord(record) || provider;
@@ -4361,6 +4431,7 @@ function parseCodeBuddySessionSummary(filePath, options = {}) {
         contextWindow,
         inputTokens,
         cachedInputTokens,
+        cacheCreationInputTokens,
         outputTokens,
         reasoningOutputTokens,
         __messageCountExact: isSessionSummaryMessageCountExact(stat, summaryReadBytes),
@@ -4650,17 +4721,19 @@ function listClaudeSessions(limit, options = {}) {
             let contextWindow = 0;
             let inputTokens = 0;
             let cachedInputTokens = 0;
+            let cacheCreationInputTokens = 0;
             let outputTokens = 0;
             let reasoningOutputTokens = 0;
             let model = typeof entry.model === 'string' ? entry.model.trim() : '';
             const models = model ? [model] : [];
 
-            const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens };
+            const usageState = { totalTokens, contextWindow, inputTokens, cachedInputTokens, cacheCreationInputTokens, outputTokens, reasoningOutputTokens };
             applySessionUsageSummaryFromIndexEntry(usageState, entry);
             totalTokens = usageState.totalTokens || 0;
             contextWindow = usageState.contextWindow || 0;
             inputTokens = usageState.inputTokens || 0;
             cachedInputTokens = usageState.cachedInputTokens || 0;
+            cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
             outputTokens = usageState.outputTokens || 0;
             reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4691,6 +4764,7 @@ function listClaudeSessions(limit, options = {}) {
                 contextWindow = usageState.contextWindow || 0;
                 inputTokens = usageState.inputTokens || 0;
                 cachedInputTokens = usageState.cachedInputTokens || 0;
+                cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
                 outputTokens = usageState.outputTokens || 0;
                 reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
                 const filteredQuickMessages = removeLeadingSystemMessage(quickMessages);
@@ -4715,6 +4789,7 @@ function listClaudeSessions(limit, options = {}) {
             contextWindow = usageState.contextWindow || 0;
             inputTokens = usageState.inputTokens || 0;
             cachedInputTokens = usageState.cachedInputTokens || 0;
+            cacheCreationInputTokens = usageState.cacheCreationInputTokens || 0;
             outputTokens = usageState.outputTokens || 0;
             reasoningOutputTokens = usageState.reasoningOutputTokens || 0;
 
@@ -4738,6 +4813,7 @@ function listClaudeSessions(limit, options = {}) {
                 contextWindow,
                 inputTokens,
                 cachedInputTokens,
+                cacheCreationInputTokens,
                 outputTokens,
                 reasoningOutputTokens,
                 model,
@@ -5377,6 +5453,100 @@ function applyBuiltinProxyProvider(params = {}) {
 
 async function ensureBuiltinProxyForCodexDefault(params = {}) {
     return { error: '该功能已移除' };
+}
+
+function readLocalBridgeSettings() {
+    const defaults = { enabled: false, lastActiveProvider: '', lastModel: '', excludedProviders: [] };
+    try {
+        if (!fs.existsSync(LOCAL_BRIDGE_SETTINGS_FILE)) return defaults;
+        const raw = JSON.parse(fs.readFileSync(LOCAL_BRIDGE_SETTINGS_FILE, 'utf-8'));
+        return {
+            enabled: !!raw.enabled,
+            lastActiveProvider: typeof raw.lastActiveProvider === 'string' ? raw.lastActiveProvider.trim() : '',
+            lastModel: typeof raw.lastModel === 'string' ? raw.lastModel.trim() : '',
+            excludedProviders: Array.isArray(raw.excludedProviders) ? raw.excludedProviders.filter(p => typeof p === 'string') : []
+        };
+    } catch (e) {
+        return defaults;
+    }
+}
+
+function writeLocalBridgeSettings(settings) {
+    fs.writeFileSync(LOCAL_BRIDGE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+function toggleLocalBridgeProvider(params = {}) {
+    const enable = !!params.enable;
+    const settings = readLocalBridgeSettings();
+    try {
+        const config = readConfig();
+        const currentProvider = typeof config.model_provider === 'string' ? config.model_provider.trim() : '';
+        const currentModel = typeof config.model === 'string' ? config.model.trim() : '';
+
+        if (enable) {
+            if (currentProvider === 'local') return { success: true, enabled: true, notice: '已启用 local 转换' };
+            settings.lastActiveProvider = currentProvider;
+            settings.lastModel = currentModel;
+            settings.enabled = true;
+            writeLocalBridgeSettings(settings);
+            let content = fs.readFileSync(CONFIG_FILE, 'utf-8');
+            content = content.replace(/^(model_provider\s*=\s*)(["']).*?(["'])/m, `$1$2local$3`);
+            writeConfig(content);
+            return { success: true, enabled: true, previousProvider: currentProvider };
+        } else {
+            if (currentProvider !== 'local') {
+                settings.enabled = false;
+                writeLocalBridgeSettings(settings);
+                return { success: true, enabled: false, notice: 'local 转换未启用' };
+            }
+            const restoreProvider = settings.lastActiveProvider || '';
+            if (!restoreProvider) {
+                settings.enabled = false;
+                writeLocalBridgeSettings(settings);
+                return { success: true, enabled: false, notice: '已关闭 local 转换（无历史 provider 可恢复）' };
+            }
+            let content = fs.readFileSync(CONFIG_FILE, 'utf-8');
+            content = content.replace(/^(model_provider\s*=\s*)(["']).*?(["'])/m, `$1$2${restoreProvider}$3`);
+            if (settings.lastModel) {
+                content = content.replace(/^(model\s*=\s*)(["']).*?(["'])/m, `$1$2${settings.lastModel}$3`);
+            }
+            writeConfig(content);
+            settings.enabled = false;
+            writeLocalBridgeSettings(settings);
+            return { success: true, enabled: false, restoredProvider: restoreProvider, restoredModel: settings.lastModel };
+        }
+    } catch (e) {
+        return { error: e && e.message ? e.message : '操作失败' };
+    }
+}
+
+function getLocalBridgeStatus() {
+    const settings = readLocalBridgeSettings();
+    let currentProvider = '';
+    try {
+        const config = readConfig();
+        currentProvider = typeof config.model_provider === 'string' ? config.model_provider.trim() : '';
+    } catch (e) { /* ignore */ }
+    return {
+        enabled: settings.enabled,
+        active: currentProvider === 'local',
+        excludedProviders: settings.excludedProviders,
+        lastActiveProvider: settings.lastActiveProvider,
+        lastModel: settings.lastModel
+    };
+}
+
+function setLocalBridgeExcludedProviders(params = {}) {
+    const names = Array.isArray(params.names) ? params.names.filter(n => typeof n === 'string' && n.trim()) : [];
+    const settings = readLocalBridgeSettings();
+    settings.excludedProviders = names;
+    writeLocalBridgeSettings(settings);
+    return { success: true, excludedProviders: names };
+}
+
+function getLocalBridgeExcludedProviders() {
+    const settings = readLocalBridgeSettings();
+    return { excludedProviders: settings.excludedProviders };
 }
 
 function removeClaudeSessionIndexEntry(indexPath, sessionFilePath, sessionId) {
@@ -8364,8 +8534,8 @@ function cmdAdd(name, baseUrl, apiKey, silent = false, options = {}) {
         throw new Error('提供商名称不可用');
     }
     if (isBuiltinProxyProvider(providerName)) {
-        if (!silent) console.error('错误: codexmate-proxy 为保留名称，不可手动添加');
-        throw new Error('codexmate-proxy 为保留名称，不可手动添加');
+        if (!silent) console.error(`错误: ${providerName} 为保留名称，不可手动添加`);
+        throw new Error(`${providerName} 为保留名称，不可手动添加`);
     }
     if (!isValidHttpUrl(providerBaseUrl)) {
         if (!silent) console.error('错误: URL 仅支持 http/https');
@@ -8461,7 +8631,7 @@ function cmdUpdate(name, baseUrl, apiKey, silent = false, options = {}) {
         throw new Error('提供商名称必填');
     }
     if (isNonEditableProvider(name) && !allowManaged) {
-        const msg = 'codexmate-proxy 为保留名称，不可编辑';
+        const msg = `${name} 为保留名称，不可编辑`;
         if (!silent) console.error(`错误: ${msg}`);
         throw new Error(msg);
     }
@@ -10193,6 +10363,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             });
             res.end(body, 'utf-8');
         };
+        if (typeof localBridgeHandler === 'function' && localBridgeHandler(req, res)) {
+            return;
+        }
         if (typeof openaiBridgeHandler === 'function' && openaiBridgeHandler(req, res)) {
             return;
         }
@@ -10296,6 +10469,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = {
                                 provider: config.model_provider || '未设置',
                                 model: config.model || '未设置',
+                                currentModels: readCurrentModels(),
                                 serviceTier,
                                 modelReasoningEffort,
                                 modelContextWindow,
@@ -10386,6 +10560,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                         case 'config-health-check':
                             result = await buildConfigHealthReport(params || {});
                             break;
+                        case 'providers-health':
+                            result = await buildAllProvidersHealthReport(params || {});
+                            break;
                         case 'doctor':
                             {
                                 const doctorParams = isPlainObject(params) ? params : {};
@@ -10412,6 +10589,10 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'apply-claude-md-file':
                             result = applyClaudeMdFile(params || {});
+                            if (result && !result.error) {
+                                const mdTarget = (params && params.targetPath) ? String(params.targetPath) : 'CLAUDE.md';
+                                notifyWebhook('claude-md-edit', 'CLAUDE.md modified: ' + mdTarget, { targetPath: mdTarget }).catch(function () {});
+                            }
                             break;
                         case 'preview-agents-diff':
                             result = buildAgentsDiff(params || {});
@@ -10487,7 +10668,32 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'apply-claude-config':
                             result = applyToClaudeSettings(params.config);
+                            if (result && !result.error) {
+                                const cfgName = (params && params.config && typeof params.config.name === 'string') ? params.config.name : '';
+                                const cfgFrom = (params && typeof params.previousName === 'string') ? params.previousName : '';
+                                const summary = cfgFrom
+                                    ? ('Provider switched: ' + cfgFrom + ' -> ' + cfgName)
+                                    : ('Provider applied: ' + cfgName);
+                                notifyWebhook('provider-switch', summary, { name: cfgName, previousName: cfgFrom }).catch(function () {});
+                            }
                             break;
+                        case 'get-webhook-config':
+                            result = loadWebhookConfig();
+                            break;
+                        case 'set-webhook-config':
+                            result = saveWebhookConfig(params && params.config ? params.config : {});
+                            break;
+                        case 'test-webhook': {
+                            const overrideCfg = params && params.config ? params.config : null;
+                            const probe = await notifyWebhook(
+                                'provider-switch',
+                                'codexmate webhook test ping',
+                                { test: true },
+                                overrideCfg ? { config: overrideCfg } : {}
+                            );
+                            result = probe;
+                            break;
+                        }
                         case 'export-claude-share':
                             result = buildClaudeSharePayload(params && params.config ? params.config : {});
                             break;
@@ -10701,6 +10907,18 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'proxy-apply-provider':
                             result = applyBuiltinProxyProvider(params || {});
+                            break;
+                        case 'local-bridge-toggle':
+                            result = toggleLocalBridgeProvider(params || {});
+                            break;
+                        case 'local-bridge-status':
+                            result = getLocalBridgeStatus();
+                            break;
+                        case 'local-bridge-set-excluded':
+                            result = setLocalBridgeExcludedProviders(params || {});
+                            break;
+                        case 'local-bridge-get-excluded':
+                            result = getLocalBridgeExcludedProviders();
                             break;
                         case 'workflow-list':
                             result = listWorkflowDefinitions();
@@ -12642,35 +12860,47 @@ function buildMcpProviderListPayload() {
         configReady: !listConfigResult.isVirtual,
         configErrorType: listConfigResult.errorType || '',
         configNotice: listConfigResult.reason || '',
-        providers: Object.entries(providers).map(([name, p]) => ({
-            name,
-            url: p.base_url || '',
-            key: maskKey(p.preferred_auth_method || ''),
-            hasKey: !!(p.preferred_auth_method && p.preferred_auth_method.trim()),
-            models: Array.isArray(p.models)
-                ? p.models
-                    .filter((model) => model && typeof model === 'object' && !Array.isArray(model))
-                    .map((model) => ({
-                        id: typeof model.id === 'string' ? model.id : '',
-                        name: typeof model.name === 'string' ? model.name : '',
-                        cost: model.cost && typeof model.cost === 'object' && !Array.isArray(model.cost)
-                            ? {
-                                input: model.cost.input,
-                                output: model.cost.output,
-                                cacheRead: model.cost.cacheRead,
-                                cacheWrite: model.cost.cacheWrite
-                            }
-                            : null,
-                        contextWindow: model.contextWindow,
-                        maxTokens: model.maxTokens
-                    }))
-                    .filter((model) => model.id)
-                : [],
-            current: name === current,
-            readOnly: isBuiltinManagedProvider(name),
-            nonDeletable: isNonDeletableProvider(name),
-            nonEditable: isNonEditableProvider(name)
-        }))
+        providers: Object.entries(providers).map(([name, p]) => {
+            const bridge = typeof p.codexmate_bridge === 'string' ? p.codexmate_bridge.trim() : '';
+            let upstreamUrl = '';
+            if (bridge === 'openai') {
+                const upstream = resolveOpenaiBridgeUpstream(OPENAI_BRIDGE_SETTINGS_FILE, name);
+                if (upstream && !upstream.error && typeof upstream.baseUrl === 'string') {
+                    upstreamUrl = upstream.baseUrl.trim();
+                }
+            }
+            return {
+                name,
+                url: p.base_url || '',
+                upstreamUrl,
+                codexmate_bridge: bridge,
+                key: maskKey(p.preferred_auth_method || ''),
+                hasKey: !!(p.preferred_auth_method && p.preferred_auth_method.trim()),
+                models: Array.isArray(p.models)
+                    ? p.models
+                        .filter((model) => model && typeof model === 'object' && !Array.isArray(model))
+                        .map((model) => ({
+                            id: typeof model.id === 'string' ? model.id : '',
+                            name: typeof model.name === 'string' ? model.name : '',
+                            cost: model.cost && typeof model.cost === 'object' && !Array.isArray(model.cost)
+                                ? {
+                                    input: model.cost.input,
+                                    output: model.cost.output,
+                                    cacheRead: model.cost.cacheRead,
+                                    cacheWrite: model.cost.cacheWrite
+                                }
+                                : null,
+                            contextWindow: model.contextWindow,
+                            maxTokens: model.maxTokens
+                        }))
+                        .filter((model) => model.id)
+                    : [],
+                current: name === current,
+                readOnly: isBuiltinManagedProvider(name),
+                nonDeletable: isNonDeletableProvider(name),
+                nonEditable: isNonEditableProvider(name)
+            };
+        })
     };
 }
 

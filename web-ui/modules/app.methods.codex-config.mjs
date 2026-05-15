@@ -104,7 +104,19 @@ export function createCodexConfigMethods(options = {}) {
             const previousModels = Array.isArray(this.models) ? [...this.models] : [];
             const previousModelsSource = this.modelsSource;
             const previousModelsHasCurrent = this.modelsHasCurrent;
+            // 切走前把上一个 provider 的 model 落到内存字典，避免切回时显示抖动。
+            if (previousProvider && typeof previousModel === 'string' && previousModel.trim() && previousModel !== '未设置') {
+                if (!this.currentModels || typeof this.currentModels !== 'object') this.currentModels = {};
+                this.currentModels[previousProvider] = previousModel.trim();
+            }
             this.currentProvider = name;
+            // 立即按字典预填，让 UI 不出现空白；远端 /models 后台异步补齐。
+            const dictModel = typeof this.activeProviderModel === 'function'
+                ? this.activeProviderModel(name)
+                : '';
+            if (dictModel) {
+                this.currentModel = dictModel;
+            }
             const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
             // 不要把“切换提供商”强绑定到 /models 成功与否：
@@ -119,7 +131,11 @@ export function createCodexConfigMethods(options = {}) {
 
             await Promise.race([modelsTask, delay(250)]);
 
-            if (this.modelsSource === 'remote' && this.models.length > 0 && !this.models.includes(this.currentModel)) {
+            // 只在“字典中没有该 provider 记录”时才允许 remote 首项覆盖，否则尊重用户上次选择。
+            if (!dictModel
+                && this.modelsSource === 'remote'
+                && this.models.length > 0
+                && !this.models.includes(this.currentModel)) {
                 this.currentModel = this.models[0];
                 this.modelsHasCurrent = true;
             }
@@ -132,7 +148,10 @@ export function createCodexConfigMethods(options = {}) {
             await modelsTask;
 
             if (this.currentProvider === name) {
-                if (this.modelsSource === 'remote' && this.models.length > 0 && !this.models.includes(this.currentModel)) {
+                if (!dictModel
+                    && this.modelsSource === 'remote'
+                    && this.models.length > 0
+                    && !this.models.includes(this.currentModel)) {
                     this.currentModel = this.models[0];
                     this.modelsHasCurrent = true;
                     if (getProviderConfigModeMeta(this.configMode)) {
@@ -140,6 +159,10 @@ export function createCodexConfigMethods(options = {}) {
                         await this.applyCodexConfigDirect({ silent: true });
                     }
                 }
+            }
+
+            if (typeof this.loadLocalBridgeExcluded === 'function') {
+                this.loadLocalBridgeExcluded();
             }
         },
 
@@ -185,6 +208,12 @@ export function createCodexConfigMethods(options = {}) {
         },
 
         async onModelChange() {
+            const name = String(this.currentProvider || '').trim();
+            const model = typeof this.currentModel === 'string' ? this.currentModel.trim() : '';
+            if (name && model) {
+                if (!this.currentModels || typeof this.currentModels !== 'object') this.currentModels = {};
+                this.currentModels[name] = model;
+            }
             await this.applyCodexConfigDirect();
         },
 
@@ -456,6 +485,27 @@ export function createCodexConfigMethods(options = {}) {
                 this.healthCheckBatchTotal = this.healthCheckBatchTotal || 0;
                 this.healthCheckBatchDone = Math.min(this.healthCheckBatchDone || 0, this.healthCheckBatchTotal || 0);
                 this.healthCheckLoading = false;
+                if (typeof this.runProvidersHealthCheck === 'function' && this.configMode === 'codex') {
+                    void this.runProvidersHealthCheck({ remote: true });
+                }
+            }
+        },
+
+        async runProvidersHealthCheck(options = {}) {
+            this.providersHealthLoading = true;
+            try {
+                const res = await api('providers-health', {
+                    remote: options.remote !== false
+                });
+                if (res && typeof res === 'object' && !res.error) {
+                    this.providersHealthResult = res;
+                } else {
+                    this.providersHealthResult = null;
+                }
+            } catch (e) {
+                this.providersHealthResult = null;
+            } finally {
+                this.providersHealthLoading = false;
             }
         },
 
@@ -553,6 +603,8 @@ export function createCodexConfigMethods(options = {}) {
             this.modelContextWindowInput = modelContextWindow.text;
             this.modelAutoCompactTokenLimitInput = modelAutoCompactTokenLimit.text;
 
+            const _codexKey = `${provider}|${model}|${this.serviceTier || ""}|${this.modelReasoningEffort || ""}|${modelContextWindow.value}|${modelAutoCompactTokenLimit.value}`;
+
             this.codexApplying = true;
             try {
                 const tplRes = await api('get-config-template', {
@@ -589,7 +641,12 @@ export function createCodexConfigMethods(options = {}) {
                 }
 
                 if (options.silent !== true) {
-                    this.showMessage('配置已应用', 'success');
+                    if (this._lastAppliedCodexKey !== _codexKey) {
+                        this.showMessage('配置已应用', 'success');
+                        this._lastAppliedCodexKey = _codexKey;
+                    }
+                } else {
+                    this._lastAppliedCodexKey = _codexKey;
                 }
 
                 const refreshOptions = options.silent === true

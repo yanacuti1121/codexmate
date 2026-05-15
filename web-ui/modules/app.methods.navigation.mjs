@@ -1,4 +1,4 @@
-export function createNavigationMethods(options = {}) {
+﻿export function createNavigationMethods(options = {}) {
     const {
         configModeSet,
         switchMainTabHelper,
@@ -14,7 +14,8 @@ export function createNavigationMethods(options = {}) {
         'market',
         'plugins',
         'docs',
-        'settings'
+        'settings',
+        'trash'
     ]);
     const loadDoctorOverview = async (vm, options = {}) => {
         if (!vm || typeof vm !== 'object') return false;
@@ -67,9 +68,15 @@ export function createNavigationMethods(options = {}) {
             : vm.configMode;
         const mainTab = typeof mainTabSource === 'string' ? mainTabSource.trim().toLowerCase() : '';
         const configMode = typeof configModeSource === 'string' ? configModeSource.trim().toLowerCase() : '';
+        const settingsTab = typeof vm.settingsTab === 'string' ? vm.settingsTab.trim().toLowerCase() : 'general';
+        const skillsTargetApp = typeof vm.skillsTargetApp === 'string' && (vm.skillsTargetApp === 'codex' || vm.skillsTargetApp === 'claude') ? vm.skillsTargetApp : 'codex';
+        const promptTemplatesMode = typeof vm.promptTemplatesMode === 'string' && (vm.promptTemplatesMode === 'compose' || vm.promptTemplatesMode === 'manage') ? vm.promptTemplatesMode : 'compose';
         const snapshot = {
+            settingsTab: settingsTab === 'data' ? 'data' : 'general',
             mainTab: MAIN_TAB_SET.has(mainTab) ? mainTab : 'dashboard',
-            configMode: configModeSet && configModeSet.has(configMode) ? configMode : 'codex'
+            configMode: configModeSet && configModeSet.has(configMode) ? configMode : 'codex',
+            skillsTargetApp,
+            promptTemplatesMode
         };
         try {
             localStorage.setItem(NAV_STATE_STORAGE_KEY, JSON.stringify(snapshot));
@@ -77,6 +84,9 @@ export function createNavigationMethods(options = {}) {
     };
 
     return {
+        saveNavState() {
+            persistNavState(this);
+        },
         restoreNavStateFromStorage() {
             if (this.__navStateRestoring) return false;
             const restored = readNavState();
@@ -89,7 +99,17 @@ export function createNavigationMethods(options = {}) {
                 : '';
             const shouldUpdateConfigMode = !!(nextConfigMode && configModeSet && configModeSet.has(nextConfigMode));
             const shouldUpdateMainTab = !!(nextMainTab && MAIN_TAB_SET.has(nextMainTab) && nextMainTab !== this.mainTab);
-            if (!shouldUpdateConfigMode && !shouldUpdateMainTab) {
+            const nextSettingsTab = restored && typeof restored.settingsTab === 'string'
+                ? restored.settingsTab.trim().toLowerCase()
+                : '';
+            const shouldUpdateSettingsTab = !!(nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data') && nextSettingsTab !== this.settingsTab);
+            const nextSkillsTargetApp = restored && typeof restored.skillsTargetApp === 'string' && (restored.skillsTargetApp === 'codex' || restored.skillsTargetApp === 'claude')
+                ? restored.skillsTargetApp : '';
+            const shouldUpdateSkillsTargetApp = !!(nextSkillsTargetApp && nextSkillsTargetApp !== this.skillsTargetApp);
+            const nextPromptTemplatesMode = restored && typeof restored.promptTemplatesMode === 'string' && (restored.promptTemplatesMode === 'compose' || restored.promptTemplatesMode === 'manage')
+                ? restored.promptTemplatesMode : '';
+            const shouldUpdatePromptTemplatesMode = !!(nextPromptTemplatesMode && nextPromptTemplatesMode !== this.promptTemplatesMode);
+            if (!shouldUpdateConfigMode && !shouldUpdateMainTab && !shouldUpdateSettingsTab && !shouldUpdateSkillsTargetApp && !shouldUpdatePromptTemplatesMode) {
                 return false;
             }
             this.__navStateRestoring = true;
@@ -97,8 +117,17 @@ export function createNavigationMethods(options = {}) {
                 if (shouldUpdateConfigMode) {
                     this.configMode = nextConfigMode;
                 }
+                if (shouldUpdateSettingsTab) {
+                    this.settingsTab = nextSettingsTab;
+                }
                 if (shouldUpdateMainTab) {
                     this.switchMainTab(nextMainTab);
+                }
+                if (shouldUpdateSkillsTargetApp) {
+                    this.skillsTargetApp = nextSkillsTargetApp;
+                }
+                if (shouldUpdatePromptTemplatesMode) {
+                    this.promptTemplatesMode = nextPromptTemplatesMode;
                 }
             } finally {
                 this.__navStateRestoring = false;
@@ -411,6 +440,11 @@ export function createNavigationMethods(options = {}) {
                 switchState.ticket += 1;
                 switchState.pendingTarget = '';
                 if (targetTab === 'dashboard' && !this.__doctorLoadedOnce) {
+                if (targetTab === 'trash' && !this.sessionTrashLoadedOnce) {
+                    if (typeof this.loadSessionTrash === 'function') {
+                        void this.loadSessionTrash({ forceRefresh: false });
+                    }
+                }
                     void loadDoctorOverview(this);
                 }
                 if (
@@ -656,10 +690,7 @@ export function createNavigationMethods(options = {}) {
                 ? this.activeSessionMessages.length
                 : 0;
             if (total <= 0) return;
-            const baseSize = Number.isFinite(this.sessionPreviewInitialBatchSize)
-                ? Math.max(1, Math.floor(this.sessionPreviewInitialBatchSize))
-                : 40;
-            this.sessionPreviewVisibleCount = Math.min(baseSize, total);
+            this.sessionPreviewVisibleCount = total;
             this.invalidateSessionTimelineMeasurementCache();
         },
 

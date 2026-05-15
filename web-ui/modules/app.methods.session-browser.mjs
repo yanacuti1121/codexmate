@@ -249,11 +249,6 @@ export function createSessionBrowserMethods(options = {}) {
             }
         },
 
-        onSessionResumeYoloChange() {
-            const value = this.sessionResumeWithYolo ? '1' : '0';
-            localStorage.setItem('codexmateSessionResumeYolo', value);
-        },
-
         normalizeSessionSortMode(value) {
             const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
             return normalized === 'hot' ? 'hot' : 'time';
@@ -698,7 +693,7 @@ export function createSessionBrowserMethods(options = {}) {
             for (const session of visible) {
                 if (!session || typeof session !== 'object') continue;
                 const messageCountRaw = Number(session.messageCount);
-                const shouldHydrate = !Number.isFinite(messageCountRaw) || messageCountRaw === 0;
+                const shouldHydrate = !Number.isFinite(messageCountRaw) || (messageCountRaw === 0 && !session.__messageCountExact);
                 if (!shouldHydrate) continue;
                 const key = this.getSessionExportKey(session);
                 if (!key) continue;

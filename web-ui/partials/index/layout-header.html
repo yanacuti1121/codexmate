@@ -107,6 +107,12 @@
                     :aria-pressed="(lang || 'zh') === 'en'"
                     :class="{ active: (lang || 'zh') === 'en' }"
                     @click="setLang('en')">EN</button>
+                <button
+                    type="button"
+                    class="lang-choice-btn"
+                    :aria-pressed="(lang || 'zh') === 'ja'"
+                    :class="{ active: (lang || 'zh') === 'ja' }"
+                    @click="setLang('ja')">日本語</button>
             </div>
         </div>
 
@@ -297,6 +303,19 @@
                             <span>{{ t('side.system.settings.meta') }}</span>
                         </div>
                     </button>
+                    <button
+                        id="side-tab-trash"
+                        data-main-tab="trash"
+                        :aria-current="mainTab === 'trash' ? 'page' : null"
+                        :class="['side-item', { active: isMainTabNavActive('trash') }]"
+                        @pointerdown="onMainTabPointerDown('trash', $event)"
+                        @click="onMainTabClick('trash', $event)">
+                        <div class="side-item-title">回收站</div>
+                        <div class="side-item-meta">
+                            <span>已删除会话</span>
+                            <span v-if="sessionTrashCount > 0" class="side-item-badge">{{ sessionTrashCount }}</span>
+                        </div>
+                    </button>
                 </div>
                 </div>
 
@@ -314,6 +333,12 @@
                             :aria-pressed="(lang || 'zh') === 'en'"
                             :class="{ active: (lang || 'zh') === 'en' }"
                             @click="setLang('en')">EN</button>
+                        <button
+                            type="button"
+                            class="lang-choice-btn"
+                            :aria-pressed="(lang || 'zh') === 'ja'"
+                            :class="{ active: (lang || 'zh') === 'ja' }"
+                            @click="setLang('ja')">日本語</button>
                     </div>
                 </div>
             </aside>

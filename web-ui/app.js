@@ -34,12 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 configMode: 'codex',
                 currentProvider: '',
                 currentModel: '',
+                currentModels: {},
                 serviceTier: 'fast',
                 modelReasoningEffort: 'medium',
                 modelContextWindowInput: String(DEFAULT_MODEL_CONTEXT_WINDOW),
                 modelAutoCompactTokenLimitInput: String(DEFAULT_MODEL_AUTO_COMPACT_TOKEN_LIMIT),
                 editingCodexBudgetField: '',
                 providersList: [],
+                localBridgeExcluded: [],
                 models: [],
                 codexModelsLoading: false,
                 modelsSource: 'remote',
@@ -81,9 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 promptComposerPickerKeyword: '',
                 promptComposerSelectedTemplateId: '',
                 promptComposerVarValuesRaw: {},
-                showPromptTemplateVarModal: false,
-                promptTemplateVarDraftName: '',
-                promptTemplateVarDraftError: '',
                 showConfirmDialog: false,
                 confirmDialogTitle: '',
                 confirmDialogMessage: '',
@@ -174,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionRoleFilter: 'all',
                 sessionTimePreset: 'all',
                 sessionSortMode: 'time',
-                sessionResumeWithYolo: true,
                 sessionPathOptions: [],
                 sessionPathOptionsLoading: false,
                 sessionPathOptionsMap: {
@@ -206,8 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeSessionDetailClipped: false,
                 sessionDetailLoading: false,
                 sessionDetailRequestSeq: 0,
-                sessionDetailInitialMessageLimit: 80,
-                sessionDetailFetchStep: 80,
+                sessionDetailInitialMessageLimit: 300,
+                sessionDetailFetchStep: 300,
                 sessionDetailMessageLimit: 80,
                 sessionDetailMessageLimitCap: 1000,
                 sessionTimelineActiveKey: '',
@@ -225,8 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionPreviewHeaderResizeObserver: null,
                 sessionListRenderEnabled: false,
                 sessionListVisibleCount: 0,
-                sessionListInitialBatchSize: 20,
-                sessionListLoadStep: 40,
+                sessionListInitialBatchSize: 40,
+                sessionListLoadStep: 80,
                 sessionPreviewRenderEnabled: false,
                 sessionTabRenderTicket: 0,
                 sessionPreviewVisibleCount: 0,
@@ -259,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 installRegistryPreset: 'default',
                 installRegistryCustom: '',
                 installStatusTargets: null,
-                newProvider: { name: '', url: '', key: '', useTransform: false },
+                newProvider: { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' },
                 resetConfigLoading: false,
                 editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
                 newModelName: '',
@@ -278,8 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 newClaudeConfig: {
                     name: '',
                     apiKey: '',
-                    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
-                    model: 'glm-4.7'
+                    baseUrl: '',
+                    model: ''
                 },
                 currentOpenclawConfig: '',
                 openclawConfigs: {
@@ -340,13 +338,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 healthCheckLoading: false,
                 healthCheckResult: null,
                 healthCheckRemote: false,
+                providersHealthLoading: false,
+                providersHealthResult: null,
                 claudeDownloadLoading: false,
                 claudeDownloadProgress: 0,
                 claudeDownloadTimer: null,
                 codexDownloadLoading: false,
                 codexDownloadProgress: 0,
                 codexDownloadTimer: null,
-                settingsTab: 'backup',
+                settingsTab: 'general',
                 sessionTrashEnabled: true,
                 sessionTrashItems: [],
                 sessionTrashVisibleCount: SESSION_TRASH_PAGE_SIZE,
@@ -402,13 +402,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     lastLoadedAt: '',
                     lastError: ''
                 },
-                _taskOrchestrationPollTimer: 0
+                _taskOrchestrationPollTimer: 0,
+                webhookConfig: { enabled: false, url: '', events: ['provider-switch', 'claude-md-edit'] },
+                webhookEventOptions: ['provider-switch', 'claude-md-edit'],
+                webhookSaving: false,
+                webhookTestResult: null,
+                webhookTesting: false,
             };
         },
 
         mounted() {
             if (typeof this.initI18n === 'function') {
                 this.initI18n();
+            }
+            if (typeof this.loadWebhookSettings === 'function') {
+                this.loadWebhookSettings();
             }
             if (typeof this.t === 'function') {
                 this.confirmDialogConfirmText = this.t('confirm.ok');
@@ -418,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             {
                 const NAV_STATE_STORAGE_KEY = 'codexmateNavState.v1';
-                const mainTabSet = new Set(['dashboard', 'config', 'sessions', 'usage', 'orchestration', 'market', 'plugins', 'docs', 'settings']);
+                const mainTabSet = new Set(['dashboard', 'config', 'sessions', 'usage', 'orchestration', 'market', 'plugins', 'docs', 'settings', 'trash']);
                 let restored = null;
                 try {
                     const raw = localStorage.getItem(NAV_STATE_STORAGE_KEY) || '';
@@ -432,6 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const nextConfigMode = restored && typeof restored.configMode === 'string'
                     ? restored.configMode.trim().toLowerCase()
                     : '';
+                const nextSettingsTab = restored && typeof restored.settingsTab === 'string'
+                    ? restored.settingsTab.trim().toLowerCase()
+                    : '';
                 let urlMainTab = '';
                 try {
                     const url = new URL(window.location.href);
@@ -444,6 +455,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resolvedMainTab = urlMainTab && mainTabSet.has(urlMainTab)
                     ? urlMainTab
                     : nextMainTab;
+                if (nextSettingsTab && (nextSettingsTab === 'general' || nextSettingsTab === 'data')) {
+                    this.settingsTab = nextSettingsTab;
+                }
                 if (nextConfigMode && typeof this.switchConfigMode === 'function') {
                     this.__navStateRestoring = true;
                     try {
@@ -469,12 +483,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateCompactLayoutMode();
             if (!this.taskOrchestrationTabEnabled && this.mainTab === 'orchestration') {
                 this.mainTab = 'config';
-            }
-            const savedSessionYolo = localStorage.getItem('codexmateSessionResumeYolo');
-            if (savedSessionYolo === '0' || savedSessionYolo === 'false') {
-                this.sessionResumeWithYolo = false;
-            } else if (savedSessionYolo === '1' || savedSessionYolo === 'true') {
-                this.sessionResumeWithYolo = true;
             }
             this.restoreSessionFilterCache();
             this.restoreSessionPinnedMap();
@@ -563,6 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             this.__doctorLoadedOnce = true;
                             if (typeof this.runHealthCheck === 'function') {
                                 void this.runHealthCheck({ doctor: true, silent: true });
+                            }
+                            if (typeof this.runProvidersHealthCheck === 'function') {
+                                void this.runProvidersHealthCheck({ remote: true });
                             }
                         }
                     }

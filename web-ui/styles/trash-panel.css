@@ -1,0 +1,90 @@
+/* 回收站面板 — 极简·本质 */
+
+.trash-panel-shell {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 0 40px;
+}
+
+/* ---- 空态 — 宁静留白 ---- */
+.trash-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.trash-empty-icon {
+    font-size: 40px;
+    line-height: 1;
+    opacity: 0.45;
+    margin-bottom: 4px;
+}
+
+.trash-empty-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.trash-empty-hint {
+    font-size: var(--font-size-caption);
+    color: var(--color-text-muted);
+    max-width: 280px;
+    line-height: 1.5;
+}
+
+/* ---- 工具栏 — 克制·精确 ---- */
+.trash-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--color-border-soft);
+    margin-bottom: 14px;
+}
+
+.trash-toolbar-left {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.trash-toolbar-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.trash-toolbar-retention {
+    font-size: var(--font-size-caption);
+    color: var(--color-text-muted);
+}
+
+.trash-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ---- 列表项微调 ---- */
+.trash-item-dot {
+    color: var(--color-text-muted);
+    margin: 0 2px;
+}
+
+.trash-item-time {
+    font-size: var(--font-size-caption);
+    color: var(--color-text-muted);
+}
+
+/* ---- 加载更多 ---- */
+.trash-list-footer {
+    display: flex;
+    justify-content: center;
+    padding: 16px 0;
+}

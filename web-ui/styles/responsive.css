@@ -278,7 +278,7 @@ textarea:focus-visible {
     }
 
     .session-item-meta {
-        margin-top: -2px;
+        margin-top: 4px;
         margin-bottom: 0;
         gap: 4px;
         align-items: center;

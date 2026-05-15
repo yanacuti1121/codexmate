@@ -4,11 +4,13 @@
 
 # Codex Mate
 
-**Local-first CLI + Web UI that edits your AI tool configs and sessions directly on disk, with built-in usage analytics and safe rollback.**
+**One dashboard for all your local AI coding tools — switch providers, manage sessions, edit configs, and orchestrate tasks across Codex, Claude Code, and OpenClaw. Built-in OpenAI-compatible bridge, usage analytics, and prompt templates. Zero cloud, zero setup.**
 
-[![Build](https://img.shields.io/github/actions/workflow/status/SakuraByteCore/codexmate/release.yml?label=build&style=flat)](https://github.com/SakuraByteCore/codexmate/actions/workflows/release.yml)
 [![Version](https://img.shields.io/npm/v/codexmate?label=version&style=flat)](https://www.npmjs.com/package/codexmate)
+[![Build](https://img.shields.io/github/actions/workflow/status/SakuraByteCore/codexmate/release.yml?label=build&style=flat)](https://github.com/SakuraByteCore/codexmate/actions/workflows/release.yml)
 [![Downloads](https://img.shields.io/npm/dt/codexmate?label=downloads&style=flat)](https://www.npmjs.com/package/codexmate)
+[![Install](https://img.shields.io/badge/install-curl%20%7C%20npm-0A0?style=flat)](#install-via-curl-standalone)
+[![Platform](https://img.shields.io/badge/platform-Termux%20%7C%20Linux%20%7C%20macOS%20%7C%20Windows-555?style=flat)](#quick-start)
 [![Node](https://img.shields.io/node/v/codexmate?label=Node.js&style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/npm/l/codexmate?label=license&style=flat)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/SakuraByteCore/codexmate?label=stars&style=flat)](https://github.com/SakuraByteCore/codexmate/stargazers)
@@ -28,6 +30,7 @@
 Codex Mate is a local-first CLI + Web UI for unified management of:
 
 - Codex provider/model switching and config writes
+- OpenAI-compatible bridge mode for Codex Responses API conversion
 - Claude Code profiles (writes to `~/.claude/settings.json`)
 - Claude Code `CLAUDE.md` editing (writes to `~/.claude/CLAUDE.md`)
 - OpenClaw JSON5 profiles and workspace `AGENTS.md`
@@ -55,6 +58,7 @@ It works on local files directly and does not require cloud hosting. The skills 
 **Configuration**
 - Provider/model switching (`switch`, `use`)
 - Codex `config.toml` template confirmation before write
+- OpenAI bridge providers: write Codex to a local `/bridge/openai/<provider>/v1` endpoint and normalize Responses API requests for OpenAI-compatible upstreams
 - Claude Code profile management and apply
 - Claude Code `CLAUDE.md` editing (writes to `~/.claude/CLAUDE.md`)
 - OpenClaw JSON5 profile management
@@ -89,6 +93,7 @@ It works on local files directly and does not require cloud hosting. The skills 
 - MCP stdio domains (`tools`, `resources`, `prompts`)
 - Automation hooks (`/hooks/*`) + outbound webhook notifiers
 - Built-in proxy controls (`proxy`)
+- OpenAI bridge conversion for Codex `/v1/responses` requests, including upstream `/responses` preference, `/chat/completions` fallback, and function-tool normalization
 - Auth profile management (`auth`)
 - Zip/unzip utilities
 
@@ -172,6 +177,21 @@ Default listen address is `0.0.0.0:3737` for LAN access, and browser auto-open i
 
 > Safety note: the unauthenticated management UI is exposed to your current LAN by default. Use trusted networks only; for local-only access, set `CODEXMATE_HOST=127.0.0.1` or pass `--host 127.0.0.1`.
 
+### Install via curl (standalone)
+
+No npm required. Downloads a self-contained tarball with `node_modules` bundled:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SakuraByteCore/codexmate/main/scripts/install.sh | bash
+```
+
+Installs to `~/.codexmate`, symlinks to `~/.local/bin/codexmate`, and auto-adds PATH.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `CODEXMATE_INSTALL_DIR` | `~/.codexmate` | Installation directory |
+| `CODEXMATE_BIN_DIR` | `~/.local/bin` | Symlink directory |
+
 ### Install Codex CLI / Claude Code CLI (optional)
 
 Codex Mate can pass through to the official CLIs (e.g. `codexmate codex ...`). Install them first:
@@ -229,7 +249,7 @@ npm run reset 79
 | `codexmate setup` | Interactive setup |
 | `codexmate list` / `codexmate models` | List providers / models |
 | `codexmate switch <provider>` / `codexmate use <model>` | Switch provider / model |
-| `codexmate add <name> <URL> [API_KEY]` | Add provider |
+| `codexmate add <name> <URL> [API_KEY] [--bridge openai]` | Add provider; `--bridge openai` creates a local Codex Responses-compatible bridge for OpenAI-style upstreams |
 | `codexmate delete <name>` | Delete provider |
 | `codexmate claude <BaseURL> <API_KEY> [model]` | Write Claude Code config |
 | `codexmate auth <list\|import\|switch\|delete\|status>` | Auth profile management |
@@ -256,6 +276,7 @@ codexmate codex --model gpt-5.3-codex --follow-up "step1" --follow-up "step2"
 ### Codex Mode
 - Provider/model switching
 - Model list management
+- OpenAI bridge providers for Codex Responses API conversion to OpenAI-compatible upstreams
 - `~/.codex/AGENTS.md` editing
 
 ### Claude Code Mode
@@ -310,81 +331,7 @@ codexmate mcp serve --allow-write
 - `~/.codex/auth.json`
 - `~/.codex/models.json`
 - `~/.codex/provider-current-models.json`
-- `~/.claude/settings.json`
-- `~/.claude/CLAUDE.md`
-- `~/.openclaw/openclaw.json`
-- `~/.openclaw/workspace/AGENTS.md`
-
-## Environment Variables
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `CODEXMATE_PORT` | `3737` | Web server port |
-| `CODEXMATE_HOST` | `0.0.0.0` | Web listen host (set `127.0.0.1` for local-only access) |
-| `CODEXMATE_NO_BROWSER` | unset | Set `1` to disable browser auto-open |
-| `CODEXMATE_MCP_ALLOW_WRITE` | unset | Set `1` to allow MCP write tools by default |
-| `CODEXMATE_FORCE_RESET_EXISTING_CONFIG` | `0` | Set `1` to force bootstrap reset of existing config |
-
-## Tech Stack
-
-- Node.js
-- Vue.js 3 (Web UI)
-- Native HTTP server
-- `@iarna/toml`, `json5`
-
-## Contributing
-
-Issues and pull requests are accepted.
-
-## License
-
-Apache-2.0
-
-### Claude Code Mode
-- Multi-profile management
-- Default write to `~/.claude/settings.json`
-- `~/.claude/CLAUDE.md` editing
-- Shareable import command copy
-
-### OpenClaw Mode
-- JSON5 multi-profile management
-- Apply to `~/.openclaw/openclaw.json`
-- Manage `~/.openclaw/workspace/AGENTS.md`
-
-### Sessions Mode
-- Unified Codex + Claude sessions
-- Browser / Usage subview switching
-- Local pin/unpin with persistent storage and pinned-first ordering
-- Search, filter, export, delete, batch cleanup
-- Usage view includes 7d / 30d session trends, message trends, source share, and top paths
-
-### Skills Market Tab
-- Switch the skills install target between `Codex` and `Claude Code`
-- Show the current local skills root, installed items, and importable items
-- Scan importable sources under `Codex` / `Claude Code` / `Agents`
-- Support cross-app import, ZIP import/export, and batch delete
-
-## MCP
-
-> Transport: `stdio`
-
-- Default: read-only tools
-- Enable writes: `--allow-write` or `CODEXMATE_MCP_ALLOW_WRITE=1`
-- Domains: `tools`, `resources`, `prompts`
-
-Examples:
-
-```bash
-codexmate mcp serve --read-only
-codexmate mcp serve --allow-write
-```
-
-## Config Files
-
-- `~/.codex/config.toml`
-- `~/.codex/auth.json`
-- `~/.codex/models.json`
-- `~/.codex/provider-current-models.json`
+- `~/.codex/codexmate-openai-bridge.json`
 - `~/.claude/settings.json`
 - `~/.claude/CLAUDE.md`
 - `~/.openclaw/openclaw.json`

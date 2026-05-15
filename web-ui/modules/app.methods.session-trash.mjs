@@ -208,10 +208,10 @@ export function createSessionTrashMethods(options = {}) {
         },
 
         normalizeSettingsTab(tab) {
-            if (tab === 'trash' || tab === 'device') {
+            if (tab === 'general' || tab === 'data') {
                 return tab;
             }
-            return 'backup';
+            return 'general';
         },
 
         async onSettingsTabClick(tab) {
@@ -221,12 +221,11 @@ export function createSessionTrashMethods(options = {}) {
         async switchSettingsTab(tab, options = {}) {
             const nextTab = this.normalizeSettingsTab(tab);
             this.settingsTab = nextTab;
-            if (nextTab !== 'trash') {
-                return;
+            if (typeof this.saveNavState === 'function') {
+                this.saveNavState();
             }
-            const forceRefresh = options.forceRefresh === true;
-            if (forceRefresh || !this.sessionTrashLoadedOnce) {
-                await this.loadSessionTrash({ forceRefresh });
+            if (nextTab !== 'data') {
+                return;
             }
         },
 

@@ -1,7 +1,6 @@
 .docs-mode-content {
     display: grid;
     gap: 14px;
-    /* CLI Install 是展示型面板：非输入区域不使用 I-beam（text）光标，避免误导为可编辑。 */
     cursor: default;
 }
 
@@ -41,17 +40,19 @@
 .docs-toolbar-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
 }
 
 .docs-toolbar-card {
     grid-column: span 4;
     display: grid;
     gap: 8px;
-    padding: 12px;
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    background: rgba(255, 253, 252, 0.76);
+    padding: 14px;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.42);
+    box-shadow: var(--shadow-subtle);
+    backdrop-filter: blur(8px);
 }
 
 .docs-toolbar-card-wide {
@@ -62,15 +63,17 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
+    margin-top: 2px;
 }
 
 .docs-summary-item {
     display: grid;
     gap: 4px;
-    padding: 12px;
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    background: rgba(255, 253, 252, 0.82);
+    padding: 12px 14px;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,251,247,0.78));
+    box-shadow: var(--shadow-card);
 }
 
 .docs-summary-item-wide {
@@ -78,17 +81,21 @@
 }
 
 .docs-summary-label {
-    font-size: 11px;
+    font-size: 10px;
+    font-weight: 700;
     color: var(--color-text-muted);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
+    opacity: 0.82;
 }
 
 .docs-summary-value {
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 700;
     color: var(--color-text-primary);
-    line-height: 1.4;
+    line-height: 1.25;
     word-break: break-word;
+    letter-spacing: -0.02em;
 }
 
 .docs-install-list {
@@ -97,12 +104,16 @@
 
 .docs-install-row {
     align-items: stretch;
-    background: rgba(255, 253, 252, 0.8);
+    background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,251,247,0.78));
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    box-shadow: var(--shadow-card);
 }
 
 .docs-command-head {
     display: grid;
-    gap: 4px;
+    gap: 6px;
 }
 
 .docs-command-row {
@@ -119,34 +130,38 @@
     grid-template-columns: 1fr auto;
     align-items: stretch;
     gap: 10px;
-    padding: 10px 10px 10px 12px;
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    background: rgba(255, 253, 252, 0.9);
+    padding: 10px 10px 10px 14px;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.64);
+    box-shadow: var(--shadow-subtle);
 }
 
 .docs-command-row .install-command {
     min-width: 0;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: rgba(18, 22, 35, 0.06);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(18,22,35,0.04);
+    border: 1px solid rgba(18,22,35,0.05);
     overflow-x: auto;
     white-space: nowrap;
     user-select: text;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .docs-command-prefix {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
+    padding: 3px 10px;
     margin-right: 10px;
     border-radius: 999px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    background: rgba(210, 107, 90, 0.10);
-    color: var(--color-text-secondary);
+    border: 1px solid rgba(200,121,99,0.18);
+    background: var(--color-brand-light);
+    color: var(--color-brand-dark);
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
 }
 
 .docs-command-meta {
@@ -160,16 +175,23 @@
 .docs-meta-pill {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
+    padding: 3px 10px;
     border-radius: 999px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--color-border-soft);
+    background: rgba(255,255,255,0.72);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.01em;
 }
 
 .docs-copy-btn {
-    min-width: 76px;
+    min-width: 72px;
     min-height: 40px;
     flex: 0 0 auto;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 .docs-help-grid {
@@ -179,17 +201,19 @@
 }
 
 .docs-note-card {
-    padding: 14px;
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    background: rgba(255, 253, 252, 0.78);
+    padding: 16px;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,251,247,0.76));
+    box-shadow: var(--shadow-card);
 }
 
 .docs-note-title {
     font-size: 13px;
     font-weight: 700;
     color: var(--color-text-primary);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
 }
 
 .docs-help-list {
@@ -201,11 +225,11 @@
     padding-left: 18px;
     color: var(--color-text-secondary);
     font-size: 13px;
-    line-height: 1.55;
+    line-height: 1.6;
 }
 
 .docs-static-list li + li {
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 @media (max-width: 1100px) {

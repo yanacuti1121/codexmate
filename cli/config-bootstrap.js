@@ -30,6 +30,7 @@ function createConfigBootstrapController(deps = {}) {
         DEFAULT_MODEL_AUTO_COMPACT_TOKEN_LIMIT,
         CODEXMATE_MANAGED_MARKER,
         BUILTIN_PROXY_PROVIDER_NAME,
+        BUILTIN_LOCAL_PROVIDER_NAME,
         EMPTY_CONFIG_FALLBACK_TEMPLATE
     } = deps;
 
@@ -58,6 +59,7 @@ function createConfigBootstrapController(deps = {}) {
     if (!Array.isArray(DEFAULT_MODELS)) throw new Error('createConfigBootstrapController 缺少 DEFAULT_MODELS');
     if (!CODEXMATE_MANAGED_MARKER) throw new Error('createConfigBootstrapController 缺少 CODEXMATE_MANAGED_MARKER');
     if (!BUILTIN_PROXY_PROVIDER_NAME) throw new Error('createConfigBootstrapController 缺少 BUILTIN_PROXY_PROVIDER_NAME');
+    if (!BUILTIN_LOCAL_PROVIDER_NAME) throw new Error('createConfigBootstrapController 缺少 BUILTIN_LOCAL_PROVIDER_NAME');
     if (typeof EMPTY_CONFIG_FALLBACK_TEMPLATE !== 'string') throw new Error('createConfigBootstrapController 缺少 EMPTY_CONFIG_FALLBACK_TEMPLATE');
 
     let initNotice = '';
@@ -118,17 +120,18 @@ function createConfigBootstrapController(deps = {}) {
         return `${CODEXMATE_MANAGED_MARKER}
 # codexmate-initialized-at: ${initializedAt}
 
-model_provider = "openai"
+model_provider = "local"
 model = "${defaultModel}"
 model_context_window = ${DEFAULT_MODEL_CONTEXT_WINDOW}
 model_auto_compact_token_limit = ${DEFAULT_MODEL_AUTO_COMPACT_TOKEN_LIMIT}
 
-[model_providers.openai]
-name = "openai"
-base_url = "https://api.openai.com/v1"
+[model_providers.local]
+name = "local"
+base_url = "http://127.0.0.1:3737/bridge/local/v1"
 wire_api = "responses"
-requires_openai_auth = false
-preferred_auth_method = ""
+requires_openai_auth = true
+preferred_auth_method = "codexmate"
+codexmate_bridge = "local"
 request_max_retries = 4
 stream_max_retries = 10
 stream_idle_timeout_ms = 300000
@@ -145,9 +148,8 @@ stream_idle_timeout_ms = 300000
         const currentProvider = typeof safeConfig.model_provider === 'string' ? safeConfig.model_provider.trim() : '';
         const hasRemovedBuiltin = !!(providers && providers[BUILTIN_PROXY_PROVIDER_NAME]);
         const currentIsRemovedBuiltin = currentProvider === BUILTIN_PROXY_PROVIDER_NAME;
-        const currentIsRemovedVirtualLocal = currentProvider === 'local' && !(providers && isPlainObject(providers.local));
 
-        if (!hasRemovedBuiltin && !currentIsRemovedBuiltin && !currentIsRemovedVirtualLocal) {
+        if (!hasRemovedBuiltin && !currentIsRemovedBuiltin) {
             return safeConfig;
         }
 
@@ -163,9 +165,24 @@ stream_idle_timeout_ms = 300000
         return {
             ...safeConfig,
             model_providers: nextProviders,
-            model_provider: (currentIsRemovedBuiltin || currentIsRemovedVirtualLocal) ? fallbackProvider : safeConfig.model_provider,
-            model: (currentIsRemovedBuiltin || currentIsRemovedVirtualLocal) ? fallbackModel : safeConfig.model
+            model_provider: currentIsRemovedBuiltin ? fallbackProvider : safeConfig.model_provider,
+            model: currentIsRemovedBuiltin ? fallbackModel : safeConfig.model
         };
+    }
+
+    function ensureLocalProviderSection() {
+        if (!fs.existsSync(CONFIG_FILE)) return;
+        let content;
+        try {
+            content = fs.readFileSync(CONFIG_FILE, 'utf-8');
+        } catch (e) {
+            return;
+        }
+        // Check if [model_providers.local] section already exists
+        if (/\[model_providers\.local\]/.test(content)) return;
+
+        const localSection = `\n[model_providers.local]\nname = "local"\nbase_url = "http://127.0.0.1:3737/bridge/local/v1"\nwire_api = "responses"\nrequires_openai_auth = true\npreferred_auth_method = "codexmate"\ncodexmate_bridge = "local"\nrequest_max_retries = 4\nstream_max_retries = 10\nstream_idle_timeout_ms = 300000\n`;
+        fs.appendFileSync(CONFIG_FILE, localSection, 'utf-8');
     }
 
     function readConfigOrVirtualDefault() {
@@ -260,7 +277,7 @@ stream_idle_timeout_ms = 300000
         ensureConfigDir();
 
         const initializedAt = new Date().toISOString();
-        const defaultProvider = 'openai';
+        const defaultProvider = 'local';
         const defaultModel = DEFAULT_MODELS[0] || 'gpt-4';
         const forceResetExistingConfig = process.env.CODEXMATE_FORCE_RESET_EXISTING_CONFIG === '1';
         const mark = readJsonFile(INIT_MARK_FILE, null);
@@ -273,6 +290,7 @@ stream_idle_timeout_ms = 300000
                 initNotice = '检测到配置缺失，已自动重建默认配置。';
                 return { notice: initNotice };
             }
+            ensureLocalProviderSection();
             ensureSupportFiles(defaultProvider, defaultModel);
             return { notice: '' };
         }
@@ -338,7 +356,7 @@ stream_idle_timeout_ms = 300000
     function resetConfigToDefault() {
         ensureConfigDir();
         const initializedAt = new Date().toISOString();
-        const defaultProvider = 'openai';
+        const defaultProvider = 'local';
         const defaultModel = DEFAULT_MODELS[0] || 'gpt-4';
 
         let backupFile = '';

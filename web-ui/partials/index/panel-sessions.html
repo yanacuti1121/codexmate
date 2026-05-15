@@ -97,16 +97,6 @@
                             </button>
                         </div>
                     </div>
-                    <div class="session-toolbar-footer">
-                        <label class="quick-option">
-                            <input
-                                type="checkbox"
-                                v-model="sessionResumeWithYolo"
-                                @change="onSessionResumeYoloChange"
-                            >
-                            {{ t('sessions.resumeYolo') }}
-                        </label>
-                    </div>
                     <div v-if="hasActiveSessionFilters()" class="session-filter-chips" :aria-label="t('sessions.filters.copyLink')">
                         <button
                             v-for="chip in getSessionFilterChips()"
@@ -266,15 +256,7 @@
                                             {{ t('sessions.preview.clipped', { count: activeSessionMessages.length }) }}
                                         </div>
                                         <div
-                                            v-if="canLoadMoreSessionMessages"
-                                            class="session-item-sub session-item-wrap"
-                                            style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                                            <span>{{ t('sessions.preview.shownCount', { shown: activeSessionVisibleMessages.length, total: activeSessionMessages.length }) }}</span>
-                                            <span>{{ t('sessions.preview.loadMore', { remain: sessionPreviewRemainingCount }) }}</span>
-                                        </div>
-                                        <div v-if="sessionPreviewLoadingMore" class="session-item-sub session-item-wrap">{{ t('sessions.preview.loadingMore') }}</div>
-                                        <div
-                                            v-for="(msg, idx) in activeSessionVisibleMessages"
+                                            v-for="(msg, idx) in activeSessionMessages"
                                             :key="getRecordRenderKey(msg, idx)"
                                             v-memo="[msg.text, msg.timestamp, msg.roleLabel, msg.normalizedRole]"
                                             :data-message-key="getRecordRenderKey(msg, idx)"

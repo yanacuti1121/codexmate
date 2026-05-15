@@ -32,9 +32,9 @@
     justify-content: flex-end;
     gap: var(--spacing-xs);
     margin-top: -1px;
-    padding-top: 4px;
+    padding-top: 6px;
     margin-bottom: var(--spacing-xs);
-    border-top: 1px dashed var(--color-border-soft);
+    border-top: 1px solid var(--color-border-soft);
 }
 
 .session-filter-chips {
@@ -50,21 +50,21 @@
     align-items: center;
     gap: 6px;
     max-width: 100%;
-    padding: 6px 10px;
+    padding: 5px 10px;
     border-radius: 999px;
     border: 1px solid var(--color-border-soft);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.78) 100%);
+    background: var(--color-surface);
     color: var(--color-text-secondary);
     font-size: var(--font-size-caption);
     font-weight: var(--font-weight-secondary);
     cursor: pointer;
     transition: all var(--transition-fast) var(--ease-spring);
-    box-shadow: inset 0 1px 2px rgba(31, 26, 23, 0.04);
     min-width: 0;
 }
 
 .session-filter-chip:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--color-brand);
+    background: var(--color-surface-alt);
     transform: translateY(-1px);
 }
 
@@ -88,30 +88,36 @@
     width: 18px;
     height: 18px;
     border-radius: 999px;
-    border: 1px solid rgba(70, 86, 110, 0.22);
-    background: rgba(70, 86, 110, 0.08);
+    border: 1px solid var(--color-border-soft);
+    background: var(--color-surface-alt);
     line-height: 1;
     flex: 0 0 auto;
+    transition: all var(--transition-fast) var(--ease-spring);
+}
+
+.session-filter-chip-close:hover {
+    border-color: var(--color-brand);
+    background: var(--color-brand);
+    color: #fff;
 }
 
 .session-filter-chip:focus-visible {
-    outline: 3px solid rgba(201, 94, 75, 0.25);
+    outline: 3px solid rgba(210, 107, 90, 0.2);
     outline-offset: 2px;
 }
 
 .session-toolbar-footer .quick-option {
     margin: 0;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
+    padding: 5px 10px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--color-border-soft);
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%);
-    box-shadow: inset 0 1px 2px rgba(31, 26, 23, 0.04);
+    background: var(--color-surface);
     transition: all var(--transition-fast) var(--ease-spring);
     line-height: 1.2;
 }
 
 .session-toolbar-footer .quick-option:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--color-brand);
 }
 
 .session-source-select,
@@ -121,16 +127,15 @@
 .session-time-select {
     flex: 1;
     min-width: 160px;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--color-border-soft);
-    background: linear-gradient(to bottom, var(--color-surface) 0%, rgba(255, 255, 255, 0.92) 100%);
+    background: var(--color-surface);
     color: var(--color-text-secondary);
     font-size: var(--font-size-body);
     font-family: var(--font-family);
     outline: none;
     transition: all var(--transition-fast) var(--ease-spring);
-    box-shadow: inset 0 1px 2px rgba(31, 26, 23, 0.04);
 }
 
 .session-query-input {
@@ -265,31 +270,29 @@
 .btn-session-clone,
 .btn-session-refresh {
     border: 1px solid var(--color-border-soft);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(to bottom, var(--color-surface) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
     color: var(--color-text-secondary);
-    padding: 8px 12px;
+    padding: 7px 12px;
     font-size: var(--font-size-secondary);
     font-weight: var(--font-weight-secondary);
     cursor: pointer;
     transition: all var(--transition-fast) var(--ease-spring);
     white-space: nowrap;
-    box-shadow: var(--shadow-subtle);
     letter-spacing: -0.01em;
 }
 
 .btn-session-delete {
-    border: 1px solid rgba(189, 70, 68, 0.45);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(to bottom, rgba(255, 245, 245, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border: 1px solid rgba(189, 70, 68, 0.4);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
     color: #b74545;
-    padding: 8px 12px;
+    padding: 7px 12px;
     font-size: var(--font-size-secondary);
     font-weight: var(--font-weight-secondary);
     cursor: pointer;
     transition: all var(--transition-fast) var(--ease-spring);
     white-space: nowrap;
-    box-shadow: var(--shadow-subtle);
     letter-spacing: -0.01em;
 }
 
@@ -333,6 +336,7 @@
 
 .btn-session-delete:hover {
     border-color: rgba(189, 70, 68, 0.8);
+    background: rgba(189, 70, 68, 0.06);
     color: #9f3b3b;
     transform: translateY(-1px);
 }

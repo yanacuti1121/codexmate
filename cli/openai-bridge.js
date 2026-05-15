@@ -1,11 +1,16 @@
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { StringDecoder } = require('string_decoder');
 const { readJsonFile, writeJsonAtomic } = require('../lib/cli-file-utils');
 const { isValidHttpUrl, normalizeBaseUrl, joinApiUrl } = require('../lib/cli-utils');
 
 const DEFAULT_BRIDGE_TOKEN = 'codexmate';
 const SETTINGS_VERSION = 1;
+// 推理模型 reasoning 阶段可能长时间无字节输出，需匹配 codex 的 stream_idle_timeout_ms=300000。
+const STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+const RESPONSES_UNSUPPORTED_TTL_MS = 30 * 60 * 1000;
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -281,7 +286,10 @@ function normalizeResponsesInputToChatMessages(input) {
 
     const toRole = (value) => {
         const roleRaw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-        return roleRaw === 'assistant' ? 'assistant' : (roleRaw === 'system' ? 'system' : 'user');
+        if (roleRaw === 'assistant') return 'assistant';
+        // codex 把 AGENTS.md 注入 developer 角色；Responses 的 developer 在 chat 侧等价于 system。
+        if (roleRaw === 'system' || roleRaw === 'developer') return 'system';
+        return 'user';
     };
 
     if (input && typeof input === 'object' && !Array.isArray(input)) {
@@ -369,6 +377,113 @@ function normalizeResponsesInputToChatMessages(input) {
     return [];
 }
 
+
+function normalizeResponsesToolsToChatTools(tools) {
+    if (!Array.isArray(tools)) return tools;
+    return tools
+        .map((tool) => {
+            if (!tool || typeof tool !== 'object') return null;
+            if (tool.type !== 'function') return null;
+            const sourceFn = tool.function && typeof tool.function === 'object' && !Array.isArray(tool.function)
+                ? tool.function
+                : {};
+            const name = typeof sourceFn.name === 'string' && sourceFn.name.trim()
+                ? sourceFn.name.trim()
+                : (typeof tool.name === 'string' ? tool.name.trim() : '');
+            if (!name) return null;
+            const parameters = sourceFn.parameters && typeof sourceFn.parameters === 'object' && !Array.isArray(sourceFn.parameters)
+                ? sourceFn.parameters
+                : (tool.parameters && typeof tool.parameters === 'object' && !Array.isArray(tool.parameters) ? tool.parameters : {});
+            const fn = { name, parameters };
+            const description = typeof sourceFn.description === 'string'
+                ? sourceFn.description
+                : (typeof tool.description === 'string' ? tool.description : undefined);
+            const strict = typeof sourceFn.strict === 'boolean'
+                ? sourceFn.strict
+                : (typeof tool.strict === 'boolean' ? tool.strict : undefined);
+            if (description !== undefined) fn.description = description;
+            if (strict !== undefined) fn.strict = strict;
+            return { type: 'function', function: fn };
+        })
+        .filter(Boolean);
+}
+
+function normalizeResponsesToolChoiceToChatToolChoice(toolChoice) {
+    if (!toolChoice || typeof toolChoice !== 'object' || Array.isArray(toolChoice)) return toolChoice;
+    if (toolChoice.type === 'function' && typeof toolChoice.name === 'string' && toolChoice.name.trim()) {
+        return { type: 'function', function: { name: toolChoice.name.trim() } };
+    }
+    return toolChoice;
+}
+
+function normalizeResponsesToolsForResponsesApi(tools) {
+    if (!Array.isArray(tools)) return tools;
+    return tools
+        .map((tool) => {
+            if (!tool || typeof tool !== 'object') return null;
+            if (tool.type !== 'function') return null;
+            const sourceFn = tool.function && typeof tool.function === 'object' && !Array.isArray(tool.function)
+                ? tool.function
+                : {};
+            const name = typeof sourceFn.name === 'string' && sourceFn.name.trim()
+                ? sourceFn.name.trim()
+                : (typeof tool.name === 'string' ? tool.name.trim() : '');
+            if (!name) return null;
+            const out = { type: 'function', name };
+            const description = typeof sourceFn.description === 'string'
+                ? sourceFn.description
+                : (typeof tool.description === 'string' ? tool.description : undefined);
+            const parameters = sourceFn.parameters && typeof sourceFn.parameters === 'object' && !Array.isArray(sourceFn.parameters)
+                ? sourceFn.parameters
+                : (tool.parameters && typeof tool.parameters === 'object' && !Array.isArray(tool.parameters) ? tool.parameters : undefined);
+            const strict = typeof sourceFn.strict === 'boolean'
+                ? sourceFn.strict
+                : (typeof tool.strict === 'boolean' ? tool.strict : undefined);
+            if (description !== undefined) out.description = description;
+            if (parameters !== undefined) out.parameters = parameters;
+            if (strict !== undefined) out.strict = strict;
+            return out;
+        })
+        .filter(Boolean);
+}
+
+function mergeLeadingSystemMessages(messages, leadingInstructions) {
+    const segments = [];
+    const seen = new Set();
+    const pushSegment = (text) => {
+        const trimmed = typeof text === 'string' ? text.trim() : '';
+        if (!trimmed || seen.has(trimmed)) return;
+        seen.add(trimmed);
+        segments.push(trimmed);
+    };
+    if (typeof leadingInstructions === 'string') {
+        pushSegment(leadingInstructions);
+    }
+    const rest = [];
+    for (const msg of messages) {
+        if (msg && msg.role === 'system') {
+            const content = msg.content;
+            if (typeof content === 'string') {
+                pushSegment(content);
+            } else if (Array.isArray(content)) {
+                for (const part of content) {
+                    if (part && typeof part === 'object' && typeof part.text === 'string') {
+                        pushSegment(part.text);
+                    }
+                }
+            }
+            continue;
+        }
+        rest.push(msg);
+    }
+    const out = [];
+    if (segments.length) {
+        out.push({ role: 'system', content: segments.join('\n\n---\n\n') });
+    }
+    for (const msg of rest) out.push(msg);
+    return out;
+}
+
 function convertResponsesRequestToChatCompletions(payload) {
     const body = payload && typeof payload === 'object' ? payload : {};
     const model = typeof body.model === 'string' ? body.model.trim() : '';
@@ -376,12 +491,10 @@ function convertResponsesRequestToChatCompletions(payload) {
         return { error: 'responses 请求缺少 model' };
     }
 
-    const messages = [];
-    // Align with Maxx/CLIProxyAPI style: map "instructions" to a leading system message.
-    if (typeof body.instructions === 'string' && body.instructions.trim()) {
-        messages.push({ role: 'system', content: body.instructions.trim() });
-    }
-    messages.push(...normalizeResponsesInputToChatMessages(body.input));
+    const rawMessages = normalizeResponsesInputToChatMessages(body.input);
+    // codex 同时下发 body.instructions（内置 prompt）与 input 内 developer/system 消息（AGENTS.md）。
+    // 合流为一条领头 system，避免某些上游"只认第一条 system"导致 AGENTS.md 失效。
+    const messages = mergeLeadingSystemMessages(rawMessages, body.instructions);
     if (!messages.length) {
         // codex sometimes sends empty input for probes; tolerate.
         messages.push({ role: 'user', content: '' });
@@ -401,12 +514,11 @@ function convertResponsesRequestToChatCompletions(payload) {
     if (Array.isArray(body.stop) && body.stop.length) {
         chat.stop = body.stop.filter((item) => typeof item === 'string' && item.trim());
     }
-    // Best-effort: pass through tool definitions (most OpenAI-compatible providers accept these fields).
     if (Array.isArray(body.tools) && body.tools.length) {
-        chat.tools = body.tools;
+        chat.tools = normalizeResponsesToolsToChatTools(body.tools);
     }
     if (body.tool_choice !== undefined) {
-        chat.tool_choice = body.tool_choice;
+        chat.tool_choice = normalizeResponsesToolChoiceToChatToolChoice(body.tool_choice);
     }
     if (body.response_format !== undefined) {
         chat.response_format = body.response_format;
@@ -489,6 +601,9 @@ function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPay
 
 function ensureResponseMetadata(response) {
     const payload = response && typeof response === 'object' ? response : {};
+    if (typeof payload.object !== 'string' || !payload.object.trim()) {
+        payload.object = 'response';
+    }
     if (typeof payload.created_at !== 'number') {
         payload.created_at = Math.floor(Date.now() / 1000);
     }
@@ -599,7 +714,11 @@ function extractResponsesOutputText(payload) {
 
 function toUpstreamNonStreamingResponsesPayload(payload) {
     const body = payload && typeof payload === 'object' ? payload : {};
-    return { ...body, stream: false };
+    const normalized = { ...body, stream: false };
+    if (Array.isArray(body.tools)) {
+        normalized.tools = normalizeResponsesToolsForResponsesApi(body.tools);
+    }
+    return normalized;
 }
 
 function shouldFallbackFromUpstreamResponses(status, bodyText) {
@@ -616,6 +735,7 @@ function shouldFallbackFromUpstreamResponses(status, bodyText) {
     if (/unknown (endpoint|route)/i.test(text)) return true;
     if (/unsupported.*\/?v1\/responses/i.test(text)) return true;
     if (/does not support.*responses/i.test(text)) return true;
+    if (/name['"`]?\s+is a required property/i.test(text) && /tools/i.test(text) && /function/i.test(text)) return true;
 
     // Best-effort parse for structured error codes.
     try {
@@ -627,8 +747,33 @@ function shouldFallbackFromUpstreamResponses(status, bodyText) {
         if (/unknown (endpoint|route)/i.test(msg)) return true;
         if (/unsupported.*\/?v1\/responses/i.test(msg)) return true;
         if (/does not support.*responses/i.test(msg)) return true;
+        if (/name['"`]?\s+is a required property/i.test(msg) && /tools/i.test(msg) && /function/i.test(msg)) return true;
     } catch (_) {}
 
+    return false;
+}
+
+// 仅识别"端点级别不支持"——可缓存，与 per-request 的 tool 格式错误区分。
+function isResponsesEndpointUnsupported(status, bodyText) {
+    if (!Number.isFinite(status)) return false;
+    if (status === 404 || status === 405 || status === 501) return true;
+    const text = String(bodyText || '');
+    if (!text) return false;
+    if (/not implemented/i.test(text)) return true;
+    if (/convert_request_failed/i.test(text)) return true;
+    if (/unknown (endpoint|route)/i.test(text)) return true;
+    if (/unsupported.*\/?v1\/responses/i.test(text)) return true;
+    if (/does not support.*responses/i.test(text)) return true;
+    try {
+        const parsed = JSON.parse(text);
+        const code = parsed && parsed.error && typeof parsed.error.code === 'string' ? parsed.error.code : '';
+        const msg = parsed && parsed.error && typeof parsed.error.message === 'string' ? parsed.error.message : '';
+        if (code === 'convert_request_failed') return true;
+        if (/not implemented/i.test(msg)) return true;
+        if (/unknown (endpoint|route)/i.test(msg)) return true;
+        if (/unsupported.*\/?v1\/responses/i.test(msg)) return true;
+        if (/does not support.*responses/i.test(msg)) return true;
+    } catch (_) {}
     return false;
 }
 
@@ -638,7 +783,44 @@ function isLoopbackAddress(address) {
     return value === '127.0.0.1' || value === '::1' || value === '::ffff:127.0.0.1';
 }
 
+function isTransientNetworkError(error) {
+    const text = String(error || '').trim();
+    if (!text) return false;
+    if (/socket hang up/i.test(text)) return true;
+    if (/ECONNRESET|ECONNREFUSED|EPIPE|EPROTO|ETIMEDOUT/i.test(text)) return true;
+    if (/EAI_AGAIN/i.test(text)) return true;
+    if (/UND_ERR_SOCKET/i.test(text)) return true;
+    if (/disconnected before|secure tls|tls handshake/i.test(text)) return true;
+    return false;
+}
+
+const TRANSIENT_RETRY_DELAYS_MS = [200, 600];
+
+async function retryTransientRequest(executor) {
+    let lastResult = null;
+    for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+        if (attempt > 0) {
+            const delay = TRANSIENT_RETRY_DELAYS_MS[attempt - 1];
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => {
+                const t = setTimeout(r, delay);
+                if (typeof t.unref === 'function') t.unref();
+            });
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const result = await executor(attempt);
+        lastResult = result;
+        if (!result) return result;
+        if (result.ok) return result;
+        if (result.retry) return result;
+        if (result.status && result.status > 0) return result;
+        if (!isTransientNetworkError(result.error)) return result;
+    }
+    return lastResult;
+}
+
 function writeSse(res, eventName, dataObj) {
+    if (!res || res.writableEnded || res.destroyed) return;
     if (eventName) {
         res.write(`event: ${eventName}\n`);
     }
@@ -647,6 +829,380 @@ function writeSse(res, eventName, dataObj) {
         return;
     }
     res.write(`data: ${JSON.stringify(dataObj)}\n\n`);
+}
+
+function appendChatStreamToolCall(target, toolCall) {
+    if (!toolCall || typeof toolCall !== 'object') return;
+    const index = Number.isFinite(toolCall.index) ? toolCall.index : target.length;
+    if (!target[index]) {
+        target[index] = {
+            id: '',
+            type: 'function',
+            function: { name: '', arguments: '' }
+        };
+    }
+    const current = target[index];
+    if (typeof toolCall.id === 'string' && toolCall.id) current.id = toolCall.id;
+    if (typeof toolCall.type === 'string' && toolCall.type) current.type = toolCall.type;
+    const fn = toolCall.function && typeof toolCall.function === 'object' ? toolCall.function : null;
+    if (fn) {
+        if (typeof fn.name === 'string' && fn.name) current.function.name = fn.name;
+        if (typeof fn.arguments === 'string') current.function.arguments += fn.arguments;
+    }
+}
+
+function writeChatCompletionChunkAsResponsesSse(state, chunk) {
+    if (!chunk || typeof chunk !== 'object') return;
+    if (typeof chunk.model === 'string' && chunk.model) {
+        state.model = chunk.model;
+    }
+    const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
+    for (const choice of choices) {
+        const delta = choice && choice.delta && typeof choice.delta === 'object' ? choice.delta : null;
+        if (!delta) continue;
+
+        const segments = [];
+        // DeepSeek-style OpenAI-compatible streams may emit private reasoning in
+        // `reasoning_content` before the final answer. Responses `output_text`
+        // must stay user-visible answer text only; forwarding reasoning here
+        // pollutes Codex output and breaks exact-answer prompts.
+        if (typeof delta.content === 'string' && delta.content) {
+            segments.push(delta.content);
+        }
+        for (const seg of segments) {
+            if (!state.messageItem) {
+                state.messageItem = {
+                    id: `msg_${crypto.randomBytes(8).toString('hex')}`,
+                    type: 'message',
+                    role: 'assistant',
+                    content: [{ type: 'output_text', text: '' }]
+                };
+                state.output.push(state.messageItem);
+                writeSse(state.res, 'response.output_item.added', {
+                    type: 'response.output_item.added',
+                    output_index: state.output.length - 1,
+                    item: state.messageItem
+                });
+            }
+            state.messageText += seg;
+            state.messageItem.content[0].text = state.messageText;
+            writeSse(state.res, 'response.output_text.delta', {
+                type: 'response.output_text.delta',
+                item_id: state.messageItem.id,
+                output_index: state.output.length - 1,
+                content_index: 0,
+                delta: seg,
+                sequence_number: state.nextSeq()
+            });
+        }
+
+        if (Array.isArray(delta.tool_calls)) {
+            for (const toolCall of delta.tool_calls) {
+                appendChatStreamToolCall(state.toolCalls, toolCall);
+            }
+        }
+
+        if (typeof choice.finish_reason === 'string' && choice.finish_reason) {
+            state.sawFinishReason = true;
+        }
+    }
+}
+
+function finishChatStreamResponsesSse(state) {
+    if (!state || state.finished) return;
+    state.finished = true;
+
+    if (state.messageItem) {
+        const outputIndex = state.output.indexOf(state.messageItem);
+        writeSse(state.res, 'response.output_text.done', {
+            type: 'response.output_text.done',
+            item_id: state.messageItem.id,
+            output_index: outputIndex,
+            content_index: 0,
+            text: state.messageText,
+            sequence_number: state.nextSeq()
+        });
+        writeSse(state.res, 'response.output_item.done', {
+            type: 'response.output_item.done',
+            output_index: outputIndex,
+            item: state.messageItem,
+            sequence_number: state.nextSeq()
+        });
+    }
+
+    for (const toolCall of state.toolCalls) {
+        if (!toolCall) continue;
+        const name = toolCall.function && typeof toolCall.function.name === 'string' ? toolCall.function.name : '';
+        if (!name) continue;
+        const item = {
+            type: 'function_call',
+            call_id: toolCall.id || `call_${crypto.randomBytes(8).toString('hex')}`,
+            name,
+            arguments: toolCall.function && typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : ''
+        };
+        const outputIndex = state.output.length;
+        state.output.push(item);
+        writeSse(state.res, 'response.output_item.added', {
+            type: 'response.output_item.added',
+            output_index: outputIndex,
+            item
+        });
+        writeSse(state.res, 'response.output_item.done', {
+            type: 'response.output_item.done',
+            output_index: outputIndex,
+            item,
+            sequence_number: state.nextSeq()
+        });
+    }
+
+    const response = ensureResponseMetadata({
+        id: state.responseId,
+        model: state.model,
+        created_at: state.createdAt,
+        status: 'completed',
+        output: state.output,
+        output_text: state.messageText
+    });
+    writeSse(state.res, 'response.completed', { type: 'response.completed', response });
+    writeSse(state.res, 'done', '[DONE]');
+    if (!state.res.writableEnded && !state.res.destroyed) {
+        state.res.end();
+    }
+}
+
+function failChatStreamResponsesSse(state, errorMessage) {
+    if (!state || state.finished) return;
+    state.finished = true;
+    writeSse(state.res, 'response.failed', {
+        type: 'response.failed',
+        response: ensureResponseMetadata({
+            id: state.responseId,
+            model: state.model,
+            created_at: state.createdAt,
+            status: 'failed',
+            output: state.output,
+            output_text: state.messageText
+        }),
+        error: String(errorMessage || 'upstream stream failed')
+    });
+    writeSse(state.res, 'done', '[DONE]');
+    if (!state.res.writableEnded && !state.res.destroyed) {
+        state.res.end();
+    }
+}
+
+function formatUpstreamStreamError(errorValue) {
+    if (!errorValue) return 'upstream stream failed';
+    if (typeof errorValue === 'string') return errorValue;
+    if (typeof errorValue === 'object') {
+        if (typeof errorValue.message === 'string' && errorValue.message) return errorValue.message;
+        try { return JSON.stringify(errorValue); } catch (_) {}
+    }
+    return String(errorValue || 'upstream stream failed');
+}
+
+function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
+    const parsed = new URL(targetUrl);
+    const transport = parsed.protocol === 'https:' ? https : http;
+    const bodyText = options.body ? JSON.stringify(options.body) : '';
+    const maxBytes = Number.isFinite(options.maxBytes) && options.maxBytes > 0
+        ? Math.floor(options.maxBytes)
+        : 0;
+    const headers = {
+        'Accept': 'text/event-stream',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {})
+    };
+    if (options.body) {
+        headers['Content-Length'] = Buffer.byteLength(bodyText, 'utf-8');
+    }
+    const timeoutMs = Number.isFinite(options.timeoutMs)
+        ? Math.max(1000, Number(options.timeoutMs))
+        : STREAM_IDLE_TIMEOUT_MS;
+    const res = options.res;
+    const fallbackModel = typeof options.model === 'string' ? options.model : '';
+
+    return new Promise((resolve) => {
+        let settled = false;
+        let upstreamReq = null;
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        const abortUpstream = () => {
+            if (upstreamReq) {
+                try { upstreamReq.destroy(new Error('client aborted')); } catch (_) {}
+            }
+        };
+        if (res && typeof res.once === 'function') {
+            res.once('close', abortUpstream);
+        }
+
+        upstreamReq = transport.request({
+            protocol: parsed.protocol,
+            hostname: parsed.hostname,
+            port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+            method: options.method || 'POST',
+            path: `${parsed.pathname}${parsed.search}`,
+            headers,
+            agent: parsed.protocol === 'https:' ? options.httpsAgent : options.httpAgent
+        }, (upstreamRes) => {
+            const status = upstreamRes.statusCode || 0;
+            const chunks = [];
+            let size = 0;
+            const contentType = String(upstreamRes.headers && upstreamRes.headers['content-type'] || '');
+
+            const collectChunk = (chunk) => {
+                if (!chunk) return true;
+                if (maxBytes > 0) {
+                    size += chunk.length;
+                    if (size > maxBytes) {
+                        chunks.length = 0;
+                        try { upstreamRes.destroy(new Error('response too large')); } catch (_) {}
+                        try { upstreamReq.destroy(new Error('response too large')); } catch (_) {}
+                        finish({ ok: false, status, error: 'response too large' });
+                        return false;
+                    }
+                }
+                chunks.push(chunk);
+                return true;
+            };
+
+            if (status >= 400) {
+                upstreamRes.on('data', collectChunk);
+                upstreamRes.on('end', () => finish({
+                    ok: false,
+                    status,
+                    bodyText: chunks.length ? Buffer.concat(chunks).toString('utf-8') : ''
+                }));
+                return;
+            }
+
+            if (!res.headersSent) {
+                res.writeHead(200, {
+                    'Content-Type': 'text/event-stream; charset=utf-8',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'X-Accel-Buffering': 'no'
+                });
+                if (typeof res.flushHeaders === 'function') res.flushHeaders();
+            }
+
+            if (!/text\/event-stream/i.test(contentType)) {
+                upstreamRes.on('data', collectChunk);
+                upstreamRes.on('end', () => {
+                    const text = chunks.length ? Buffer.concat(chunks).toString('utf-8') : '';
+                    const parsedJson = parseJsonOrError(text);
+                    if (parsedJson.error) {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: `invalid upstream response: ${parsedJson.error}` });
+                        writeSse(res, 'done', '[DONE]');
+                        if (!res.writableEnded && !res.destroyed) res.end();
+                        finish({ ok: true });
+                        return;
+                    }
+                    const extracted = extractChatCompletionResult(parsedJson.value);
+                    sendResponsesSse(res, buildResponsesPayloadFromChatResult(fallbackModel, extracted.text, extracted.toolCalls, parsedJson.value));
+                    if (!res.writableEnded && !res.destroyed) res.end();
+                    finish({ ok: true });
+                });
+                return;
+            }
+
+            let sequence = 0;
+            const state = {
+                res,
+                responseId: `resp_${crypto.randomBytes(10).toString('hex')}`,
+                model: fallbackModel,
+                createdAt: Math.floor(Date.now() / 1000),
+                output: [],
+                messageItem: null,
+                messageText: '',
+                toolCalls: [],
+                finished: false,
+                sawDone: false,
+                sawFinishReason: false,
+                nextSeq: () => {
+                    sequence += 1;
+                    return sequence;
+                }
+            };
+            writeSse(res, 'response.created', {
+                type: 'response.created',
+                response: {
+                    id: state.responseId,
+                    model: state.model,
+                    created_at: state.createdAt
+                }
+            });
+
+            let buffer = '';
+            const utf8Decoder = new StringDecoder('utf8');
+            const handleEventBlock = (block) => {
+                const dataLines = String(block || '')
+                    .split(/\r?\n/)
+                    .filter((line) => line.startsWith('data:'))
+                    .map((line) => line.slice(5).trimStart());
+                if (dataLines.length === 0) return;
+                const data = dataLines.join('\n').trim();
+                if (!data) return;
+                if (data === '[DONE]') {
+                    state.sawDone = true;
+                    finishChatStreamResponsesSse(state);
+                    finish({ ok: true });
+                    return;
+                }
+                const parsedChunk = parseJsonOrError(data);
+                if (!parsedChunk.error) {
+                    if (parsedChunk.value && typeof parsedChunk.value === 'object' && parsedChunk.value.error) {
+                        failChatStreamResponsesSse(state, formatUpstreamStreamError(parsedChunk.value.error));
+                        finish({ ok: true });
+                        return;
+                    }
+                    writeChatCompletionChunkAsResponsesSse(state, parsedChunk.value);
+                }
+            };
+
+            upstreamRes.on('data', (chunk) => {
+                if (!chunk) return;
+                buffer += utf8Decoder.write(chunk);
+                let boundary = buffer.search(/\r?\n\r?\n/);
+                while (boundary >= 0) {
+                    const block = buffer.slice(0, boundary);
+                    const match = buffer.slice(boundary).match(/^\r?\n\r?\n/);
+                    buffer = buffer.slice(boundary + (match ? match[0].length : 2));
+                    handleEventBlock(block);
+                    boundary = buffer.search(/\r?\n\r?\n/);
+                }
+            });
+            upstreamRes.on('end', () => {
+                buffer += utf8Decoder.end();
+                if (buffer.trim()) handleEventBlock(buffer);
+                if (!state.finished && !state.sawDone && !state.sawFinishReason) {
+                    failChatStreamResponsesSse(state, 'upstream stream ended before [DONE]');
+                    finish({ ok: true });
+                    return;
+                }
+                finishChatStreamResponsesSse(state);
+                finish({ ok: true });
+            });
+            upstreamRes.on('aborted', () => {
+                failChatStreamResponsesSse(state, 'upstream stream aborted');
+                finish({ ok: true });
+            });
+            upstreamRes.on('error', (err) => {
+                failChatStreamResponsesSse(state, err && err.message ? err.message : 'upstream stream failed');
+                finish({ ok: true });
+            });
+        });
+        upstreamReq.setTimeout(timeoutMs, () => {
+            try { upstreamReq.destroy(new Error('timeout')); } catch (_) {}
+            finish({ ok: false, error: 'timeout' });
+        });
+        upstreamReq.on('error', (err) => finish({ ok: false, error: err && err.message ? err.message : 'request failed' }));
+        if (bodyText) upstreamReq.write(bodyText);
+        upstreamReq.end();
+    });
 }
 
 async function proxyRequestJson(targetUrl, options = {}) {
@@ -667,7 +1223,7 @@ async function proxyRequestJson(targetUrl, options = {}) {
 
     const timeoutMs = Number.isFinite(options.timeoutMs)
         ? Math.max(1000, Number(options.timeoutMs))
-        : 30000;
+        : REQUEST_TIMEOUT_MS;
     return new Promise((resolve) => {
         let settled = false;
         const finish = (value) => {
@@ -739,6 +1295,27 @@ function createOpenaiBridgeHttpHandler(options = {}) {
         throw new Error('createOpenaiBridgeHttpHandler 缺少 settingsFile');
     }
 
+    // 端点不支持的缓存（per-baseUrl, TTL 30 分钟）：避免每次非流式请求重复探测 /v1/responses。
+    const unsupportedResponses = new Map();
+    const isResponsesKnownUnsupported = (baseUrl) => {
+        if (!baseUrl) return false;
+        const entry = unsupportedResponses.get(baseUrl);
+        if (!entry) return false;
+        if (entry.expiresAt <= Date.now()) {
+            unsupportedResponses.delete(baseUrl);
+            return false;
+        }
+        return true;
+    };
+    const markResponsesUnsupported = (baseUrl) => {
+        if (!baseUrl) return;
+        unsupportedResponses.set(baseUrl, { expiresAt: Date.now() + RESPONSES_UNSUPPORTED_TTL_MS });
+    };
+    const clearResponsesUnsupported = (baseUrl) => {
+        if (!baseUrl) return;
+        unsupportedResponses.delete(baseUrl);
+    };
+
     const matchPath = (requestPath) => {
         const normalized = String(requestPath || '');
         const prefix = '/bridge/openai/';
@@ -804,7 +1381,23 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 ? upstream.headers
                 : {};
 
-            if (!normalizedSuffix || normalizedSuffix === 'models') {
+            if (!normalizedSuffix) {
+                if ((req.method || 'GET').toUpperCase() !== 'GET') {
+                    res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+                    return;
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({
+                    object: 'codexmate.openai_bridge',
+                    provider: match.provider,
+                    status: 'ok',
+                    endpoints: ['/v1/responses', '/v1/models']
+                }));
+                return;
+            }
+
+            if (normalizedSuffix === 'models') {
                 if ((req.method || 'GET').toUpperCase() !== 'GET') {
                     res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ error: 'Method Not Allowed' }));
@@ -812,7 +1405,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 }
 
                 const url = joinApiUrl(upstream.baseUrl, 'models');
-                const result = await proxyRequestJson(url, {
+                const result = await retryTransientRequest(() => proxyRequestJson(url, {
                     method: 'GET',
                     headers: {
                         ...(authHeader ? { Authorization: authHeader } : {}),
@@ -821,7 +1414,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     maxBytes: maxUpstreamBytes,
                     httpAgent,
                     httpsAgent
-                });
+                }));
                 if (!result.ok) {
                     res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ error: `Upstream request failed: ${result.error}` }));
@@ -862,22 +1455,65 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const acceptHeader = req && req.headers ? (req.headers.accept || req.headers.Accept || '') : '';
             const wantsSse = /text\/event-stream/i.test(String(acceptHeader || ''));
 
+            if (streamRequested && wantsSse) {
+                const converted = convertResponsesRequestToChatCompletions(responsesRequest);
+                if (converted.error) {
+                    res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({ error: converted.error }));
+                    return;
+                }
+                const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
+                const chatBody = { ...converted.chat, stream: true };
+                const streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
+                    method: 'POST',
+                    body: chatBody,
+                    headers: {
+                        ...(authHeader ? { Authorization: authHeader } : {}),
+                        ...upstreamHeaders
+                    },
+                    maxBytes: maxUpstreamBytes,
+                    httpAgent,
+                    httpsAgent,
+                    res,
+                    model: typeof chatBody.model === 'string' ? chatBody.model : ''
+                }));
+                if (!streamed.ok) {
+                    if (res.writableEnded || res.destroyed) {
+                        return;
+                    }
+                    if (!res.headersSent) {
+                        res.writeHead(streamed.status && streamed.status >= 400 ? streamed.status : 502, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(streamed.bodyText || JSON.stringify({ error: streamed.error || 'Upstream request failed' }));
+                    } else if (!res.writableEnded && !res.destroyed) {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: streamed.error || streamed.bodyText || 'Upstream request failed' });
+                        writeSse(res, 'done', '[DONE]');
+                        res.end();
+                    }
+                }
+                return;
+            }
+
             // Maxx-style behavior: prefer upstream /responses if supported.
             // Fallback to /chat/completions conversion when upstream does not implement /responses (404/405).
+            // 已知不支持的上游：直接跳过探测，节省一次 round-trip。
+            const skipResponsesProbe = isResponsesKnownUnsupported(upstream.baseUrl);
             const upstreamResponsesUrl = joinApiUrl(upstream.baseUrl, 'responses');
-            const upstreamResponsesResult = await proxyRequestJson(upstreamResponsesUrl, {
-                method: 'POST',
-                body: toUpstreamNonStreamingResponsesPayload(responsesRequest),
-                headers: {
-                    ...(authHeader ? { Authorization: authHeader } : {}),
-                    ...upstreamHeaders
-                },
-                maxBytes: maxUpstreamBytes,
-                httpAgent,
-                httpsAgent
-            });
+            const upstreamResponsesResult = skipResponsesProbe
+                ? { ok: true, status: 404, bodyText: '' }
+                : await retryTransientRequest(() => proxyRequestJson(upstreamResponsesUrl, {
+                    method: 'POST',
+                    body: toUpstreamNonStreamingResponsesPayload(responsesRequest),
+                    headers: {
+                        ...(authHeader ? { Authorization: authHeader } : {}),
+                        ...upstreamHeaders
+                    },
+                    maxBytes: maxUpstreamBytes,
+                    httpAgent,
+                    httpsAgent
+                }));
 
             if (upstreamResponsesResult.ok && upstreamResponsesResult.status >= 200 && upstreamResponsesResult.status < 300) {
+                clearResponsesUnsupported(upstream.baseUrl);
                 const upstreamJson = parseJsonOrError(upstreamResponsesResult.bodyText);
                 if (upstreamJson.error) {
                     res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -909,6 +1545,9 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     res.end(upstreamResponsesResult.bodyText || JSON.stringify({ error: 'Upstream error' }));
                     return;
                 }
+                if (!skipResponsesProbe && isResponsesEndpointUnsupported(upstreamResponsesResult.status, upstreamResponsesResult.bodyText)) {
+                    markResponsesUnsupported(upstream.baseUrl);
+                }
                 // fallthrough to chat/completions conversion
             }
 
@@ -926,7 +1565,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             }
 
             const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
-            const upstreamResult = await proxyRequestJson(upstreamUrl, {
+            const upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
                 method: 'POST',
                 body: converted.chat,
                 headers: {
@@ -936,7 +1575,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 maxBytes: maxUpstreamBytes,
                 httpAgent,
                 httpsAgent
-            });
+            }));
             if (!upstreamResult.ok) {
                 res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
                 res.end(JSON.stringify({ error: `Upstream request failed: ${upstreamResult.error}` }));
@@ -993,5 +1632,22 @@ module.exports = {
     readOpenaiBridgeSettings,
     upsertOpenaiBridgeProvider,
     resolveOpenaiBridgeUpstream,
-    createOpenaiBridgeHttpHandler
+    createOpenaiBridgeHttpHandler,
+    // exported for local-bridge reuse
+    convertResponsesRequestToChatCompletions,
+    streamChatCompletionsAsResponsesSse,
+    proxyRequestJson,
+    ensureResponseMetadata,
+    sendResponsesSse,
+    extractAuthorizationToken,
+    readRequestBody,
+    parseJsonOrError,
+    extractChatCompletionResult,
+    buildResponsesPayloadFromChatResult,
+    retryTransientRequest,
+    normalizeOpenaiUpstreamBaseUrl,
+    extractResponsesOutputText,
+    shouldFallbackFromUpstreamResponses,
+    isTransientNetworkError,
+    isLoopbackAddress
 };

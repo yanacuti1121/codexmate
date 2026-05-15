@@ -1,5 +1,6 @@
 const PROVIDER_NAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
 const RESERVED_PROXY_PROVIDER_NAME = 'codexmate-proxy';
+const RESERVED_LOCAL_PROVIDER_NAME = 'local';
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -21,7 +22,7 @@ function isValidHttpUrl(value) {
 
 function isReservedProviderCreationNameInput(name) {
     const normalized = normalizeText(name).toLowerCase();
-    return normalized === RESERVED_PROXY_PROVIDER_NAME;
+    return normalized === RESERVED_PROXY_PROVIDER_NAME || normalized === RESERVED_LOCAL_PROVIDER_NAME;
 }
 
 function isValidProviderNameInputValue(name) {
@@ -46,6 +47,12 @@ function normalizeProviderDraftState(target) {
     if (typeof target.url === 'string') {
         target.url = normalizeProviderUrl(target.url);
     }
+}
+
+function maskKeyLocal(key) {
+    if (!key) return '';
+    if (key.length <= 8) return '****';
+    return key.substring(0, 4) + '...' + key.substring(key.length - 4);
 }
 
 function getProviderValidationForContext(vm, mode = 'add') {
@@ -149,15 +156,38 @@ export function createProvidersMethods(options = {}) {
                 if (this.newProvider && this.newProvider.useTransform) {
                     payload.useTransform = true;
                 }
+                const suggestedModel = typeof this.newProvider._suggestedModel === 'string'
+                    ? this.newProvider._suggestedModel.trim()
+                    : '';
                 const res = await api('add-provider', payload);
                 if (res.error) {
                     this.showMessage(res.error, 'error');
                     return;
                 }
 
+                // 本地更新：构造新 provider 对象并追加到列表
+                const newProvider = {
+                    name: validation.name,
+                    url: validation.url,
+                    upstreamUrl: '',
+                    codexmate_bridge: payload.useTransform ? 'openai' : '',
+                    key: maskKeyLocal(payload.key),
+                    hasKey: !!payload.key,
+                    models: [],
+                    current: false,
+                    readOnly: false,
+                    nonDeletable: false,
+                    nonEditable: false
+                };
+                this.providersList = [...this.providersList, newProvider];
+
                 this.showMessage('操作成功', 'success');
                 this.closeAddModal();
-                await this.loadAll();
+
+                if (suggestedModel) {
+                    if (!this.currentModels || typeof this.currentModels !== 'object') this.currentModels = {};
+                    this.currentModels[validation.name] = suggestedModel;
+                }
             } catch (e) {
                 this.showMessage('添加失败', 'error');
             }
@@ -229,15 +259,40 @@ export function createProvidersMethods(options = {}) {
                     this.showMessage(res.error, 'error');
                     return;
                 }
+
+                // 本地更新：从列表中移除
+                this.providersList = this.providersList.filter(p => p.name !== name);
+
+                // 清理 currentModels
+                if (this.currentModels && this.currentModels[name]) {
+                    delete this.currentModels[name];
+                }
+
                 if (res.switched && res.provider) {
+                    this.currentProvider = res.provider;
+                    if (res.model) this.currentModel = res.model;
+                    // 更新 current 标记
+                    this.providersList = this.providersList.map(p => ({
+                        ...p,
+                        current: p.name === res.provider
+                    }));
                     this.showMessage(`已删除提供商，自动切换到 ${res.provider}${res.model ? ` / ${res.model}` : ''}`, 'success');
                 } else {
                     this.showMessage('操作成功', 'success');
                 }
-                await this.loadAll();
             } catch (_) {
                 this.showMessage('删除失败', 'error');
             }
+        },
+
+        openCloneProviderModal(provider) {
+            this.newProvider = {
+                name: '',
+                url: normalizeProviderUrl(provider.url || ''),
+                key: '',
+                useTransform: !!(provider.codexmate_bridge || '').trim() || /\/bridge\/openai\//.test(provider.url || '')
+            };
+            this.showAddModal = true;
         },
 
         async openEditModal(provider) {
@@ -311,9 +366,22 @@ export function createProvidersMethods(options = {}) {
                     this.showMessage(res.error, 'error');
                     return;
                 }
+
+                // 本地更新：更新列表中对应 provider 的 url 和 key
+                this.providersList = this.providersList.map(p => {
+                    if (p.name === validation.name) {
+                        return {
+                            ...p,
+                            url: validation.url,
+                            key: params.key ? maskKeyLocal(params.key) : p.key,
+                            hasKey: params.key ? true : p.hasKey
+                        };
+                    }
+                    return p;
+                });
+
                 this.closeEditModal();
                 this.showMessage('操作成功', 'success');
-                await this.loadAll();
             } catch (e) {
                 this.showMessage('更新失败', 'error');
             }
@@ -348,13 +416,26 @@ export function createProvidersMethods(options = {}) {
                 return this.showMessage('请输入模型', 'error');
             }
             try {
-                const res = await api('add-model', { model: this.newModelName.trim() });
+                const modelName = this.newModelName.trim();
+                const res = await api('add-model', { model: modelName });
                 if (res.error) {
                     this.showMessage(res.error, 'error');
                 } else {
+                    // 本地更新：在当前 provider 的 models 中追加
+                    this.providersList = this.providersList.map(p => {
+                        if (p.name === this.currentProvider) {
+                            const exists = p.models.some(m => m.id === modelName);
+                            if (!exists) {
+                                return {
+                                    ...p,
+                                    models: [...p.models, { id: modelName, name: modelName, cost: null, contextWindow: undefined, maxTokens: undefined }]
+                                };
+                            }
+                        }
+                        return p;
+                    });
                     this.showMessage('操作成功', 'success');
                     this.closeModelModal();
-                    await this.loadAll();
                 }
             } catch (_) {
                 this.showMessage('新增模型失败', 'error');
@@ -367,8 +448,17 @@ export function createProvidersMethods(options = {}) {
                 if (res.error) {
                     this.showMessage(res.error, 'error');
                 } else {
+                    // 本地更新：从当前 provider 的 models 中移除
+                    this.providersList = this.providersList.map(p => {
+                        if (p.name === this.currentProvider) {
+                            return {
+                                ...p,
+                                models: p.models.filter(m => m.id !== model)
+                            };
+                        }
+                        return p;
+                    });
                     this.showMessage('操作成功', 'success');
-                    await this.loadAll();
                 }
             } catch (_) {
                 this.showMessage('删除模型失败', 'error');
@@ -377,7 +467,7 @@ export function createProvidersMethods(options = {}) {
 
         closeAddModal() {
             this.showAddModal = false;
-            this.newProvider = { name: '', url: '', key: '', useTransform: false };
+            this.newProvider = { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' };
         },
 
         closeModelModal() {
@@ -399,6 +489,41 @@ export function createProvidersMethods(options = {}) {
                 : null;
             const key = config ? config.apiKey : '';
             return this.formatKey(key);
+        },
+
+        async loadLocalBridgeExcluded() {
+            try {
+                const res = await api('local-bridge-get-excluded');
+                if (res && Array.isArray(res.excludedProviders)) {
+                    this.localBridgeExcluded = res.excludedProviders;
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        async toggleLocalBridgeExcluded(providerName) {
+            const name = String(providerName || '').trim();
+            if (!name) return;
+            const idx = this.localBridgeExcluded.indexOf(name);
+            const next = [...this.localBridgeExcluded];
+            if (idx >= 0) {
+                next.splice(idx, 1);
+            } else {
+                next.push(name);
+            }
+            try {
+                const res = await api('local-bridge-set-excluded', { names: next });
+                if (res && !res.error) {
+                    this.localBridgeExcluded = next;
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        isLocalBridgeExcluded(providerName) {
+            return this.localBridgeExcluded.indexOf(String(providerName || '').trim()) >= 0;
+        },
+
+        localBridgeCandidateProviders() {
+            return (this.providersList || []).filter(p => p && p.name !== 'local' && p.name !== 'codexmate-proxy' && p.codexmate_bridge !== 'local');
         }
     };
 }
