@@ -104,6 +104,7 @@ export function createCodexConfigMethods(options = {}) {
                     target,
                     sessionId: session.sessionId,
                     filePath: session.filePath,
+                    outputDir: 'derived',
                     maxMessages: 'all'
                 });
                 if (res && res.error) {

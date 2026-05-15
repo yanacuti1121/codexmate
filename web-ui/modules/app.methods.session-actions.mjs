@@ -20,6 +20,7 @@ export function createSessionActionMethods(options = {}) {
             if (!session || typeof session !== 'object') return false;
             if (session.derived === true) return true;
             if (this.isDerivedSessionId(session.sessionId)) return true;
+            if (session.convertedFrom) return true;
             const rawFilePath = typeof session.filePath === 'string' ? session.filePath.trim() : '';
             if (!rawFilePath) return false;
             const normalized = rawFilePath.replace(/\\/g, '/');

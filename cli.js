@@ -1353,7 +1353,10 @@ function formatCompactTimestamp(value = Date.now()) {
     return `${year}${month}${day}-${hour}${minute}${second}`;
 }
 
-function buildDerivedSessionId(baseId) {
+function buildDerivedSessionId(baseId, useUuid) {
+    if (useUuid) {
+        return crypto.randomUUID();
+    }
     const safeBase = typeof baseId === 'string' && baseId.trim() ? baseId.trim() : 'session';
     const normalized = safeBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'session';
     const suffix = crypto.randomBytes(3).toString('hex');
@@ -2982,7 +2985,7 @@ function mergeAndLimitSessions(items, limit) {
     const seen = new Set();
     for (const item of items) {
         if (!item || !item.filePath) continue;
-        const key = `${item.source}:${item.filePath}`;
+        const key = `${item.source}:${item.sessionId || item.filePath}`;
         if (seen.has(key)) continue;
         seen.add(key);
         deduped.push(item);
@@ -6426,7 +6429,10 @@ function isDerivedSessionFile(filePath) {
         return false;
     }
     const base = path.basename(filePath || '', path.extname(filePath || ''));
-    return /-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base);
+    if (/-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base)) return true;
+    const norm = (filePath || '').replace(/\\/g, '/');
+    if (norm.includes('/.codexmate/sessions/derived/')) return true;
+    return false;
 }
 
 function readDerivedSessionMeta(filePath) {
@@ -6864,7 +6870,9 @@ async function readSessionDetail(params = {}) {
                 return false;
             }
             const base = path.basename(filePath || '', path.extname(filePath || ''));
-            return /-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base);
+            if (/-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base)) return true;
+            const norm = (filePath || '').replace(/\\/g, '/');
+            return norm.includes('/.codexmate/sessions/derived/');
         })(),
         totalMessages: hasExactTotalMessages ? extracted.totalMessages : null,
         clipped: typeof extracted.clipped === 'boolean'
@@ -7138,8 +7146,9 @@ async function convertSessionToDerived(params = {}) {
             return { error: 'Converted sessionId conflicts with an existing native session; please retry or choose derived output.' };
         }
     } else {
+        const useUuid = target === 'codex' || target === 'claude';
         for (let attempt = 0; attempt < 8; attempt += 1) {
-            derivedSessionId = buildDerivedSessionId(baseSessionId);
+            derivedSessionId = buildDerivedSessionId(baseSessionId, useUuid);
             outputPath = path.join(outputDir, `${derivedSessionId}.jsonl`);
             metaPath = path.join(outputDir, `${derivedSessionId}.meta.json`);
             if (!fs.existsSync(outputPath) && !fs.existsSync(metaPath)) {
@@ -7365,6 +7374,8 @@ async function importDerivedSessionToNative(params = {}) {
             upsertClaudeSessionIndexEntry(indexPath, resolvedNativePath, {
                 ...summary,
                 source: 'claude',
+                trashId: sessionId,
+                trashFileName: `${sessionId}.jsonl`,
                 sessionId,
                 claudeIndexEntry: { projectPath: summary.cwd || '' }
             });
