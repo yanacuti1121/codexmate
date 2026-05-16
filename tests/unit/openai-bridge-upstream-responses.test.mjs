@@ -228,6 +228,95 @@ test('openai-bridge omits upstream reasoning_content from output_text deltas', a
     await rm(tmpDir, { recursive: true, force: true });
 });
 
+test('openai-bridge preserves upstream reasoning_content as a reasoning item and replays it on the next turn', async () => {
+    let capturedRequests = [];
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            let body = '';
+            req.on('data', (c) => (body += c));
+            req.on('end', () => {
+                capturedRequests.push(JSON.parse(body || '{}'));
+                res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+                res.write('data: {"id":"r","model":"deepseek-v4","choices":[{"delta":{"reasoning_content":"plan-A"}}]}\n\n');
+                res.write('data: {"id":"r","model":"deepseek-v4","choices":[{"delta":{"reasoning_content":"-step"}}]}\n\n');
+                res.write('data: {"id":"r","model":"deepseek-v4","choices":[{"delta":{"content":"hi"}}]}\n\n');
+                res.end('data: [DONE]\n\n');
+            });
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const base = `http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`;
+    const turn1 = await requestText(base, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer codexmate'
+        },
+        body: { model: 'deepseek-v4', input: 'ping', stream: true }
+    });
+    assert.equal(turn1.status, 200);
+    assert.match(turn1.text, /"type":"reasoning"/);
+    assert.match(turn1.text, /"text":"plan-A-step"/);
+    assert.match(turn1.text, /"delta":"hi"/);
+    // reasoning text must NOT leak as an output_text delta
+    assert.doesNotMatch(turn1.text, /"delta":"plan-A"/);
+
+    // Simulate Codex replaying the prior reasoning item alongside the assistant message
+    // on the next turn. The bridge must convert it into the assistant message's
+    // `reasoning_content` so thinking-mode upstreams accept the continuation.
+    const turn2 = await requestText(base, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer codexmate'
+        },
+        body: {
+            model: 'deepseek-v4',
+            stream: true,
+            input: [
+                { role: 'user', content: [{ type: 'input_text', text: 'ping' }] },
+                { type: 'reasoning', id: 'rs_x', summary: [{ type: 'summary_text', text: 'plan-A-step' }] },
+                { role: 'assistant', content: [{ type: 'output_text', text: 'hi' }] },
+                { role: 'user', content: [{ type: 'input_text', text: 'again' }] }
+            ]
+        }
+    });
+    assert.equal(turn2.status, 200);
+    assert.equal(capturedRequests.length, 2);
+    const replayed = capturedRequests[1];
+    const assistantMsg = replayed.messages.find((m) => m.role === 'assistant');
+    assert.ok(assistantMsg, 'assistant message should reach upstream');
+    assert.equal(assistantMsg.reasoning_content, 'plan-A-step');
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
 test('openai-bridge completes Responses SSE when upstream chat stream closes after finish_reason without DONE', async () => {
     const upstream = http.createServer((req, res) => {
         if (req.url === '/v1/chat/completions' && req.method === 'POST') {

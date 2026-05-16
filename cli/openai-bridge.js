@@ -195,13 +195,16 @@ function parseJsonOrError(text) {
 }
 
 function extractChatCompletionResult(payload) {
-    if (!payload || typeof payload !== 'object') return { text: '', toolCalls: [] };
+    if (!payload || typeof payload !== 'object') return { text: '', toolCalls: [], reasoningContent: '' };
     const choice = Array.isArray(payload.choices) ? payload.choices[0] : null;
     const message = choice && typeof choice === 'object' ? choice.message : null;
     const toolCalls = message && typeof message === 'object' && Array.isArray(message.tool_calls)
         ? message.tool_calls
         : [];
     const content = message && typeof message === 'object' ? message.content : '';
+    const reasoningRaw = message && typeof message === 'object'
+        ? (typeof message.reasoning_content === 'string' ? message.reasoning_content : '')
+        : '';
     let text = '';
     if (typeof content === 'string') {
         text = content;
@@ -219,7 +222,7 @@ function extractChatCompletionResult(payload) {
             .filter(Boolean)
             .join('');
     }
-    return { text, toolCalls };
+    return { text, toolCalls, reasoningContent: reasoningRaw };
 }
 
 function normalizeResponsesInputToChatMessages(input) {
@@ -311,9 +314,40 @@ function normalizeResponsesInputToChatMessages(input) {
         return [];
     }
 
+    const extractReasoningText = (item) => {
+        const parts = [];
+        const collect = (blocks) => {
+            if (!Array.isArray(blocks)) return;
+            for (const block of blocks) {
+                if (!block || typeof block !== 'object') continue;
+                const t = typeof block.type === 'string' ? block.type : '';
+                if ((t === 'summary_text' || t === 'reasoning_text' || t === 'output_text' || t === 'text')
+                    && typeof block.text === 'string') {
+                    parts.push(block.text);
+                }
+            }
+        };
+        collect(item && item.summary);
+        collect(item && item.content);
+        if (!parts.length && typeof item.text === 'string') parts.push(item.text);
+        return parts.join('').trim();
+    };
+
     const messages = [];
+    let pendingReasoning = '';
     for (const item of input) {
         if (!item || typeof item !== 'object') continue;
+
+        // Responses-style reasoning items: { type: "reasoning", summary: [...], content?: [...] }
+        // Many thinking-mode chat upstreams (DeepSeek/Qwen) require the prior assistant turn's
+        // `reasoning_content` to be replayed, so buffer text and attach to the next assistant item.
+        if (typeof item.type === 'string' && item.type === 'reasoning') {
+            const text = extractReasoningText(item);
+            if (text) {
+                pendingReasoning = pendingReasoning ? `${pendingReasoning}\n${text}` : text;
+            }
+            continue;
+        }
 
         // Tool calls (Responses): { type: "function_call", call_id, name, arguments }
         // Chat Completions equivalent: assistant message with tool_calls
@@ -322,14 +356,19 @@ function normalizeResponsesInputToChatMessages(input) {
             const name = typeof item.name === 'string' ? item.name.trim() : '';
             const args = typeof item.arguments === 'string' ? item.arguments : '';
             if (callId && name) {
-                messages.push({
+                const assistantMsg = {
                     role: 'assistant',
                     tool_calls: [{
                         id: callId,
                         type: 'function',
                         function: { name, arguments: args || '' }
                     }]
-                });
+                };
+                if (pendingReasoning) {
+                    assistantMsg.reasoning_content = pendingReasoning;
+                    pendingReasoning = '';
+                }
+                messages.push(assistantMsg);
             }
             continue;
         }
@@ -359,7 +398,12 @@ function normalizeResponsesInputToChatMessages(input) {
                 ? toChatContent(item.content)
                 : item.content;
             if (content) {
-                messages.push({ role, content });
+                const msg = { role, content };
+                if (role === 'assistant' && pendingReasoning) {
+                    msg.reasoning_content = pendingReasoning;
+                    pendingReasoning = '';
+                }
+                messages.push(msg);
             }
             continue;
         }
@@ -533,7 +577,7 @@ function convertResponsesRequestToChatCompletions(payload) {
     return { chat, streamRequested: stream };
 }
 
-function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPayload) {
+function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPayload, reasoningContent) {
     const responseId = `resp_${crypto.randomBytes(10).toString('hex')}`;
     const usage = upstreamPayload && upstreamPayload.usage && typeof upstreamPayload.usage === 'object'
         ? upstreamPayload.usage
@@ -541,6 +585,14 @@ function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPay
     const createdAt = Math.floor(Date.now() / 1000);
     const output = [];
     const trimmedText = typeof text === 'string' ? text : '';
+    const reasoningText = typeof reasoningContent === 'string' ? reasoningContent : '';
+    if (reasoningText) {
+        output.push({
+            id: `rs_${crypto.randomBytes(8).toString('hex')}`,
+            type: 'reasoning',
+            summary: [{ type: 'summary_text', text: reasoningText }]
+        });
+    }
     if (trimmedText) {
         output.push({
             id: `msg_${crypto.randomBytes(8).toString('hex')}`,
@@ -861,11 +913,30 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
         const delta = choice && choice.delta && typeof choice.delta === 'object' ? choice.delta : null;
         if (!delta) continue;
 
-        const segments = [];
         // DeepSeek-style OpenAI-compatible streams may emit private reasoning in
-        // `reasoning_content` before the final answer. Responses `output_text`
-        // must stay user-visible answer text only; forwarding reasoning here
-        // pollutes Codex output and breaks exact-answer prompts.
+        // `reasoning_content` before the final answer. Capture it as a separate Responses
+        // `reasoning` item so Codex can replay it on subsequent turns (some upstreams
+        // reject continuation requests that drop the prior reasoning_content).
+        if (typeof delta.reasoning_content === 'string' && delta.reasoning_content) {
+            if (!state.reasoningItem) {
+                state.reasoningItem = {
+                    id: `rs_${crypto.randomBytes(8).toString('hex')}`,
+                    type: 'reasoning',
+                    summary: [{ type: 'summary_text', text: '' }]
+                };
+                state.output.push(state.reasoningItem);
+                writeSse(state.res, 'response.output_item.added', {
+                    type: 'response.output_item.added',
+                    output_index: state.output.length - 1,
+                    item: state.reasoningItem
+                });
+            }
+            state.reasoningText += delta.reasoning_content;
+        }
+
+        const segments = [];
+        // Responses `output_text` must stay user-visible answer text only; forwarding
+        // reasoning here pollutes Codex output and breaks exact-answer prompts.
         if (typeof delta.content === 'string' && delta.content) {
             segments.push(delta.content);
         }
@@ -911,6 +982,19 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
 function finishChatStreamResponsesSse(state) {
     if (!state || state.finished) return;
     state.finished = true;
+
+    if (state.reasoningItem) {
+        const reasoningIndex = state.output.indexOf(state.reasoningItem);
+        if (Array.isArray(state.reasoningItem.summary) && state.reasoningItem.summary[0]) {
+            state.reasoningItem.summary[0].text = state.reasoningText;
+        }
+        writeSse(state.res, 'response.output_item.done', {
+            type: 'response.output_item.done',
+            output_index: reasoningIndex,
+            item: state.reasoningItem,
+            sequence_number: state.nextSeq()
+        });
+    }
 
     if (state.messageItem) {
         const outputIndex = state.output.indexOf(state.messageItem);
@@ -1102,7 +1186,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
                         return;
                     }
                     const extracted = extractChatCompletionResult(parsedJson.value);
-                    sendResponsesSse(res, buildResponsesPayloadFromChatResult(fallbackModel, extracted.text, extracted.toolCalls, parsedJson.value));
+                    sendResponsesSse(res, buildResponsesPayloadFromChatResult(fallbackModel, extracted.text, extracted.toolCalls, parsedJson.value, extracted.reasoningContent));
                     if (!res.writableEnded && !res.destroyed) res.end();
                     finish({ ok: true });
                 });
@@ -1118,6 +1202,8 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
                 output: [],
                 messageItem: null,
                 messageText: '',
+                reasoningItem: null,
+                reasoningText: '',
                 toolCalls: [],
                 finished: false,
                 sawDone: false,
@@ -1598,7 +1684,8 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const extracted = extractChatCompletionResult(upstreamJson.value);
             const text = extracted && typeof extracted.text === 'string' ? extracted.text : '';
             const toolCalls = extracted && Array.isArray(extracted.toolCalls) ? extracted.toolCalls : [];
-            const responsesPayload = buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamJson.value);
+            const reasoningContent = extracted && typeof extracted.reasoningContent === 'string' ? extracted.reasoningContent : '';
+            const responsesPayload = buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamJson.value, reasoningContent);
 
             if (converted.streamRequested && wantsSse) {
                 res.writeHead(200, {

@@ -48,6 +48,7 @@ await import(pathToFileURL(path.join(__dirname, 'providers-validation.test.mjs')
 await import(pathToFileURL(path.join(__dirname, 'provider-switch-regression.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'codex-proxy-options.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'builtin-proxy-responses-shim.test.mjs')));
+await import(pathToFileURL(path.join(__dirname, 'openai-bridge-upstream-responses.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'claude-proxy-adapter.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'coderabbit-workflows.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'ci-workflow-contract.test.mjs')));
