@@ -168,8 +168,8 @@
                                         class="session-item-copy"
                                         @click.stop="copyResumeCommand(session)"
                                         :disabled="sessionsLoading"
-                                        :aria-label="t('sessions.copyResume')"
-                                        :title="t('sessions.copyResume')">
+                                        :aria-label="getResumeCommandTitle(session)"
+                                        :title="getResumeCommandTitle(session)">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="8" y="8" width="12" height="12" rx="2"></rect>
                                             <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
@@ -219,16 +219,10 @@
                                             {{ (activeSession && sessionExporting[getSessionExportKey(activeSession)]) ? t('sessions.preview.exporting') : t('sessions.preview.export') }}
                                         </button>
                                         <button
-                                            class="btn-session-export"
-                                            @click="convertSession(activeSession)"
-                                            :disabled="true">
-                                            {{ (activeSession && sessionConverting[getSessionExportKey(activeSession)]) ? t('sessions.preview.converting') : t('sessions.preview.convert') }}
-                                        </button>
-                                        <button
                                             class="btn-session-open"
-                                            @click="openSessionStandalone(activeSession)"
+                                            @click="copySessionLink(activeSession)"
                                             :disabled="!activeSession">
-                                            {{ t('sessions.preview.openStandalone') }}
+                                            {{ t('sessions.preview.copyLink') }}
                                         </button>
                                     </div>
                                 </div>

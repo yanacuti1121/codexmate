@@ -233,9 +233,9 @@ textarea:focus-visible {
     }
 
     .session-item {
-        min-height: 108px;
-        height: auto;
-        contain-intrinsic-size: 108px;
+        min-height: 79px;
+        height: 79px;
+        contain-intrinsic-size: 79px;
         padding: 12px 14px;
     }
 

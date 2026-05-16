@@ -204,9 +204,9 @@
     min-width: 0;
     position: relative;
     overflow: hidden;
-    min-height: 108px;
+    min-height: 84px;
     content-visibility: auto;
-    contain-intrinsic-size: 108px;
+    contain-intrinsic-size: 84px;
 }
 
 .session-item-header {

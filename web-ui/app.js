@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 sessionExporting: {},
                 sessionConverting: {},
+                sessionImportingNative: {},
                 sessionCloning: {},
                 sessionDeleting: {},
                 activeSession: null,

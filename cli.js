@@ -1388,7 +1388,10 @@ function formatCompactTimestamp(value = Date.now()) {
     return `${year}${month}${day}-${hour}${minute}${second}`;
 }
 
-function buildDerivedSessionId(baseId) {
+function buildDerivedSessionId(baseId, useUuid) {
+    if (useUuid) {
+        return crypto.randomUUID();
+    }
     const safeBase = typeof baseId === 'string' && baseId.trim() ? baseId.trim() : 'session';
     const normalized = safeBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'session';
     const suffix = crypto.randomBytes(3).toString('hex');
@@ -3026,7 +3029,7 @@ function mergeAndLimitSessions(items, limit) {
     const seen = new Set();
     for (const item of items) {
         if (!item || !item.filePath) continue;
-        const key = `${item.source}:${item.filePath}`;
+        const key = `${item.source}:${item.sessionId || item.filePath}`;
         if (seen.has(key)) continue;
         seen.add(key);
         deduped.push(item);
@@ -4627,10 +4630,10 @@ function listCodexSessions(limit, options = {}) {
             titleReadBytes
         });
         if (summary) {
-            sessions.push({
+            sessions.push(attachSessionNativeStatus({
                 ...summary,
                 derived: isDerivedSessionFile(filePath)
-            });
+            }));
         }
 
         if (sessions.length >= targetCount) {
@@ -4796,7 +4799,7 @@ function listClaudeSessions(limit, options = {}) {
             const keywords = normalizeKeywords(entry.keywords);
             const capabilities = normalizeCapabilities(entry.capabilities);
 
-            sessions.push({
+            sessions.push(attachSessionNativeStatus({
                 source: 'claude',
                 sourceLabel: 'Claude Code',
                 provider,
@@ -4820,7 +4823,7 @@ function listClaudeSessions(limit, options = {}) {
                 derived: isDerivedSessionFile(filePath),
                 keywords,
                 capabilities
-            });
+            }));
 
             if (sessions.length >= targetCount) {
                 break;
@@ -4844,10 +4847,10 @@ function listClaudeSessions(limit, options = {}) {
                 titleReadBytes
             });
             if (summary) {
-                sessions.push({
+                sessions.push(attachSessionNativeStatus({
                     ...summary,
                     derived: isDerivedSessionFile(filePath)
-                });
+                }));
             }
 
             if (sessions.length >= targetCount) {
@@ -4869,10 +4872,10 @@ function listClaudeSessions(limit, options = {}) {
                 titleReadBytes
             });
             if (summary) {
-                sessions.push({
+                sessions.push(attachSessionNativeStatus({
                     ...summary,
                     derived: isDerivedSessionFile(filePath)
-                });
+                }));
             }
             seen.add(filePath);
         }
@@ -6580,7 +6583,7 @@ function buildSessionPlainText(messages) {
 function getDerivedSessionMetaPath(filePath) {
     if (!filePath) return '';
     const base = filePath.toLowerCase().endsWith('.jsonl')
-        ? filePath.slice(0, -5)
+        ? filePath.slice(0, -6)
         : filePath;
     return `${base}.meta.json`;
 }
@@ -6596,7 +6599,88 @@ function isDerivedSessionFile(filePath) {
         return false;
     }
     const base = path.basename(filePath || '', path.extname(filePath || ''));
-    return /-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base);
+    if (/-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base)) return true;
+    const norm = (filePath || '').replace(/\\/g, '/');
+    if (norm.includes('/.codexmate/sessions/derived/')) return true;
+    return false;
+}
+
+function readDerivedSessionMeta(filePath) {
+    const metaPath = getDerivedSessionMetaPath(filePath);
+    if (!metaPath) return null;
+    return readJsonFile(metaPath, null);
+}
+
+function resolveNativeSessionFilePath(source, sessionId, cwd = '') {
+    const normalizedSource = normalizeSessionDerivedTarget(source);
+    const id = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!normalizedSource || !id) return '';
+    if (normalizedSource === 'codex') {
+        return path.join(getCodexSessionsDir(), `${id}.jsonl`);
+    }
+    const projectDir = resolveClaudeProjectDirForCwd(cwd || '') || path.join(getClaudeProjectsDir(), 'codexmate-derived');
+    return path.join(projectDir, `${id}.jsonl`);
+}
+
+function buildSessionNativeStatus(source, sessionId, cwd, filePath, derived) {
+    const normalizedSource = normalizeSessionDerivedTarget(source);
+    const id = typeof sessionId === 'string' ? sessionId.trim() : '';
+    const currentPath = typeof filePath === 'string' && filePath.trim()
+        ? path.resolve(expandHomePath(filePath.trim()))
+        : '';
+    const nativePath = resolveNativeSessionFilePath(normalizedSource, id, cwd || '');
+    const resolvedNativePath = nativePath ? path.resolve(expandHomePath(nativePath)) : '';
+    const inNativePath = !!(currentPath && resolvedNativePath && currentPath === resolvedNativePath);
+    const nativeExists = !!(resolvedNativePath && fs.existsSync(resolvedNativePath));
+    const currentExists = !!(currentPath && fs.existsSync(currentPath));
+    const isDerived = derived === true || isDerivedSessionFile(currentPath);
+    const nativeAvailable = inNativePath || nativeExists || (!isDerived && currentExists);
+    const effectiveNativePath = !isDerived && currentPath
+        ? currentPath
+        : (resolvedNativePath || '');
+    return {
+        derived: isDerived,
+        nativeAvailable,
+        nativePath: effectiveNativePath,
+        derivedPath: isDerived && currentPath && !inNativePath ? currentPath : '',
+        nativeImportAvailable: isDerived && !!resolvedNativePath && !inNativePath
+    };
+}
+
+function attachSessionNativeStatus(session) {
+    if (!session || typeof session !== 'object') return session;
+    const meta = session.meta && typeof session.meta === 'object' && !Array.isArray(session.meta)
+        ? session.meta
+        : (session.derived === true ? readDerivedSessionMeta(session.filePath) : null);
+    const metaConvertedFromLabel = buildConvertedFromLabel(meta);
+    const convertedFromLabel = typeof session.convertedFromLabel === 'string' && session.convertedFromLabel.trim()
+        ? session.convertedFromLabel.trim()
+        : metaConvertedFromLabel;
+    const convertedFrom = typeof session.convertedFrom === 'string' && session.convertedFrom.trim()
+        ? session.convertedFrom.trim()
+        : (convertedFromLabel ? convertedFromLabel.toLowerCase().replace(' code', '') : '');
+    return {
+        ...session,
+        ...(convertedFrom ? { convertedFrom } : {}),
+        ...(convertedFromLabel ? { convertedFromLabel } : {}),
+        ...buildSessionNativeStatus(
+            session.source,
+            session.sessionId,
+            session.cwd,
+            session.filePath,
+            session.derived === true
+        )
+    };
+}
+
+function buildConvertedFromLabel(meta) {
+    const rawSourceType = meta && meta.source && typeof meta.source.type === 'string'
+        ? meta.source.type
+        : (meta && typeof meta.convertedFrom === 'string' ? meta.convertedFrom : '');
+    const sourceType = rawSourceType.trim().toLowerCase();
+    if (sourceType === 'codex') return 'Codex';
+    if (sourceType === 'claude') return 'Claude Code';
+    return '';
 }
 
 function resolveStateMaxMessages(state) {
@@ -6947,7 +7031,7 @@ async function readSessionDetail(params = {}) {
         derived: (() => {
             try {
                 const metaPath = filePath.toLowerCase().endsWith('.jsonl')
-                    ? `${filePath.slice(0, -5)}.meta.json`
+                    ? `${filePath.slice(0, -6)}.meta.json`
                     : `${filePath}.meta.json`;
                 if (fs.existsSync(metaPath)) {
                     return true;
@@ -6956,7 +7040,9 @@ async function readSessionDetail(params = {}) {
                 return false;
             }
             const base = path.basename(filePath || '', path.extname(filePath || ''));
-            return /-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base);
+            if (/-\d{8}-\d{6}-[0-9a-f]{6}$/i.test(base)) return true;
+            const norm = (filePath || '').replace(/\\/g, '/');
+            return norm.includes('/.codexmate/sessions/derived/');
         })(),
         totalMessages: hasExactTotalMessages ? extracted.totalMessages : null,
         clipped: typeof extracted.clipped === 'boolean'
@@ -6964,7 +7050,18 @@ async function readSessionDetail(params = {}) {
             : (hasExactTotalMessages ? extracted.totalMessages > indexedMessages.length : false),
         messageLimit,
         messages: indexedMessages,
-        filePath
+        filePath,
+        ...(typeof buildSessionNativeStatus === 'function'
+            ? buildSessionNativeStatus(source, sessionId, extracted.cwd || '', filePath, (typeof isDerivedSessionFile === 'function' ? isDerivedSessionFile(filePath) : false))
+            : { derived: (typeof isDerivedSessionFile === 'function' ? isDerivedSessionFile(filePath) : false) }),
+        convertedFrom: (() => {
+            if (typeof buildConvertedFromLabel !== 'function' || typeof readDerivedSessionMeta !== 'function') return '';
+            const label = buildConvertedFromLabel(readDerivedSessionMeta(filePath));
+            return label ? label.toLowerCase().replace(' code', '') : '';
+        })(),
+        convertedFromLabel: (typeof buildConvertedFromLabel === 'function' && typeof readDerivedSessionMeta === 'function')
+            ? buildConvertedFromLabel(readDerivedSessionMeta(filePath))
+            : ''
     };
 }
 
@@ -7195,18 +7292,45 @@ async function convertSessionToDerived(params = {}) {
     }
 
     const baseSessionId = extracted.sessionId || params.sessionId || path.basename(filePath, '.jsonl');
-    const derivedSessionId = buildDerivedSessionId(baseSessionId);
     const sourceKey = buildSessionDerivedSourceKey(source, baseSessionId, filePath);
-    const outputDir = target === 'codex'
-        ? getCodexSessionsDir()
-        : (target === 'claude'
-            ? (resolveClaudeProjectDirForCwd(extracted.cwd || '') || path.join(getClaudeProjectsDir(), 'codexmate-derived'))
-            : buildDerivedSessionOutputDir(target, source, sourceKey));
-    ensureDir(outputDir);
-    const outputPath = path.join(outputDir, `${derivedSessionId}.jsonl`);
-    const metaPath = path.join(outputDir, `${derivedSessionId}.meta.json`);
-
+    const outputDirModeRaw = typeof params.outputDir === 'string'
+        ? params.outputDir
+        : (typeof params.output_dir === 'string' ? params.output_dir : 'native');
+    const outputDirMode = outputDirModeRaw.trim().toLowerCase() === 'derived' ? 'derived' : 'native';
     const cwd = typeof extracted.cwd === 'string' ? extracted.cwd : '';
+    const outputDir = outputDirMode === 'derived'
+        ? buildDerivedSessionOutputDir(target, source, sourceKey)
+        : (target === 'codex'
+            ? getCodexSessionsDir()
+            : (resolveClaudeProjectDirForCwd(cwd || '') || path.join(getClaudeProjectsDir(), 'codexmate-derived')));
+    ensureDir(outputDir);
+
+    let derivedSessionId = '';
+    let outputPath = '';
+    let metaPath = '';
+    if (outputDirMode === 'native') {
+        derivedSessionId = baseSessionId;
+        outputPath = path.join(outputDir, `${derivedSessionId}.jsonl`);
+        metaPath = path.join(outputDir, `${derivedSessionId}.meta.json`);
+        if (fs.existsSync(outputPath) || fs.existsSync(metaPath)) {
+            return { error: 'Converted sessionId conflicts with an existing native session; please retry or choose derived output.' };
+        }
+    } else {
+        const useUuid = target === 'codex' || target === 'claude';
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+            derivedSessionId = buildDerivedSessionId(baseSessionId, useUuid);
+            outputPath = path.join(outputDir, `${derivedSessionId}.jsonl`);
+            metaPath = path.join(outputDir, `${derivedSessionId}.meta.json`);
+            if (!fs.existsSync(outputPath) && !fs.existsSync(metaPath)) {
+                break;
+            }
+            derivedSessionId = '';
+        }
+        if (!derivedSessionId) {
+            return { error: 'Converted sessionId conflicts with an existing native session; please retry or choose derived output.' };
+        }
+    }
+
     const resolvedCwd = cwd ? path.resolve(expandHomePath(cwd)) : '';
     const messages = removeLeadingSystemMessage(Array.isArray(extracted.messages) ? extracted.messages : []);
     const now = Date.now();
@@ -7265,7 +7389,8 @@ async function convertSessionToDerived(params = {}) {
             filePath: outputPath
         },
         options: {
-            maxMessages: maxMessages === Infinity ? 'all' : maxMessages
+            maxMessages: maxMessages === Infinity ? 'all' : maxMessages,
+            outputDir: outputDirMode
         }
     });
 
@@ -7301,7 +7426,12 @@ async function convertSessionToDerived(params = {}) {
         target,
         truncated: !!extracted.truncated,
         maxMessages: maxMessagesLabel,
-        session: summary ? { ...summary, derived: true } : {
+        session: attachSessionNativeStatus(summary ? {
+            ...summary,
+            derived: true,
+            convertedFrom: source,
+            convertedFromLabel: source === 'codex' ? 'Codex' : 'Claude Code'
+        } : {
             source: target,
             sourceLabel: target === 'codex' ? 'Codex' : 'Claude Code',
             sessionId: derivedSessionId,
@@ -7319,9 +7449,158 @@ async function convertSessionToDerived(params = {}) {
             __messageCountExact: true,
             filePath: outputPath,
             derived: true,
+            convertedFrom: source,
+            convertedFromLabel: source === 'codex' ? 'Codex' : 'Claude Code',
             keywords: [],
             capabilities: {}
+        })
+    };
+}
+
+
+async function importDerivedSessionToNative(params = {}) {
+    const source = normalizeSessionDerivedTarget(params.source);
+    if (!source) {
+        return { error: 'Invalid source', errorCode: 'INVALID_SOURCE' };
+    }
+    const filePath = resolveSessionFilePath(source, getSessionFileArg(params), params.sessionId);
+    if (!filePath) {
+        return { error: 'Session file not found', errorCode: 'SESSION_FILE_NOT_FOUND' };
+    }
+
+    const summary = (source === 'claude' ? parseClaudeSessionSummary(filePath) : parseCodexSessionSummary(filePath))
+        || buildSessionSummaryFallback(source, filePath, params.sessionId);
+    const sessionId = summary.sessionId || params.sessionId || path.basename(filePath, '.jsonl');
+    const nativePath = resolveNativeSessionFilePath(source, sessionId, summary.cwd || '');
+    if (!nativePath) {
+        return { error: 'Native session path unavailable', errorCode: 'NATIVE_SESSION_PATH_UNAVAILABLE' };
+    }
+
+    const resolvedSourcePath = path.resolve(expandHomePath(filePath));
+    const resolvedNativePath = path.resolve(expandHomePath(nativePath));
+    const overwrite = params.overwrite === true || params.confirmOverwrite === true || params.force === true;
+    const hadNativeBefore = fs.existsSync(resolvedNativePath);
+    if (resolvedSourcePath === resolvedNativePath) {
+        return {
+            success: true,
+            imported: false,
+            alreadyNative: true,
+            source,
+            sessionId,
+            filePath: resolvedNativePath,
+            nativePath: resolvedNativePath,
+            nativeAvailable: true,
+            session: attachSessionNativeStatus({ ...summary, filePath: resolvedNativePath, derived: true })
+        };
+    }
+    if (fs.existsSync(resolvedNativePath) && !overwrite) {
+        return {
+            error: 'Native session already exists',
+            errorCode: 'NATIVE_SESSION_EXISTS',
+            conflict: true,
+            source,
+            sessionId,
+            filePath: resolvedSourcePath,
+            nativePath: resolvedNativePath,
+            nativeAvailable: true,
+            session: attachSessionNativeStatus({ ...summary, filePath: resolvedSourcePath, derived: true })
+        };
+    }
+
+    const targetMetaPath = getDerivedSessionMetaPath(resolvedNativePath);
+    const indexPath = source === 'claude' ? path.join(path.dirname(resolvedNativePath), 'sessions-index.json') : '';
+    const tmpNativePath = `${resolvedNativePath}.tmp-${process.pid}-${Date.now()}`;
+    let previousNative = null;
+    let previousMeta = null;
+    let previousIndex = null;
+    try {
+        previousNative = hadNativeBefore ? fs.readFileSync(resolvedNativePath) : null;
+        previousMeta = targetMetaPath && fs.existsSync(targetMetaPath)
+            ? fs.readFileSync(targetMetaPath)
+            : null;
+        previousIndex = indexPath && fs.existsSync(indexPath)
+            ? fs.readFileSync(indexPath)
+            : null;
+        ensureDir(path.dirname(resolvedNativePath));
+        fs.copyFileSync(resolvedSourcePath, tmpNativePath);
+        const sourceMetaPath = getDerivedSessionMetaPath(resolvedSourcePath);
+        let meta = readDerivedSessionMeta(resolvedSourcePath) || {};
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) meta = {};
+        meta.version = meta.version || 1;
+        meta.importedAt = new Date().toISOString();
+        meta.target = {
+            ...(meta.target && typeof meta.target === 'object' ? meta.target : {}),
+            type: source,
+            sessionId,
+            filePath: resolvedNativePath
+        };
+        if (sourceMetaPath && fs.existsSync(sourceMetaPath)) {
+            writeJsonAtomic(targetMetaPath, meta);
+        } else {
+            writeJsonAtomic(targetMetaPath, meta);
         }
+        if (source === 'claude') {
+            ensureClaudeSessionsIndex(indexPath, summary.cwd || '');
+            upsertClaudeSessionIndexEntry(indexPath, resolvedNativePath, {
+                ...summary,
+                source: 'claude',
+                trashId: sessionId,
+                trashFileName: `${sessionId}.jsonl`,
+                sessionId,
+                claudeIndexEntry: { projectPath: summary.cwd || '' }
+            });
+        }
+        if (hadNativeBefore) {
+            fs.unlinkSync(resolvedNativePath);
+        }
+        fs.renameSync(tmpNativePath, resolvedNativePath);
+    } catch (e) {
+        try {
+            if (fs.existsSync(tmpNativePath)) fs.unlinkSync(tmpNativePath);
+        } catch (_) {}
+        try {
+            if (previousNative) {
+                ensureDir(path.dirname(resolvedNativePath));
+                fs.writeFileSync(resolvedNativePath, previousNative);
+            } else if (!hadNativeBefore && fs.existsSync(resolvedNativePath)) {
+                fs.unlinkSync(resolvedNativePath);
+            }
+        } catch (_) {}
+        try {
+            if (previousMeta) {
+                ensureDir(path.dirname(targetMetaPath));
+                fs.writeFileSync(targetMetaPath, previousMeta);
+            } else if (targetMetaPath && fs.existsSync(targetMetaPath)) {
+                fs.unlinkSync(targetMetaPath);
+            }
+        } catch (_) {}
+        try {
+            if (indexPath) {
+                if (previousIndex) {
+                    ensureDir(path.dirname(indexPath));
+                    fs.writeFileSync(indexPath, previousIndex);
+                } else if (fs.existsSync(indexPath)) {
+                    fs.unlinkSync(indexPath);
+                }
+            }
+        } catch (_) {}
+        return { error: `Import to native failed: ${e.message}`, errorCode: 'IMPORT_DERIVED_SESSION_FAILED', reason: e.message };
+    }
+
+    invalidateSessionListCache();
+    const importedSummary = (source === 'claude' ? parseClaudeSessionSummary(resolvedNativePath) : parseCodexSessionSummary(resolvedNativePath))
+        || { ...summary, filePath: resolvedNativePath };
+    return {
+        success: true,
+        imported: true,
+        source,
+        sessionId,
+        filePath: resolvedNativePath,
+        nativePath: resolvedNativePath,
+        nativeAvailable: true,
+        previousFilePath: resolvedSourcePath,
+        overwritten: hadNativeBefore && overwrite,
+        session: attachSessionNativeStatus({ ...importedSummary, filePath: resolvedNativePath, derived: true })
     };
 }
 
@@ -8800,12 +9079,21 @@ async function restoreCodexDir(payload) {
 }
 
 // CLI: 一行写入 Claude Code 配置
-function cmdClaude(baseUrl, apiKey, model, silent = false) {
+async function cmdClaude(args = []) {
+    const argv = Array.isArray(args) ? args : [];
+    // 无参数 → 代理启动
+    if (argv.length === 0 || (argv.length === 1 && argv[0] === undefined)) {
+        return runProxyCommand('Claude', 'claude', [], '', { autoFlag: '--dangerously-skip-permissions' });
+    }
+    // 有参数 → 配置写入
+    const [baseUrl, apiKey, model] = argv;
     const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
     const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     const normalizedModel = typeof model === 'string' && model.trim()
         ? model.trim()
         : DEFAULT_CLAUDE_MODEL;
+
+    const silent = false;
 
     if (!normalizedBaseUrl || !normalizedKey) {
         if (!silent) {
@@ -8841,7 +9129,7 @@ function cmdClaude(baseUrl, apiKey, model, silent = false) {
         console.log();
     }
 
-    return result;
+    return 0;
 }
 
 function commandExists(command, args = '') {
@@ -10546,6 +10834,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'convert-session':
                             result = await convertSessionToDerived(params || {});
+                            break;
+                        case 'import-derived-session':
+                            result = await importDerivedSessionToNative(params || {});
                             break;
                         case 'delete-session':
                             result = await deleteSessionData(params || {});
@@ -12401,8 +12692,9 @@ async function runProxyCommandWithQueuedFollowUps(selectedBin, finalArgs = [], q
 
 async function runProxyCommand(displayName, binNames, args = [], installTip = '', runtimeOptions = {}) {
     const extraArgs = Array.isArray(args) ? args.filter(arg => arg !== undefined) : [];
-    const hasYolo = extraArgs.includes('--yolo');
-    const finalArgs = hasYolo ? extraArgs : ['--yolo', ...extraArgs];
+    const autoFlag = typeof runtimeOptions.autoFlag === 'string' && runtimeOptions.autoFlag ? runtimeOptions.autoFlag : '--yolo';
+    const hasAutoFlag = extraArgs.includes(autoFlag);
+    const finalArgs = hasAutoFlag ? extraArgs : [autoFlag, ...extraArgs];
 
     const names = Array.isArray(binNames) ? binNames : [binNames];
     let selectedBin = names[0];
@@ -15345,7 +15637,8 @@ function printMainHelp() {
     console.log('  codexmate use <模型>       切换模型');
     console.log('  codexmate add <名称> <URL> [密钥] [--bridge <openai>]');
     console.log('  codexmate delete <名称>    删除提供商');
-    console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
+    console.log('  codexmate claude            等同于 claude --dangerously-skip-permissions');
+  console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
     console.log('  codexmate auth <list|import|switch|delete|status>  认证管理');
     console.log('  codexmate add-model <模型> 添加模型');
     console.log('  codexmate delete-model <模型> 删除模型');
@@ -15432,7 +15725,11 @@ async function main() {
             break;
         }
         case 'delete': cmdDelete(args[1]); break;
-        case 'claude': cmdClaude(args[1], args[2], args[3]); break;
+        case 'claude': {
+            const exitCode = await cmdClaude(args.slice(1));
+            process.exit(exitCode);
+            break;
+        }
         case 'add-model': cmdAddModel(args[1]); break;
         case 'delete-model': cmdDeleteModel(args[1]); break;
         case 'auth': cmdAuth(args.slice(1)); break;
