@@ -52,7 +52,7 @@
                                                 <span class="session-count-badge">{{ item.messageCount == null ? 0 : item.messageCount }}</span>
                                             </div>
                                             <div class="trash-item-meta session-item-meta">
-                                                <span class="session-source">{{ item.sourceLabel }}</span>
+                                                <span class="session-source" :data-source="item.source">{{ item.sourceLabel }}</span>
                                                 <span class="trash-item-dot">·</span>
                                                 <span class="trash-item-time">{{ item.deletedAt || item.updatedAt || t('sessions.unknownTime') }}</span>
                                             </div>

@@ -466,6 +466,15 @@ export function createSessionBrowserMethods(options = {}) {
             this.persistSessionPinnedMap();
         },
 
+        setSessionSource(value) {
+            if (this.sessionsLoading) return;
+            this.sessionFilterSource = value;
+            this.refreshSessionPathOptions(value);
+            this.persistSessionFilterCache();
+            syncSessionsFilterUrl(this);
+            this.loadSessions();
+        },
+
         async onSessionSourceChange(event) {
             const rawValue = event && event.target && typeof event.target.value === 'string'
                 ? event.target.value

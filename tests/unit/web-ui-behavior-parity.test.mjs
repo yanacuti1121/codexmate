@@ -583,7 +583,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'shouldShowCliInstallPlaceholder',
         'openCloneClaudeConfigModal',
         'openCloneProviderModal',
-        'runProvidersHealthCheck'
+        'runProvidersHealthCheck',
+        'setSessionSource'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',
@@ -643,6 +644,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
     const extraCurrentComputedKeys = currentComputedKeys.filter((key) => !headComputedKeys.includes(key)).sort();
     const missingCurrentComputedKeys = headComputedKeys.filter((key) => !currentComputedKeys.includes(key)).sort();
     const allowedExtraCurrentComputedKeys = [
+        'sessionSourceOptions',
         'visibleSessionsList',
         'mainTabKicker',
         'mainTabTitle',

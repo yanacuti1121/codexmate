@@ -351,6 +351,15 @@ export function createSessionComputed() {
         isSessionQueryEnabled() {
             return isSessionQueryEnabled(this.sessionFilterSource);
         },
+        sessionSourceOptions() {
+            return [
+                { value: "all", label: this.t("common.all") },
+                { value: "codex", label: this.t("sessions.source.codex") },
+                { value: "claude", label: this.t("sessions.source.claudeCode") },
+                { value: "gemini", label: this.t("sessions.source.gemini") },
+                { value: "codebuddy", label: this.t("sessions.source.codebuddy") }
+            ];
+        },
         activeSessionExportKey() {
             return this.activeSession ? this.getSessionExportKey(this.activeSession) : '';
         },
