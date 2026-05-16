@@ -9079,12 +9079,21 @@ async function restoreCodexDir(payload) {
 }
 
 // CLI: 一行写入 Claude Code 配置
-function cmdClaude(baseUrl, apiKey, model, silent = false) {
+async function cmdClaude(args = []) {
+    const argv = Array.isArray(args) ? args : [];
+    // 无参数 → 代理启动
+    if (argv.length === 0 || (argv.length === 1 && argv[0] === undefined)) {
+        return runProxyCommand('Claude', 'claude', [], '', { autoFlag: '--dangerously-skip-permissions' });
+    }
+    // 有参数 → 配置写入
+    const [baseUrl, apiKey, model] = argv;
     const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
     const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     const normalizedModel = typeof model === 'string' && model.trim()
         ? model.trim()
         : DEFAULT_CLAUDE_MODEL;
+
+    const silent = false;
 
     if (!normalizedBaseUrl || !normalizedKey) {
         if (!silent) {
@@ -9120,7 +9129,7 @@ function cmdClaude(baseUrl, apiKey, model, silent = false) {
         console.log();
     }
 
-    return result;
+    return 0;
 }
 
 function commandExists(command, args = '') {
@@ -12683,8 +12692,9 @@ async function runProxyCommandWithQueuedFollowUps(selectedBin, finalArgs = [], q
 
 async function runProxyCommand(displayName, binNames, args = [], installTip = '', runtimeOptions = {}) {
     const extraArgs = Array.isArray(args) ? args.filter(arg => arg !== undefined) : [];
-    const hasYolo = extraArgs.includes('--yolo');
-    const finalArgs = hasYolo ? extraArgs : ['--yolo', ...extraArgs];
+    const autoFlag = typeof runtimeOptions.autoFlag === 'string' && runtimeOptions.autoFlag ? runtimeOptions.autoFlag : '--yolo';
+    const hasAutoFlag = extraArgs.includes(autoFlag);
+    const finalArgs = hasAutoFlag ? extraArgs : [autoFlag, ...extraArgs];
 
     const names = Array.isArray(binNames) ? binNames : [binNames];
     let selectedBin = names[0];
@@ -15627,7 +15637,8 @@ function printMainHelp() {
     console.log('  codexmate use <模型>       切换模型');
     console.log('  codexmate add <名称> <URL> [密钥] [--bridge <openai>]');
     console.log('  codexmate delete <名称>    删除提供商');
-    console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
+    console.log('  codexmate claude            等同于 claude --dangerously-skip-permissions');
+  console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
     console.log('  codexmate auth <list|import|switch|delete|status>  认证管理');
     console.log('  codexmate add-model <模型> 添加模型');
     console.log('  codexmate delete-model <模型> 删除模型');
@@ -15714,7 +15725,11 @@ async function main() {
             break;
         }
         case 'delete': cmdDelete(args[1]); break;
-        case 'claude': cmdClaude(args[1], args[2], args[3]); break;
+        case 'claude': {
+            const exitCode = await cmdClaude(args.slice(1));
+            process.exit(exitCode);
+            break;
+        }
         case 'add-model': cmdAddModel(args[1]); break;
         case 'delete-model': cmdDeleteModel(args[1]); break;
         case 'auth': cmdAuth(args.slice(1)); break;
