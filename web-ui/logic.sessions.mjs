@@ -424,6 +424,22 @@ export function buildUsageChartGroups(sessions = [], options = {}) {
     }
     const { range, buckets } = buildUsageBuckets(normalizedSessions, options);
     const bucketMap = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+
+    // Range window: filter normalizedSessions to the selected range
+    var rangeStartMs = 0;
+    var rangeEndMs = Number.POSITIVE_INFINITY;
+    if (range !== "all" && buckets.length > 0) {
+        var firstKey = buckets[0].key;
+        var lastKey = buckets[buckets.length - 1].key;
+        rangeStartMs = Date.parse(firstKey + "T00:00:00.000Z");
+        rangeEndMs = Date.parse(lastKey + "T23:59:59.999Z");
+    }
+    var rangeFiltered = range === "all"
+        ? normalizedSessions
+        : normalizedSessions.filter(function(ns) {
+            return ns.updatedAtMs >= rangeStartMs && ns.updatedAtMs <= rangeEndMs;
+        });
+
     let codexTotal = 0;
     let claudeTotal = 0;
     let messageTotal = 0;
@@ -455,7 +471,7 @@ export function buildUsageChartGroups(sessions = [], options = {}) {
     const topSessionsByMessages = [];
     const filteredSessions = [];
 
-    for (const normalized of normalizedSessions) {
+    for (const normalized of rangeFiltered) {
         const { session, sessionIndex, source, updatedAtMs, sessionStartedAtMs, sessionEndedAtMs, bucketKey } = normalized;
         const stamp = new Date(updatedAtMs);
         const bucket = bucketMap.get(bucketKey);
