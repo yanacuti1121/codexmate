@@ -136,7 +136,7 @@
                         <div
                             v-for="session in visibleSessionsList"
                             :key="session.source + '-' + session.sessionId + '-' + session.filePath"
-                            v-memo="[activeSessionExportKey === getSessionExportKey(session), session.messageCount, session.updatedAt, session.title, session.sourceLabel, session.cwd, isSessionPinned(session), sessionsLoading]"
+                            v-memo="[activeSessionExportKey === getSessionExportKey(session), session.messageCount, session.updatedAt, session.title, session.sourceLabel, session.cwd, isSessionPinned(session), sessionsLoading, session.match && session.match.count]"
                             :class="[
                                 'session-item',
                                 {
@@ -154,6 +154,7 @@
                                 <div class="session-item-main">
                                     <div class="session-item-title">{{ session.title || session.sessionId }}</div>
                                     <span class="session-count-badge">{{ session.messageCount == null ? '...' : session.messageCount }}</span>
+                                    <span v-if="session.match && session.match.hit" class="session-match-badge">{{ session.match.count }}</span>
                                 </div>
                                 <div class="session-item-actions">
                                     <button
@@ -189,6 +190,9 @@
                                 <span class="session-item-time">{{ session.updatedAt || t('sessions.unknownTime') }}</span>
                                 <span v-if="getSessionHotLabel(session)" class="session-item-hot">{{ getSessionHotLabel(session) }}</span>
                                 <span v-if="session.cwd" class="session-item-cwd session-item-sub">{{ session.cwd }}</span>
+                                <div v-if="session.match && session.match.snippets && session.match.snippets.length" class="session-match-snippets">
+                                    <div v-for="(snip, si) in session.match.snippets.slice(0, 2)" :key="si" class="session-match-snippet">{{ snip }}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -275,7 +279,7 @@
                                                     <span class="session-msg-time">{{ msg.timestamp || '' }}</span>
                                                 </div>
                                             </div>
-                                            <div class="session-msg-content">{{ msg.text || '' }}</div>
+                                            <div class="session-msg-content" v-html="highlightQueryText(msg.text) || ''"></div>
                                         </div>
                                     </div>
                                 </div>

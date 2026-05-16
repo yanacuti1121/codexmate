@@ -124,13 +124,6 @@
                                                 {{ t('usage.compare.prev') }} {{ sessionsUsageSelectedDaySummary.prevTokenLabel }} · {{ t('usage.compare.delta') }} {{ sessionsUsageSelectedDaySummary.deltaTokenLabel }}
                                             </div>
                                         </div>
-                                        <div class="usage-daydetail-metric">
-                                            <div class="usage-daydetail-label">{{ t('usage.table.cost') }}</div>
-                                            <div class="usage-daydetail-value mono">{{ sessionsUsageSelectedDaySummary.costLabel }}</div>
-                                            <div v-if="sessionsUsageSelectedDaySummary.compareEnabled" class="usage-daydetail-sub mono">
-                                                {{ t('usage.compare.prev') }} {{ sessionsUsageSelectedDaySummary.prevCostLabel }} · {{ t('usage.compare.delta') }} {{ sessionsUsageSelectedDaySummary.deltaCostLabel }}
-                                            </div>
-                                        </div>
                                     </div>
                                     <div class="usage-daydetail-section">
                                         <div class="usage-daydetail-section-title">{{ t('usage.dayDetail.topSessions') }}</div>

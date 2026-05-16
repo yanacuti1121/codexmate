@@ -584,7 +584,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'openCloneClaudeConfigModal',
         'openCloneProviderModal',
         'runProvidersHealthCheck',
-        'setSessionSource'
+        'setSessionSource',
+        'highlightQueryText'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',
@@ -645,6 +646,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
     const missingCurrentComputedKeys = headComputedKeys.filter((key) => !currentComputedKeys.includes(key)).sort();
     const allowedExtraCurrentComputedKeys = [
         'sessionSourceOptions',
+        'queryTokens',
         'visibleSessionsList',
         'mainTabKicker',
         'mainTabTitle',
