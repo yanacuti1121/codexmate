@@ -9,6 +9,7 @@ const DICT = Object.freeze({
         // Common
         'common.all': '全部',
         'common.copy': '复制',
+        'common.paste': '粘贴',
         'common.edit': '编辑',
         'common.install': '安装',
         'common.update': '升级',
@@ -1071,6 +1072,7 @@ const DICT = Object.freeze({
         // Common
         'common.all': 'すべて',
         'common.copy': 'コピー',
+        'common.paste': 'ペースト',
         'common.edit': '編集',
         'common.install': 'インストール',
         'common.update': 'アップグレード',
@@ -2121,6 +2123,7 @@ const DICT = Object.freeze({
         // Common
         'common.all': 'All',
         'common.copy': 'Copy',
+        'common.paste': 'Paste',
         'common.edit': 'Edit',
         'common.install': 'Install',
         'common.update': 'Update',

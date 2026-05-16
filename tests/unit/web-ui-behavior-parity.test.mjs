@@ -585,7 +585,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'openCloneProviderModal',
         'runProvidersHealthCheck',
         'setSessionSource',
-        'highlightQueryText'
+        'highlightQueryText',
+        'pasteConfigTemplateContent',
+        'pasteAgentsContent'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',

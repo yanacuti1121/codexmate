@@ -696,6 +696,26 @@ export function createCodexConfigMethods(options = {}) {
             }
         },
 
+        async pasteConfigTemplateContent() {
+            if (this.configTemplateApplying || this.configTemplateDiffLoading || this.configTemplateDiffVisible) {
+                return;
+            }
+            let text = '';
+            try {
+                text = await navigator.clipboard.readText();
+            } catch (_) {
+                this.showMessage('无法读取剪贴板', 'error');
+                return;
+            }
+            if (typeof text !== 'string' || !text) {
+                this.showMessage('剪贴板为空', 'info');
+                return;
+            }
+            this.configTemplateContent = text;
+            this.onConfigTemplateContentInput();
+            this.showMessage('已粘贴', 'success');
+        },
+
         buildConfigTemplateDiffFingerprint() {
             const content = typeof this.configTemplateContent === 'string' ? this.configTemplateContent : '';
             return `${content.length}::${content}`;
