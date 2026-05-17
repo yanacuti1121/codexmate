@@ -645,3 +645,39 @@
     position: relative;
     transition: box-shadow var(--transition-normal) var(--ease-spring-soft);
 }
+
+.session-context-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.session-context-normal {
+    background: rgba(75, 139, 106, 0.12);
+    color: #4b8b6a;
+}
+
+.session-context-warning {
+    background: rgba(217, 119, 6, 0.15);
+    color: #b45309;
+    animation: context-warning-pulse 2s ease-in-out infinite;
+}
+
+.session-context-critical {
+    background: rgba(196, 69, 54, 0.18);
+    color: #c2410c;
+    animation: context-critical-pulse 1s ease-in-out infinite;
+}
+
+@keyframes context-warning-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes context-critical-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}

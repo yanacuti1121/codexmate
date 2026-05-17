@@ -688,6 +688,35 @@ export function createSessionComputed() {
                 return Math.max(0, Math.floor(totalCount));
             }
             return Array.isArray(this.sessionTrashItems) ? this.sessionTrashItems.length : 0;
+        },
+
+        sessionContextUtilization() {
+            const list = Array.isArray(this.sessionsList) ? this.sessionsList : [];
+            const utilizationMap = {};
+            for (const session of list) {
+                if (!session || typeof session !== 'object') continue;
+                const key = this.getSessionExportKey(session);
+                if (!key) continue;
+                const totalTokens = Number.isFinite(Number(session.totalTokens))
+                    ? Math.max(0, Math.floor(Number(session.totalTokens)))
+                    : 0;
+                const contextWindow = Number.isFinite(Number(session.contextWindow))
+                    ? Math.max(0, Math.floor(Number(session.contextWindow)))
+                    : 0;
+                if (contextWindow <= 0) {
+                    utilizationMap[key] = { percent: 0, level: 'normal' };
+                    continue;
+                }
+                const percent = Math.min(100, Math.round((totalTokens / contextWindow) * 100));
+                let level = 'normal';
+                if (percent >= 95) {
+                    level = 'critical';
+                } else if (percent >= 80) {
+                    level = 'warning';
+                }
+                utilizationMap[key] = { percent, level };
+            }
+            return utilizationMap;
         }
     };
 }
