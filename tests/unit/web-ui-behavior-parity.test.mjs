@@ -690,7 +690,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'codexModelHasList',
         'codexProviderTemplates',
         'providersHealthSummary',
-        'providersHealthTone'
+        'providersHealthTone',
+        'sessionContextUtilization'
     ];
     const allowedMissingCurrentComputedKeys = [
         'hasLocalAndProxy',
