@@ -284,81 +284,19 @@ textarea:focus-visible {
         align-items: center;
     }
 
-    .trash-item.session-item {
-        min-height: auto;
-        height: auto;
-        contain-intrinsic-size: auto;
-    }
-
-    .trash-item-header {
+    .trash-item-body {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
-    }
-
-    .trash-item-mainline {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
-    }
-
-    .trash-item-side {
-        width: 100%;
-        min-width: 0;
-        align-items: stretch;
-        gap: 10px;
-        padding-top: 8px;
-        border-top: 1px dashed rgba(216, 201, 184, 0.55);
     }
 
     .trash-item-actions {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        justify-content: flex-start;
-        width: 100%;
+        opacity: 1;
+        justify-content: flex-end;
     }
 
-    .trash-item-actions .btn-mini {
-        width: 100%;
-        height: 44px;
-        min-height: 44px;
-        padding: 0 10px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        line-height: 1;
-        white-space: nowrap;
-    }
-
-    .trash-item .session-count-badge {
-        align-self: flex-start;
-        margin-top: 0;
-    }
-
-    .trash-item-title {
-        -webkit-line-clamp: 3;
-        max-height: none;
-        white-space: normal;
-        text-overflow: clip;
-        overflow: hidden;
-    }
-
-    .trash-item-meta {
-        margin-top: 6px;
-        margin-bottom: 0;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .trash-item-time {
-        padding-top: 2px;
-        line-height: 1.35;
-        text-align: right;
-    }
-
-    .trash-item-path {
-        grid-template-columns: 1fr;
-        gap: 4px;
+    .trash-item-cwd {
+        max-width: 140px;
     }
 
     .card {

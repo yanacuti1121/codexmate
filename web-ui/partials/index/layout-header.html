@@ -340,6 +340,9 @@
                             :class="{ active: (lang || 'zh') === 'ja' }"
                             @click="setLang('ja')">日本語</button>
                     </div>
+                    <div class="side-rail-version" v-if="appVersion">
+                        <span class="side-rail-version-text">v{{ appVersion }}</span>
+                    </div>
                 </div>
             </aside>
             <main class="main-panel">

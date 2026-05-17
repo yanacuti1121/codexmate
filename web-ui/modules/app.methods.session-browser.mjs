@@ -466,6 +466,29 @@ export function createSessionBrowserMethods(options = {}) {
             this.persistSessionPinnedMap();
         },
 
+        setSessionSource(value) {
+            if (this.sessionsLoading) return;
+            this.sessionFilterSource = value;
+            this.refreshSessionPathOptions(value);
+            this.persistSessionFilterCache();
+            syncSessionsFilterUrl(this);
+            this.loadSessions();
+        },
+
+        highlightQueryText(text) {
+            if (typeof text !== 'string' || !text) return text;
+            var tokens = this.queryTokens;
+            if (!tokens || tokens.length === 0) return text;
+            var result = text;
+            for (var i = 0; i < tokens.length; i++) {
+                var token = tokens[i];
+                var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\        async onSessionSourceChange(event) {');
+                var re = new RegExp('(' + escaped + ')', 'gi');
+                result = result.replace(re, '<mark>$1</mark>');
+            }
+            return result;
+        },
+
         async onSessionSourceChange(event) {
             const rawValue = event && event.target && typeof event.target.value === 'string'
                 ? event.target.value
@@ -817,7 +840,11 @@ export function createSessionBrowserMethods(options = {}) {
                 ? Math.max(1, Math.min(rawLimit, 2000))
                 : compareBoost;
             const loadedLimit = Number(this.sessionsUsageLoadedLimit || 0);
-            if (this.sessionsUsageLoadedOnce && !options.forceRefresh && loadedLimit >= limit) {
+            const lastRange = typeof this.sessionsUsageLastLoadedRange === 'string'
+                ? this.sessionsUsageLastLoadedRange
+                : '';
+            const rangeChanged = lastRange && lastRange !== range;
+            if (this.sessionsUsageLoadedOnce && !options.forceRefresh && !rangeChanged && loadedLimit >= limit) {
                 return;
             }
             this.sessionsUsageLoading = true;
@@ -844,6 +871,7 @@ export function createSessionBrowserMethods(options = {}) {
                 if (loadSucceeded) {
                     this.sessionsUsageLoadedOnce = true;
                     this.sessionsUsageLoadedLimit = limit;
+                    this.sessionsUsageLastLoadedRange = range;
                     if (!this.sessionsUsageSelectedDayKey && Array.isArray(this.sessionUsageDailyTableRows) && this.sessionUsageDailyTableRows.length > 0) {
                         this.sessionsUsageSelectedDayKey = this.sessionUsageDailyTableRows[0].key;
                     }

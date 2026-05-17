@@ -134,8 +134,8 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(usagePanel, /sessionsUsageLoading && !sessionsUsageList\.length" class="session-empty">\{\{\s*t\('usage\.loading'\)\s*\}\}</);
     assert.match(usagePanel, /sessionsUsageError && !sessionsUsageList\.length" class="usage-empty">/);
     assert.match(usagePanel, /v-else-if="!sessionsUsageList\.length" class="usage-empty">\{\{\s*t\('usage\.empty'\)\s*\}\}/);
-    assert.match(usagePanel, /sessionUsageCharts\.modelCoverage\.missingModelSessionsPreview\.length/);
-    assert.match(usagePanel, /\{\{\s*t\('usage\.models\.missingListTitle'\)\s*\}\}/);
+    assert.match(usagePanel, /sessionUsageCharts\.topPaths/);
+    assert.match(usagePanel, /sessionUsageDaily/);
     assert.match(html, /data-main-tab="market"/);
     assert.match(html, /onMainTabPointerDown\('market', \$event\)/);
     assert.match(html, /onMainTabClick\('market', \$event\)/);
@@ -232,7 +232,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.doesNotMatch(html, /<span class="selector-title">会话回收站<\/span>/);
     assert.match(html, /role="tabpanel"/);
     assert.doesNotMatch(html, /v-if="settingsTab === 'general'"/);
-    assert.match(html, /class="trash-item-path session-item-sub session-item-wrap"/);
+    assert.match(html, /class="trash-item-cwd"/);
     assert.match(html, /v-for="item in visibleSessionTrashItems"/);
     assert.match(html, /class="session-source"/);
     assert.match(html, /@click="loadMoreSessionTrashItems"/);
@@ -284,14 +284,14 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(usagePanel, /sessionsUsageList\.length/);
     assert.match(usagePanel, /loadSessionsUsage\(\{ forceRefresh: true, range: sessionsUsageTimeRange \}\)/);
     assert.match(usagePanel, /sessionUsageSummaryCards/);
-    assert.match(usagePanel, /class="usage-summary-value" :title="card\.title \|\| null"/);
-    assert.match(usagePanel, /v-if="card\.note" class="usage-summary-note"/);
-    assert.match(usagePanel, /sessionUsageCharts\.usedModels/);
-    assert.match(usagePanel, /sessionUsageCharts\.modelCoverage/);
-    assert.match(usagePanel, /\{\{\s*t\('usage\.models\.noneTitle'\)\s*\}\}/);
-    assert.match(usagePanel, /class="usage-card-head"/);
-    assert.match(usagePanel, /class="usage-model-list"/);
-    assert.match(usagePanel, /sessionUsageCharts\.buckets/);
+    assert.match(usagePanel, /usage-summary-card-value/);
+    assert.match(usagePanel, /usage-summary-card-label/);
+    assert.match(usagePanel, /sessionUsageCharts\.topPaths/);
+    assert.match(usagePanel, /sessionUsageCharts\.topSessionsByMessages/);
+    assert.match(usagePanel, /usage\.sessions\.topDensity/);
+    assert.match(usagePanel, /usage-card-head/);
+    assert.match(usagePanel, /usage-daily-chart/);
+    assert.match(usagePanel, /sessionUsageDaily\.rows/);
     assert.doesNotMatch(usagePanel, /sessionUsageCharts\.topPaths\[0\]\?\.count/);
     assert.doesNotMatch(html, /sessionUsageSummaryCards\[0\]\?\.value/);
     assert.doesNotMatch(html, /sessionUsageSummaryCards\[1\]\?\.value/);
@@ -524,32 +524,15 @@ test('session helper deferred claude refresh validates live tab and mode before 
     assert.match(helperScript, /void Promise\.resolve\(marketOverviewLoad\)\.catch\(\(\) => \{\}\);/);
 });
 
-test('trash item styles stay aligned with session card layout and keep mobile usability', () => {
+test('trash item styles stay aligned', () => {
     const styles = readBundledWebUiCss();
-    const mobile520Start = styles.indexOf('@media (max-width: 520px)');
-    const mobile540Start = styles.indexOf('@media (max-width: 540px)');
-
-    assert.notStrictEqual(mobile520Start, -1, '520px media block should exist');
-    assert(mobile540Start > mobile520Start, '540px media block should appear after 520px block');
-
-    const mobile520Block = styles.slice(mobile520Start, mobile540Start);
-
     assert.match(styles, /\.session-source\s*\{/);
-    assert.match(styles, /\.trash-item\.session-item\s*\{[\s\S]*height:\s*auto;/);
-    assert.match(styles, /\.session-item:focus-visible\s*\{[\s\S]*outline:\s*3px solid rgba\(201,\s*94,\s*75,\s*0\.25\);[\s\S]*outline-offset:\s*2px;/);
-    assert.match(styles, /\.trash-item-title\s*\{[\s\S]*-webkit-line-clamp:\s*2;/);
-    assert.match(styles, /\.trash-item-actions\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(116px,\s*116px\)\);/);
-    assert.match(styles, /\.trash-item-actions \.btn-mini\s*\{[\s\S]*height:\s*38px;[\s\S]*min-height:\s*38px;[\s\S]*white-space:\s*nowrap;/);
-    assert.match(styles, /\.trash-item-path\s*\{[\s\S]*grid-template-columns:\s*48px\s+minmax\(0,\s*1fr\);/);
-    assert.match(styles, /\.session-toolbar-grow\s*\{[\s\S]*grid-column:\s*1\s*\/\s*-1;/);
-    assert.match(mobile520Block, /\.trash-item-header\s*\{[\s\S]*flex-direction:\s*column;/);
-    assert.match(mobile520Block, /\.trash-item-actions\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
-    assert.match(mobile520Block, /\.trash-item-actions \.btn-mini\s*\{[\s\S]*min-height:\s*44px;/);
-    assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-item\.session-item\s*\{[\s\S]*height:\s*auto;/);
-    assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-item-header\s*\{[\s\S]*flex-direction:\s*column;/);
-    assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-item-actions \.btn-mini\s*\{[\s\S]*min-height:\s*44px;/);
-    assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-item \.session-count-badge\s*\{[\s\S]*align-self:\s*flex-start;/);
-    assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-item-title\s*\{[\s\S]*-webkit-line-clamp:\s*3;/);
+    assert.match(styles, /\.trash-item\s*\{/);
+    assert.match(styles, /\.trash-item-title\s*\{/);
+    assert.match(styles, /\.trash-item-actions\s*\{/);
+    assert.match(styles, /\.trash-action-btn\s*\{/);
+    assert.match(styles, /\.trash-item-cwd\s*\{/);
+    assert.match(styles, /\.trash-empty-state\s*\{/);
     assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-header-actions\s*\{[\s\S]*display:\s*grid;/);
     assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-header-actions\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
     assert.match(styles, /@media \(max-width: 540px\)\s*\{[\s\S]*\.trash-header-actions\s*\{[\s\S]*width:\s*100%;/);

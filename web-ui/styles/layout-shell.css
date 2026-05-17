@@ -168,7 +168,6 @@ body::after {
     transform: none;
     z-index: 60;
     pointer-events: none;
-    display: flex;
     justify-content: center;
 }
 
@@ -215,13 +214,26 @@ body::after {
     border-top: 1px solid rgba(137, 111, 94, 0.08);
     backdrop-filter: blur(12px);
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
 }
 
 .side-rail-lang .lang-choice {
     background: rgba(255, 253, 252, 0.9);
     box-shadow: none;
     backdrop-filter: none;
+}
+
+.side-rail-version {
+    padding: 4px 8px 8px;
+    text-align: center;
+}
+
+.side-rail-version-text {
+    font-size: 11px;
+    color: rgba(137, 111, 94, 0.45);
+    letter-spacing: 0.02em;
 }
 
 .lang-switch {

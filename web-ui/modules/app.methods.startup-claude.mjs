@@ -60,6 +60,9 @@ export function createStartupClaudeMethods(options = {}) {
                         return false;
                     }
                     this.currentProvider = statusRes.provider;
+                    if (statusRes.version) {
+                        this.appVersion = statusRes.version;
+                    }
                     this.currentModels = statusRes.currentModels && typeof statusRes.currentModels === 'object'
                         ? { ...statusRes.currentModels }
                         : {};
