@@ -168,7 +168,6 @@ body::after {
     transform: none;
     z-index: 60;
     pointer-events: none;
-    display: flex;
     justify-content: center;
 }
 
