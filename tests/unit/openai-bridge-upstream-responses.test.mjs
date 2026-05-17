@@ -1345,7 +1345,7 @@ test('openai-bridge retries with flattened tool history when upstream rejects th
     const firstHistory = captured[0].messages;
     const firstAssistantToolCalls = firstHistory.find((m) => m.role === 'assistant' && Array.isArray(m.tool_calls));
     assert.ok(firstAssistantToolCalls, 'first attempt should carry structured tool_calls');
-    assert.equal(captured[1].tools, undefined, 'flattened retry must drop tools array');
+    assert.ok(Array.isArray(captured[1].tools) && captured[1].tools.length, 'flattened retry must keep tools so model can still emit structured tool_calls');
     const secondAssistant = captured[1].messages.find((m) => m.role === 'assistant');
     assert.equal(secondAssistant && Array.isArray(secondAssistant.tool_calls), false, 'flattened retry must not carry structured tool_calls');
     assert.match(secondAssistant.content, /<tool_call/);
