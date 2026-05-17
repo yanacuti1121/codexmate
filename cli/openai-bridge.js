@@ -577,79 +577,6 @@ function convertResponsesRequestToChatCompletions(payload) {
     return { chat, streamRequested: stream };
 }
 
-// Some thinking-mode upstreams (observed on windhub mimo-v2.5-pro at chat/completions)
-// reject any history that carries structured `assistant.tool_calls` or `role: "tool"`
-// with a misleading "reasoning_content ... must be passed back" error. Flattening the
-// tool history into plain assistant/user text restores compatibility at the cost of
-// structured tool semantics for THAT turn.
-function chatMessagesContainToolHistory(messages) {
-    if (!Array.isArray(messages)) return false;
-    for (const msg of messages) {
-        if (!msg || typeof msg !== 'object') continue;
-        if (msg.role === 'tool') return true;
-        if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) return true;
-    }
-    return false;
-}
-
-function flattenToolHistoryInChatMessages(messages) {
-    if (!Array.isArray(messages)) return messages;
-    const out = [];
-    for (const msg of messages) {
-        if (!msg || typeof msg !== 'object') {
-            continue;
-        }
-        if (msg.role === 'tool') {
-            const content = typeof msg.content === 'string' ? msg.content : '';
-            const callId = typeof msg.tool_call_id === 'string' ? msg.tool_call_id : '';
-            const tag = callId ? `<tool_result tool_call_id="${callId}">` : '<tool_result>';
-            out.push({ role: 'user', content: `${tag}${content}</tool_result>` });
-            continue;
-        }
-        if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
-            const segments = [];
-            if (typeof msg.content === 'string' && msg.content) segments.push(msg.content);
-            for (const call of msg.tool_calls) {
-                if (!call || typeof call !== 'object') continue;
-                const fn = call.function && typeof call.function === 'object' ? call.function : {};
-                const name = typeof fn.name === 'string' ? fn.name : '';
-                const args = typeof fn.arguments === 'string' ? fn.arguments : '';
-                const idAttr = typeof call.id === 'string' && call.id ? ` id="${call.id}"` : '';
-                segments.push(`<tool_call${idAttr} name="${name}">${args}</tool_call>`);
-            }
-            const flat = { role: 'assistant', content: segments.join('\n') };
-            if (typeof msg.reasoning_content === 'string' && msg.reasoning_content) {
-                flat.reasoning_content = msg.reasoning_content;
-            }
-            out.push(flat);
-            continue;
-        }
-        out.push(msg);
-    }
-    return out;
-}
-
-function isThinkingModeToolHistoryError(status, bodyText) {
-    if (status !== 400) return false;
-    const text = String(bodyText || '');
-    if (!text) return false;
-    if (!/reasoning_content/i.test(text)) return false;
-    return /thinking[\s_-]?mode/i.test(text) || /passed\s*back/i.test(text);
-}
-
-function buildFlattenedChatBody(chatBody) {
-    if (!chatBody || typeof chatBody !== 'object') return chatBody;
-    const messages = flattenToolHistoryInChatMessages(chatBody.messages);
-    const next = { ...chatBody, messages };
-    // Tool history was flattened — the upstream cannot reconcile new structured tool_calls
-    // against text-only history, so drop the live tools array as well to keep the model in
-    // chat mode for this turn. Codex re-sends tools every request, so subsequent turns
-    // re-evaluate independently.
-    delete next.tools;
-    delete next.tool_choice;
-    return next;
-}
-
 function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPayload, reasoningContent) {
     const responseId = `resp_${crypto.randomBytes(10).toString('hex')}`;
     const usage = upstreamPayload && upstreamPayload.usage && typeof upstreamPayload.usage === 'object'
@@ -1622,8 +1549,8 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     return;
                 }
                 const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
-                let chatBody = { ...converted.chat, stream: true };
-                let streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
+                const chatBody = { ...converted.chat, stream: true };
+                const streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
                     method: 'POST',
                     body: chatBody,
                     headers: {
@@ -1636,25 +1563,6 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     res,
                     model: typeof chatBody.model === 'string' ? chatBody.model : ''
                 }));
-                if (!streamed.ok
-                    && !res.headersSent
-                    && isThinkingModeToolHistoryError(streamed.status, streamed.bodyText)
-                    && chatMessagesContainToolHistory(chatBody.messages)) {
-                    chatBody = buildFlattenedChatBody(chatBody);
-                    streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
-                        method: 'POST',
-                        body: chatBody,
-                        headers: {
-                            ...(authHeader ? { Authorization: authHeader } : {}),
-                            ...upstreamHeaders
-                        },
-                        maxBytes: maxUpstreamBytes,
-                        httpAgent,
-                        httpsAgent,
-                        res,
-                        model: typeof chatBody.model === 'string' ? chatBody.model : ''
-                    }));
-                }
                 if (!streamed.ok) {
                     if (res.writableEnded || res.destroyed) {
                         return;
@@ -1743,10 +1651,9 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             }
 
             const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
-            let chatBody = converted.chat;
-            let upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
+            const upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
                 method: 'POST',
-                body: chatBody,
+                body: converted.chat,
                 headers: {
                     ...(authHeader ? { Authorization: authHeader } : {}),
                     ...upstreamHeaders
@@ -1755,22 +1662,6 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 httpAgent,
                 httpsAgent
             }));
-            if (upstreamResult.ok
-                && isThinkingModeToolHistoryError(upstreamResult.status, upstreamResult.bodyText)
-                && chatMessagesContainToolHistory(chatBody.messages)) {
-                chatBody = buildFlattenedChatBody(chatBody);
-                upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
-                    method: 'POST',
-                    body: chatBody,
-                    headers: {
-                        ...(authHeader ? { Authorization: authHeader } : {}),
-                        ...upstreamHeaders
-                    },
-                    maxBytes: maxUpstreamBytes,
-                    httpAgent,
-                    httpsAgent
-                }));
-            }
             if (!upstreamResult.ok) {
                 res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
                 res.end(JSON.stringify({ error: `Upstream request failed: ${upstreamResult.error}` }));
@@ -1789,7 +1680,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 return;
             }
 
-            const model = typeof chatBody.model === 'string' ? chatBody.model : '';
+            const model = typeof converted.chat.model === 'string' ? converted.chat.model : '';
             const extracted = extractChatCompletionResult(upstreamJson.value);
             const text = extracted && typeof extracted.text === 'string' ? extracted.text : '';
             const toolCalls = extracted && Array.isArray(extracted.toolCalls) ? extracted.toolCalls : [];
@@ -1840,10 +1731,6 @@ module.exports = {
     parseJsonOrError,
     extractChatCompletionResult,
     buildResponsesPayloadFromChatResult,
-    flattenToolHistoryInChatMessages,
-    isThinkingModeToolHistoryError,
-    chatMessagesContainToolHistory,
-    buildFlattenedChatBody,
     retryTransientRequest,
     normalizeOpenaiUpstreamBaseUrl,
     extractResponsesOutputText,

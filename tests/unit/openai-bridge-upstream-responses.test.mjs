@@ -8,12 +8,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const {
-    createOpenaiBridgeHttpHandler,
-    flattenToolHistoryInChatMessages,
-    isThinkingModeToolHistoryError,
-    chatMessagesContainToolHistory
-} = require('../../cli/openai-bridge.js');
+const { createOpenaiBridgeHttpHandler } = require('../../cli/openai-bridge.js');
 
 function listen(server) {
     server.listen(0, '127.0.0.1');
@@ -1229,125 +1224,6 @@ test('openai-bridge preserves multibyte UTF-8 deltas split across chunk boundari
     assert.equal(sse.status, 200);
     assert.match(sse.text, /"delta":"御坂"/);
     assert.doesNotMatch(sse.text, /�/);
-
-    await bridge.close();
-    await upstream.close();
-    await rm(tmpDir, { recursive: true, force: true });
-});
-
-test('flattenToolHistoryInChatMessages folds assistant tool_calls and tool role into text', () => {
-    const flattened = flattenToolHistoryInChatMessages([
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', reasoning_content: 'plan', tool_calls: [{ id: 'c1', type: 'function', function: { name: 'calc', arguments: '{"x":1}' } }] },
-        { role: 'tool', tool_call_id: 'c1', content: 'result-1' },
-        { role: 'user', content: 'next' }
-    ]);
-    assert.equal(flattened.length, 4);
-    assert.equal(flattened[0].role, 'user');
-    assert.equal(flattened[1].role, 'assistant');
-    assert.equal(flattened[1].reasoning_content, 'plan');
-    assert.equal(flattened[1].tool_calls, undefined);
-    assert.match(flattened[1].content, /<tool_call id="c1" name="calc">\{"x":1\}<\/tool_call>/);
-    assert.equal(flattened[2].role, 'user');
-    assert.match(flattened[2].content, /<tool_result tool_call_id="c1">result-1<\/tool_result>/);
-    assert.equal(flattened[3].role, 'user');
-});
-
-test('isThinkingModeToolHistoryError matches the windhub mimo upstream signature only', () => {
-    assert.equal(isThinkingModeToolHistoryError(400, '{"error":{"message":"Param Incorrect","param":"The reasoning_content in the thinking mode must be passed back to the API."}}'), true);
-    assert.equal(isThinkingModeToolHistoryError(400, 'unrelated 400'), false);
-    assert.equal(isThinkingModeToolHistoryError(500, 'reasoning_content thinking mode'), false);
-});
-
-test('chatMessagesContainToolHistory detects assistant.tool_calls and role=tool', () => {
-    assert.equal(chatMessagesContainToolHistory([
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', content: 'hello' }
-    ]), false);
-    assert.equal(chatMessagesContainToolHistory([
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', tool_calls: [{ id: 'c1' }] }
-    ]), true);
-    assert.equal(chatMessagesContainToolHistory([
-        { role: 'tool', tool_call_id: 'c1', content: 'x' }
-    ]), true);
-});
-
-test('openai-bridge retries with flattened tool history when upstream rejects thinking-mode tool calls', async () => {
-    const captured = [];
-    let attempt = 0;
-    const upstream = http.createServer((req, res) => {
-        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
-            let body = '';
-            req.on('data', (c) => (body += c));
-            req.on('end', () => {
-                attempt += 1;
-                const parsedBody = JSON.parse(body || '{}');
-                captured.push(parsedBody);
-                if (attempt === 1) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: { message: 'Param Incorrect', type: 'upstream_error', param: 'The reasoning_content in the thinking mode must be passed back to the API.', code: '400' } }));
-                    return;
-                }
-                res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
-                res.write('data: {"id":"r","model":"mimo","choices":[{"delta":{"content":"ok"}}]}\n\n');
-                res.end('data: [DONE]\n\n');
-            });
-            return;
-        }
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'not found' }));
-    });
-    const { port: upstreamPort } = await listen(upstream);
-
-    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
-    const settingsFile = path.join(tmpDir, 'bridge.json');
-    await writeFile(settingsFile, JSON.stringify({
-        version: 1,
-        providers: {
-            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
-        }
-    }), 'utf-8');
-
-    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
-    const bridge = http.createServer((req, res) => {
-        if (!handler(req, res)) {
-            res.statusCode = 404;
-            res.end('not handled');
-        }
-    });
-    const { port: bridgePort } = await listen(bridge);
-
-    const sse = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'text/event-stream',
-            'Authorization': 'Bearer codexmate'
-        },
-        body: {
-            model: 'mimo',
-            stream: true,
-            input: [
-                { role: 'user', content: [{ type: 'input_text', text: 'do calc' }] },
-                { type: 'function_call', call_id: 'c1', name: 'calc', arguments: '{}' },
-                { type: 'function_call_output', call_id: 'c1', output: 'done' },
-                { role: 'user', content: [{ type: 'input_text', text: 'next' }] }
-            ],
-            tools: [{ type: 'function', function: { name: 'calc', description: 'x', parameters: { type: 'object', properties: {} } } }]
-        }
-    });
-    assert.equal(sse.status, 200);
-    assert.equal(attempt, 2, 'should retry after upstream rejects tool history');
-    assert.equal(captured.length, 2);
-    const firstHistory = captured[0].messages;
-    const firstAssistantToolCalls = firstHistory.find((m) => m.role === 'assistant' && Array.isArray(m.tool_calls));
-    assert.ok(firstAssistantToolCalls, 'first attempt should carry structured tool_calls');
-    assert.equal(captured[1].tools, undefined, 'flattened retry must drop tools array');
-    const secondAssistant = captured[1].messages.find((m) => m.role === 'assistant');
-    assert.equal(secondAssistant && Array.isArray(secondAssistant.tool_calls), false, 'flattened retry must not carry structured tool_calls');
-    assert.match(secondAssistant.content, /<tool_call/);
-    assert.match(sse.text, /"delta":"ok"/);
 
     await bridge.close();
     await upstream.close();
