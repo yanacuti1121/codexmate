@@ -122,7 +122,7 @@
                                 <button class="card-action-btn" @click="openCloneClaudeConfigModal(name, config)" :aria-label="t('claude.action.cloneAria', { name })" :title="t('claude.action.clone')">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 </button>
-                                <button class="card-action-btn" :class="{ loading: claudeShareLoading[name] }" @click="copyClaudeShareCommand(name)" disabled :title="t('claude.action.shareDisabled')" :aria-label="t('config.shareCommand.aria')">
+                                <button class="card-action-btn" :class="{ loading: claudeShareLoading[name] }" @click="copyClaudeShareCommand(name)" :title="t('config.shareCommand')" :aria-label="t('config.shareCommand.aria')">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
                                 </button>
                                 <button class="card-action-btn delete" @click="deleteClaudeConfig(name)" :aria-label="t('claude.action.deleteAria', { name })" :title="t('claude.action.delete')">
