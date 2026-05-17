@@ -9042,6 +9042,42 @@ function readClaudeSettingsInfo() {
     };
 }
 
+function readClaudeSettingsRaw() {
+    if (!fs.existsSync(CLAUDE_SETTINGS_FILE)) {
+        return { content: '{}', exists: false, targetPath: CLAUDE_SETTINGS_FILE };
+    }
+    try {
+        const raw = fs.readFileSync(CLAUDE_SETTINGS_FILE, 'utf-8');
+        return { content: raw || '{}', exists: true, targetPath: CLAUDE_SETTINGS_FILE };
+    } catch (e) {
+        return { error: e.message || '读取 settings.json 失败' };
+    }
+}
+
+function applyClaudeSettingsRaw(params = {}) {
+    const content = typeof params.content === 'string' ? params.content : '';
+    if (!content.trim()) {
+        return { error: '内容不能为空' };
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(content);
+    } catch (e) {
+        return { error: `JSON 解析失败: ${e.message}` };
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { error: 'JSON 内容必须是一个对象' };
+    }
+    try {
+        ensureDir(CLAUDE_DIR);
+        backupFileIfNeededOnce(CLAUDE_SETTINGS_FILE);
+        writeJsonAtomic(CLAUDE_SETTINGS_FILE, parsed);
+        return { success: true, targetPath: CLAUDE_SETTINGS_FILE };
+    } catch (e) {
+        return { error: e.message || '写入 settings.json 失败' };
+    }
+}
+
 // API: 打包 Claude 配置目录（系统 zip 可用则使用，否则回退 zip-lib）
 async function prepareClaudeDirDownload() {
     return await prepareDirectoryDownload(CLAUDE_DIR, {
@@ -10475,7 +10511,16 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                                 'model_auto_compact_token_limit',
                                 budgetReadOptions
                             );
+                            const pkgVersion = (() => {
+                                try {
+                                    const pkg = require('./package.json');
+                                    return pkg && pkg.version ? pkg.version : '';
+                                } catch (_) {
+                                    return '';
+                                }
+                            })();
                             result = {
+                                version: pkgVersion,
                                 provider: config.model_provider || '未设置',
                                 model: config.model || '未设置',
                                 currentModels: readCurrentModels(),
@@ -10674,6 +10719,12 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'get-claude-settings':
                             result = readClaudeSettingsInfo();
+                            break;
+                        case 'get-claude-settings-raw':
+                            result = readClaudeSettingsRaw();
+                            break;
+                        case 'apply-claude-settings-raw':
+                            result = applyClaudeSettingsRaw(params || {});
                             break;
                         case 'apply-claude-config':
                             result = applyToClaudeSettings(params.config);

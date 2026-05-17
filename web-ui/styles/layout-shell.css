@@ -224,6 +224,17 @@ body::after {
     backdrop-filter: none;
 }
 
+.side-rail-version {
+    padding: 4px 8px 8px;
+    text-align: center;
+}
+
+.side-rail-version-text {
+    font-size: 11px;
+    color: rgba(137, 111, 94, 0.45);
+    letter-spacing: 0.02em;
+}
+
 .lang-switch {
     width: 100%;
     border: none;

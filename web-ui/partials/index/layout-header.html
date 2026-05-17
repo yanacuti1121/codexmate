@@ -341,6 +341,10 @@
                             @click="setLang('ja')">日本語</button>
                     </div>
                 </div>
+
+                <div class="side-rail-version" v-if="appVersion">
+                    <span class="side-rail-version-text">v{{ appVersion }}</span>
+                </div>
             </aside>
             <main class="main-panel">
                 <div class="main-panel-topbar">

@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         data() {
             return {
                 lang: 'zh',
+                appVersion: '',
                 mainTab: 'dashboard',
                 configMode: 'codex',
                 currentProvider: '',
