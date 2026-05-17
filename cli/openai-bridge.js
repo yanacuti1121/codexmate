@@ -655,10 +655,14 @@ function isThinkingModeToolHistoryError(status, bodyText) {
 function buildFlattenedChatBody(chatBody) {
     if (!chatBody || typeof chatBody !== 'object') return chatBody;
     const messages = flattenToolHistoryInChatMessages(chatBody.messages);
-    // Keep `tools`/`tool_choice` so the model can still emit STRUCTURED tool_calls
-    // in the new turn — only the *history* is flattened. Stripping `tools` causes
-    // the model to emit text-shaped `<tool_call>` tags that Codex cannot parse.
-    return { ...chatBody, messages };
+    const next = { ...chatBody, messages };
+    // Tool history was flattened — the upstream cannot reconcile new structured tool_calls
+    // against text-only history, so drop the live tools array as well to keep the model in
+    // chat mode for this turn. Codex re-sends tools every request, so subsequent turns
+    // re-evaluate independently.
+    delete next.tools;
+    delete next.tool_choice;
+    return next;
 }
 
 function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPayload, reasoningContent) {
