@@ -27,6 +27,18 @@ function formatCompactUsageSummaryNumber(value) {
     }).format(Math.floor(numeric));
 }
 
+function formatSignedUsageSummaryNumber(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return '0';
+    }
+    const abs = Math.floor(Math.abs(numeric));
+    const formatted = abs.toLocaleString('en-US');
+    if (numeric > 0) return `+${formatted}`;
+    if (numeric < 0) return `-${formatted}`;
+    return '0';
+}
+
 function formatUsageRangeLabel(range, t) {
     const normalized = typeof range === 'string' ? range.trim().toLowerCase() : '7d';
     if (typeof t === 'function') {
@@ -571,6 +583,7 @@ export function createSessionComputed() {
                     tokenPercent: maxTokens > 0 ? Math.round((row.tokenTotal / maxTokens) * 1000) / 10 : 0,
                     prevTokenPercent: row.compareEnabled && maxTokens > 0 ? Math.round(((row.prevTokenTotal || 0) / maxTokens) * 1000) / 10 : 0,
                     prevTokenTitle: row.compareEnabled ? formatUsageSummaryNumber(row.prevTokenTotal || 0) : '',
+                    prevCostTitle: row.compareEnabled ? formatUsageSummaryNumber(row.prevTokenTotal || 0) : '',
                 })),
                 maxTokens,
             };
