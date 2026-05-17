@@ -65,11 +65,6 @@ body::after {
     display: none;
 }
 
-.side-rail .brand-title {
-    font-size: 22px;
-    margin-bottom: 0;
-}
-
 .side-section {
     display: flex;
     flex-direction: column;
@@ -223,17 +218,6 @@ body::after {
     background: rgba(255, 253, 252, 0.9);
     box-shadow: none;
     backdrop-filter: none;
-}
-
-.side-rail-version {
-    padding: 4px 8px 8px;
-    text-align: center;
-}
-
-.side-rail-version-text {
-    font-size: 11px;
-    color: rgba(137, 111, 94, 0.45);
-    letter-spacing: 0.02em;
 }
 
 .lang-switch {
@@ -465,12 +449,20 @@ body::after {
 }
 
 .brand-kicker {
-    font-size: 11px;
-    line-height: 1;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1.15;
+    font-family: var(--font-family-display);
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
     font-weight: 700;
+}
+
+.brand-version {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    vertical-align: middle;
+    margin-left: 4px;
 }
 
 .brand-subtitle {
@@ -478,15 +470,6 @@ body::after {
     line-height: 1.45;
     color: var(--color-text-secondary);
     max-width: 22ch;
-}
-
-.brand-title {
-    font-size: 18px;
-    line-height: 1.15;
-    font-family: var(--font-family-display);
-    color: var(--color-text-primary);
-    letter-spacing: -0.02em;
-    font-weight: 700;
 }
 
 .github-badge {
