@@ -79,8 +79,8 @@ body::after {
 .side-rail-nav {
     display: flex;
     flex-direction: column;
-    gap: 0;
     flex: 1 1 auto;
+    gap: 0;
 }
 
 .lang-fab {
