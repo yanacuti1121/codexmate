@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { StringDecoder } = require('string_decoder');
 const { readJsonFile, writeJsonAtomic } = require('../lib/cli-file-utils');
 const { isValidHttpUrl, normalizeBaseUrl, joinApiUrl } = require('../lib/cli-utils');
-const { OpenaiBridgeSessionStore } = require('./openai-bridge-session');
 
 const DEFAULT_BRIDGE_TOKEN = 'codexmate';
 const SETTINGS_VERSION = 1;
@@ -226,7 +225,7 @@ function extractChatCompletionResult(payload) {
     return { text, toolCalls, reasoningContent: reasoningRaw };
 }
 
-function normalizeResponsesInputToChatMessages(input, sessions = null, history = []) {
+function normalizeResponsesInputToChatMessages(input) {
     // 支持：
     // - string
     // - { role, content }（单条 message）
@@ -247,6 +246,10 @@ function normalizeResponsesInputToChatMessages(input, sessions = null, history =
                 out.push({ type: 'text', text: block.text });
                 continue;
             }
+            if ((type === 'reasoning' || type === 'reasoning_text' || type === 'reasoning_content') && typeof block.text === 'string') {
+                out.push({ type: 'text', text: block.text });
+                continue;
+            }
             if (type === 'input_image') {
                 const raw = block.image_url != null ? block.image_url : block.imageUrl;
                 const url = typeof raw === 'string'
@@ -257,6 +260,7 @@ function normalizeResponsesInputToChatMessages(input, sessions = null, history =
                 }
                 continue;
             }
+            // 容错：兼容已是 chat content 的 {type:"text"} / {type:"image_url"}
             if (type === 'text' && typeof block.text === 'string') {
                 out.push({ type: 'text', text: block.text });
                 continue;
@@ -280,10 +284,6 @@ function normalizeResponsesInputToChatMessages(input, sessions = null, history =
             } catch (_) {}
         }
         if (out.length === 0) return '';
-        const allText = out.every((part) => part && part.type === 'text');
-        if (allText) {
-            return out.map((part) => part.text).join('');
-        }
         return out;
     };
 
@@ -314,79 +314,80 @@ function normalizeResponsesInputToChatMessages(input, sessions = null, history =
         return [];
     }
 
-    // history-based dedup: skip function_call / function_call_output items that
-    // already exist when Codex replays prior turns via previous_response_id.
-    const existingToolCallIds = new Set();
-    const existingToolResponses = new Set();
-    for (const msg of Array.isArray(history) ? history : []) {
-        if (msg && Array.isArray(msg.tool_calls)) {
-            for (const call of msg.tool_calls) {
-                if (call && typeof call.id === 'string' && call.id) existingToolCallIds.add(call.id);
-            }
-        }
-        if (msg && typeof msg.tool_call_id === 'string' && msg.tool_call_id) {
-            existingToolResponses.add(msg.tool_call_id);
-        }
-    }
-
-    const messages = Array.isArray(history) ? history.slice() : [];
-    const seenInPass = new Set();
-    let i = 0;
-    while (i < input.length) {
-        const item = input[i];
-        if (!item || typeof item !== 'object') { i += 1; continue; }
-        const itemType = typeof item.type === 'string' ? item.type : '';
-
-        // Codex 0.128+ replays reasoning items in input history. The text is recovered
-        // from the session store (per call_id / turn fingerprint) rather than parsed
-        // here — accepting summary text is brittle because Codex sometimes drops it.
-        if (itemType === 'reasoning') { i += 1; continue; }
-
-        // function_call: group consecutive items into ONE assistant.tool_calls message.
-        // Providers require all tool calls from one turn to live in a single message.
-        if (itemType === 'function_call') {
-            const firstId = typeof item.call_id === 'string' ? item.call_id.trim() : '';
-            if (existingToolCallIds.has(firstId) || seenInPass.has(firstId)) { i += 1; continue; }
-            const grouped = [];
-            let reasoningContent = null;
-            while (i < input.length && input[i] && input[i].type === 'function_call') {
-                const cur = input[i];
-                const cid = typeof cur.call_id === 'string' ? cur.call_id.trim() : '';
-                const name = typeof cur.name === 'string' ? cur.name.trim() : '';
-                const args = typeof cur.arguments === 'string' ? cur.arguments : '{}';
-                if (cid && !existingToolCallIds.has(cid) && !seenInPass.has(cid)) {
-                    grouped.push({ id: cid, type: 'function', function: { name, arguments: args || '{}' } });
-                    seenInPass.add(cid);
-                    if (!reasoningContent && sessions) {
-                        reasoningContent = sessions.getReasoning(cid);
-                    }
+    const extractReasoningText = (item) => {
+        const parts = [];
+        const collect = (blocks) => {
+            if (!Array.isArray(blocks)) return;
+            for (const block of blocks) {
+                if (!block || typeof block !== 'object') continue;
+                const t = typeof block.type === 'string' ? block.type : '';
+                if ((t === 'summary_text' || t === 'reasoning_text' || t === 'output_text' || t === 'text')
+                    && typeof block.text === 'string') {
+                    parts.push(block.text);
                 }
-                i += 1;
             }
-            if (grouped.length) {
-                const msg = { role: 'assistant', tool_calls: grouped };
-                if (reasoningContent) msg.reasoning_content = reasoningContent;
-                if (!msg.reasoning_content && sessions) {
-                    const fallback = sessions.getTurnReasoning(msg);
-                    if (fallback) msg.reasoning_content = fallback;
-                }
-                messages.push(msg);
+        };
+        collect(item && item.summary);
+        collect(item && item.content);
+        if (!parts.length && typeof item.text === 'string') parts.push(item.text);
+        return parts.join('').trim();
+    };
+
+    const messages = [];
+    let pendingReasoning = '';
+    for (const item of input) {
+        if (!item || typeof item !== 'object') continue;
+
+        // Responses-style reasoning items: { type: "reasoning", summary: [...], content?: [...] }
+        // Many thinking-mode chat upstreams (DeepSeek/Qwen) require the prior assistant turn's
+        // `reasoning_content` to be replayed, so buffer text and attach to the next assistant item.
+        if (typeof item.type === 'string' && item.type === 'reasoning') {
+            const text = extractReasoningText(item);
+            if (text) {
+                pendingReasoning = pendingReasoning ? `${pendingReasoning}\n${text}` : text;
             }
             continue;
         }
 
-        if (itemType === 'function_call_output') {
-            const cid = typeof item.call_id === 'string' ? item.call_id.trim() : '';
-            if (cid && existingToolResponses.has(cid)) { i += 1; continue; }
+        // Tool calls (Responses): { type: "function_call", call_id, name, arguments }
+        // Chat Completions equivalent: assistant message with tool_calls
+        if (typeof item.type === 'string' && item.type === 'function_call') {
+            const callId = typeof item.call_id === 'string' ? item.call_id.trim() : '';
+            const name = typeof item.name === 'string' ? item.name.trim() : '';
+            const args = typeof item.arguments === 'string' ? item.arguments : '';
+            if (callId && name) {
+                const assistantMsg = {
+                    role: 'assistant',
+                    tool_calls: [{
+                        id: callId,
+                        type: 'function',
+                        function: { name, arguments: args || '' }
+                    }]
+                };
+                if (pendingReasoning) {
+                    assistantMsg.reasoning_content = pendingReasoning;
+                    pendingReasoning = '';
+                }
+                messages.push(assistantMsg);
+            }
+            continue;
+        }
+
+        // Tool results (Responses): { type: "function_call_output", call_id, output }
+        // Chat Completions equivalent: { role: "tool", tool_call_id, content }
+        if (typeof item.type === 'string' && item.type === 'function_call_output') {
+            const toolCallId = typeof item.call_id === 'string' ? item.call_id.trim() : '';
             let content = item.output;
             if (typeof content !== 'string') {
-                try { content = JSON.stringify(content); } catch (_) { content = String(content ?? ''); }
+                try {
+                    content = JSON.stringify(content);
+                } catch (_) {
+                    content = String(content ?? '');
+                }
             }
-            if (cid) {
-                messages.push({ role: 'tool', tool_call_id: cid, content: String(content || '') });
-                existingToolResponses.add(cid);
+            if (toolCallId) {
+                messages.push({ role: 'tool', tool_call_id: toolCallId, content: String(content || '') });
             }
-            i += 1;
             continue;
         }
 
@@ -398,28 +399,14 @@ function normalizeResponsesInputToChatMessages(input, sessions = null, history =
                 : item.content;
             if (content) {
                 const msg = { role, content };
-                if (role === 'assistant' && sessions) {
-                    const reasoning = sessions.getTurnReasoning(msg);
-                    if (reasoning) msg.reasoning_content = reasoning;
+                if (role === 'assistant' && pendingReasoning) {
+                    msg.reasoning_content = pendingReasoning;
+                    pendingReasoning = '';
                 }
-                // System/developer items interleaved between function_call and
-                // function_call_output would break the assistant→tool pairing
-                // required by Chat Completions — move them to the front.
-                if (role === 'system') {
-                    if (messages.length > 0 && messages[0].role === 'system') {
-                        messages[0] = msg;
-                    } else {
-                        messages.unshift(msg);
-                    }
-                } else {
-                    messages.push(msg);
-                }
+                messages.push(msg);
             }
-            i += 1;
             continue;
         }
-
-        i += 1;
     }
 
     if (messages.length > 0) {
@@ -541,16 +528,14 @@ function mergeLeadingSystemMessages(messages, leadingInstructions) {
     return out;
 }
 
-function convertResponsesRequestToChatCompletions(payload, options = {}) {
+function convertResponsesRequestToChatCompletions(payload) {
     const body = payload && typeof payload === 'object' ? payload : {};
     const model = typeof body.model === 'string' ? body.model.trim() : '';
     if (!model) {
         return { error: 'responses 请求缺少 model' };
     }
 
-    const sessions = options.sessions || null;
-    const history = Array.isArray(options.history) ? options.history : [];
-    const rawMessages = normalizeResponsesInputToChatMessages(body.input, sessions, history);
+    const rawMessages = normalizeResponsesInputToChatMessages(body.input);
     // codex 同时下发 body.instructions（内置 prompt）与 input 内 developer/system 消息（AGENTS.md）。
     // 合流为一条领头 system，避免某些上游"只认第一条 system"导致 AGENTS.md 失效。
     const messages = mergeLeadingSystemMessages(rawMessages, body.instructions);
@@ -1135,44 +1120,10 @@ function finishChatStreamResponsesSse(state) {
         output: state.output,
         output_text: state.messageText
     });
-    persistChatStreamSession(state);
     writeSse(state.res, 'response.completed', { type: 'response.completed', response });
     writeSse(state.res, 'done', '[DONE]');
     if (!state.res.writableEnded && !state.res.destroyed) {
         state.res.end();
-    }
-}
-
-function persistChatStreamSession(state) {
-    if (!state || !state.sessions || state.persisted) return;
-    state.persisted = true;
-    const reasoning = typeof state.reasoningText === 'string' ? state.reasoningText : '';
-    const toolCallObjs = (Array.isArray(state.toolCalls) ? state.toolCalls : [])
-        .filter((tc) => tc && tc.function && typeof tc.function.name === 'string')
-        .map((tc) => ({
-            id: typeof tc.id === 'string' ? tc.id : '',
-            type: 'function',
-            function: {
-                name: tc.function.name,
-                arguments: typeof tc.function.arguments === 'string' ? tc.function.arguments : ''
-            }
-        }));
-    const assistantMessage = {
-        role: 'assistant',
-        content: state.messageText || '',
-        tool_calls: toolCallObjs.length ? toolCallObjs : undefined,
-        reasoning_content: reasoning || undefined
-    };
-    if (reasoning) {
-        for (const tc of toolCallObjs) {
-            state.sessions.storeReasoning(tc.id, reasoning);
-        }
-        state.sessions.storeTurnReasoning(assistantMessage, reasoning);
-    }
-    if (Array.isArray(state.requestMessages)) {
-        const messages = state.requestMessages.slice();
-        messages.push(assistantMessage);
-        state.sessions.saveWithId(state.responseId, messages);
     }
 }
 
@@ -1318,9 +1269,7 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
             let sequence = 0;
             const state = {
                 res,
-                responseId: typeof options.responseId === 'string' && options.responseId
-                    ? options.responseId
-                    : `resp_${crypto.randomBytes(10).toString('hex')}`,
+                responseId: `resp_${crypto.randomBytes(10).toString('hex')}`,
                 model: fallbackModel,
                 createdAt: Math.floor(Date.now() / 1000),
                 output: [],
@@ -1332,9 +1281,6 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
                 finished: false,
                 sawDone: false,
                 sawFinishReason: false,
-                sessions: options.sessions || null,
-                requestMessages: Array.isArray(options.requestMessages) ? options.requestMessages : null,
-                persisted: false,
                 nextSeq: () => {
                     sequence += 1;
                     return sequence;
@@ -1508,10 +1454,6 @@ function createOpenaiBridgeHttpHandler(options = {}) {
         throw new Error('createOpenaiBridgeHttpHandler 缺少 settingsFile');
     }
 
-    const sessions = options.sessions instanceof OpenaiBridgeSessionStore
-        ? options.sessions
-        : new OpenaiBridgeSessionStore();
-
     // 端点不支持的缓存（per-baseUrl, TTL 30 分钟）：避免每次非流式请求重复探测 /v1/responses。
     const unsupportedResponses = new Map();
     const isResponsesKnownUnsupported = (baseUrl) => {
@@ -1671,13 +1613,9 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const streamRequested = !!(responsesRequest && typeof responsesRequest === 'object' && responsesRequest.stream === true);
             const acceptHeader = req && req.headers ? (req.headers.accept || req.headers.Accept || '') : '';
             const wantsSse = /text\/event-stream/i.test(String(acceptHeader || ''));
-            const previousResponseId = responsesRequest && typeof responsesRequest.previous_response_id === 'string'
-                ? responsesRequest.previous_response_id.trim()
-                : '';
-            const priorHistory = previousResponseId ? sessions.getHistory(previousResponseId) : [];
 
             if (streamRequested && wantsSse) {
-                const converted = convertResponsesRequestToChatCompletions(responsesRequest, { sessions, history: priorHistory });
+                const converted = convertResponsesRequestToChatCompletions(responsesRequest);
                 if (converted.error) {
                     res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ error: converted.error }));
@@ -1685,7 +1623,6 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 }
                 const upstreamUrl = joinApiUrl(upstream.baseUrl, 'chat/completions');
                 let chatBody = { ...converted.chat, stream: true };
-                const streamResponseId = sessions.newId();
                 let streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
                     method: 'POST',
                     body: chatBody,
@@ -1697,10 +1634,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                     httpAgent,
                     httpsAgent,
                     res,
-                    model: typeof chatBody.model === 'string' ? chatBody.model : '',
-                    sessions,
-                    requestMessages: Array.isArray(chatBody.messages) ? chatBody.messages : null,
-                    responseId: streamResponseId
+                    model: typeof chatBody.model === 'string' ? chatBody.model : ''
                 }));
                 if (!streamed.ok
                     && !res.headersSent
@@ -1718,10 +1652,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                         httpAgent,
                         httpsAgent,
                         res,
-                        model: typeof chatBody.model === 'string' ? chatBody.model : '',
-                        sessions,
-                        requestMessages: Array.isArray(chatBody.messages) ? chatBody.messages : null,
-                        responseId: streamResponseId
+                        model: typeof chatBody.model === 'string' ? chatBody.model : ''
                     }));
                 }
                 if (!streamed.ok) {
@@ -1804,7 +1735,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 return;
             }
 
-            const converted = convertResponsesRequestToChatCompletions(responsesRequest, { sessions, history: priorHistory });
+            const converted = convertResponsesRequestToChatCompletions(responsesRequest);
             if (converted.error) {
                 res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
                 res.end(JSON.stringify({ error: converted.error }));
@@ -1864,34 +1795,6 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const toolCalls = extracted && Array.isArray(extracted.toolCalls) ? extracted.toolCalls : [];
             const reasoningContent = extracted && typeof extracted.reasoningContent === 'string' ? extracted.reasoningContent : '';
             const responsesPayload = buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamJson.value, reasoningContent);
-
-            const assistantMsg = {
-                role: 'assistant',
-                content: text,
-                tool_calls: Array.isArray(toolCalls) && toolCalls.length ? toolCalls.map((tc) => ({
-                    id: tc && typeof tc.id === 'string' ? tc.id : '',
-                    type: 'function',
-                    function: {
-                        name: tc && tc.function && typeof tc.function.name === 'string' ? tc.function.name : '',
-                        arguments: tc && tc.function && typeof tc.function.arguments === 'string' ? tc.function.arguments : ''
-                    }
-                })) : undefined,
-                reasoning_content: reasoningContent || undefined
-            };
-            if (reasoningContent) {
-                if (assistantMsg.tool_calls) {
-                    for (const tc of assistantMsg.tool_calls) {
-                        sessions.storeReasoning(tc.id, reasoningContent);
-                    }
-                }
-                sessions.storeTurnReasoning(assistantMsg, reasoningContent);
-            }
-            const nonStreamMessages = Array.isArray(chatBody.messages) ? chatBody.messages.slice() : [];
-            nonStreamMessages.push(assistantMsg);
-            const nonStreamResponseId = sessions.save(nonStreamMessages);
-            if (responsesPayload && !responsesPayload.id) {
-                responsesPayload.id = nonStreamResponseId;
-            }
 
             if (converted.streamRequested && wantsSse) {
                 res.writeHead(200, {
