@@ -12,8 +12,10 @@ const {
     createOpenaiBridgeHttpHandler,
     flattenToolHistoryInChatMessages,
     isThinkingModeToolHistoryError,
-    chatMessagesContainToolHistory
+    chatMessagesContainToolHistory,
+    convertResponsesRequestToChatCompletions
 } = require('../../cli/openai-bridge.js');
+const { OpenaiBridgeSessionStore } = require('../../cli/openai-bridge-session.js');
 
 function listen(server) {
     server.listen(0, '127.0.0.1');
@@ -1352,4 +1354,80 @@ test('openai-bridge retries with flattened tool history when upstream rejects th
     await bridge.close();
     await upstream.close();
     await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('convertResponsesRequestToChatCompletions groups consecutive function_call items into one assistant message', () => {
+    const sessions = new OpenaiBridgeSessionStore();
+    sessions.storeReasoning('c1', 'plan-A');
+    const { chat } = convertResponsesRequestToChatCompletions({
+        model: 'test',
+        input: [
+            { role: 'user', content: [{ type: 'input_text', text: 'do parallel' }] },
+            { type: 'reasoning', id: 'rs_1', summary: [{ type: 'summary_text', text: '' }] },
+            { type: 'function_call', call_id: 'c1', name: 'fn_a', arguments: '{"x":1}' },
+            { type: 'function_call', call_id: 'c2', name: 'fn_b', arguments: '{"y":2}' },
+            { type: 'function_call_output', call_id: 'c1', output: 'r1' },
+            { type: 'function_call_output', call_id: 'c2', output: 'r2' }
+        ]
+    }, { sessions, history: [] });
+    const assistantMsgs = chat.messages.filter((m) => m.role === 'assistant');
+    assert.equal(assistantMsgs.length, 1, 'consecutive function_call items must merge into ONE assistant message');
+    assert.equal(assistantMsgs[0].tool_calls.length, 2);
+    assert.equal(assistantMsgs[0].tool_calls[0].id, 'c1');
+    assert.equal(assistantMsgs[0].tool_calls[1].id, 'c2');
+    assert.equal(assistantMsgs[0].reasoning_content, 'plan-A');
+    const toolMsgs = chat.messages.filter((m) => m.role === 'tool');
+    assert.equal(toolMsgs.length, 2);
+});
+
+test('convertResponsesRequestToChatCompletions drops Responses reasoning items from input', () => {
+    const sessions = new OpenaiBridgeSessionStore();
+    const { chat } = convertResponsesRequestToChatCompletions({
+        model: 'test',
+        input: [
+            { type: 'reasoning', id: 'rs_x', summary: [{ type: 'summary_text', text: 'leaked-summary' }] },
+            { role: 'user', content: [{ type: 'input_text', text: 'hi' }] }
+        ]
+    }, { sessions, history: [] });
+    const allContent = chat.messages.map((m) => m.content).filter((c) => typeof c === 'string').join(' ');
+    assert.doesNotMatch(allContent, /leaked-summary/);
+});
+
+test('convertResponsesRequestToChatCompletions moves developer messages between tool calls to the front', () => {
+    const { chat } = convertResponsesRequestToChatCompletions({
+        model: 'test',
+        input: [
+            { type: 'function_call', call_id: 'c1', name: 'fn_a', arguments: '{}' },
+            { role: 'developer', content: [{ type: 'input_text', text: 'extra rules' }] },
+            { type: 'function_call_output', call_id: 'c1', output: 'done' },
+            { role: 'user', content: [{ type: 'input_text', text: 'next' }] }
+        ]
+    });
+    const roles = chat.messages.map((m) => m.role);
+    assert.deepEqual(roles, ['system', 'assistant', 'tool', 'user'], 'developer must be lifted to front so assistant->tool stay contiguous');
+});
+
+test('convertResponsesRequestToChatCompletions injects reasoning_content via session store for plain assistant messages', () => {
+    const sessions = new OpenaiBridgeSessionStore();
+    sessions.storeTurnReasoning({ role: 'assistant', content: 'hello' }, 'remembered thought');
+    const { chat } = convertResponsesRequestToChatCompletions({
+        model: 'test',
+        input: [
+            { role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
+            { role: 'assistant', content: [{ type: 'output_text', text: 'hello' }] },
+            { role: 'user', content: [{ type: 'input_text', text: 'more' }] }
+        ]
+    }, { sessions, history: [] });
+    const assistant = chat.messages.find((m) => m.role === 'assistant');
+    assert.equal(assistant.reasoning_content, 'remembered thought');
+});
+
+test('OpenaiBridgeSessionStore stores reasoning by call_id and content fingerprint', () => {
+    const sessions = new OpenaiBridgeSessionStore();
+    const assistant = { role: 'assistant', content: 'final answer', tool_calls: [{ id: 'c1' }, { id: 'c2' }] };
+    sessions.storeTurnReasoning(assistant, 'big thought');
+    assert.equal(sessions.getReasoning('c1'), 'big thought');
+    assert.equal(sessions.getReasoning('c2'), 'big thought');
+    assert.equal(sessions.getTurnReasoning(assistant), 'big thought');
+    assert.equal(sessions.getReasoning('missing'), null);
 });
