@@ -203,7 +203,7 @@ export function createSessionActionMethods(options = {}) {
         quoteShellArg(value) {
             const text = typeof value === 'string' ? value : String(value || '');
             if (!text) return "''";
-            if (/^[a-zA-Z0-9._-]+$/.test(text)) return text;
+            if (/^[a-zA-Z0-9._/:@~+=-]+$/.test(text)) return text;
             const escaped = text.replace(/'/g, "'\\''");
             return `'${escaped}'`;
         },

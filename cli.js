@@ -2202,6 +2202,30 @@ function updateProviderInConfig(params = {}) {
     }
 }
 
+function getProviderKey(params = {}) {
+    const name = typeof params.name === 'string' ? params.name.trim() : '';
+    if (!name) return { error: '名称不能为空' };
+    try {
+        const config = readConfig();
+        const provider = config.model_providers && config.model_providers[name];
+        if (!provider) return { error: '提供商不存在' };
+
+        const bridge = typeof provider.codexmate_bridge === 'string' ? provider.codexmate_bridge.trim() : '';
+        const isTransform = bridge === 'openai' || String(provider.base_url || '').includes('/bridge/openai/');
+        if (isTransform) {
+            const settings = readOpenaiBridgeSettings(OPENAI_BRIDGE_SETTINGS_FILE);
+            const entry = settings.providers ? settings.providers[name] : null;
+            const key = entry && typeof entry.apiKey === 'string' ? entry.apiKey : '';
+            return { key };
+        }
+
+        const key = typeof provider.preferred_auth_method === 'string' ? provider.preferred_auth_method : '';
+        return { key };
+    } catch (e) {
+        return { error: e.message || '读取失败' };
+    }
+}
+
 function deleteProviderFromConfig(params = {}) {
     const name = typeof params.name === 'string' ? params.name.trim() : '';
     if (!name) return { error: '名称不能为空' };
@@ -10604,6 +10628,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'update-provider':
                             result = updateProviderInConfig(params || {});
+                            break;
+                        case 'get-provider-key':
+                            result = getProviderKey(params || {});
                             break;
                         case 'delete-provider':
                             result = deleteProviderFromConfig(params || {});

@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageType: '',
                 showAddModal: false,
                 showEditModal: false,
+                showEditProviderKey: false,
                 showModelModal: false,
                 showModelListModal: false,
                 showClaudeConfigModal: false,
