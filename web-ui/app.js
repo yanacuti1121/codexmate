@@ -44,8 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 providersList: [],
                 localBridgeExcluded: [],
                 claudeLocalBridgeExcluded: [],
-                claudeLocalBridgeEnabled: false,
-                claudeLocalBridgeActive: false,
                 models: [],
                 codexModelsLoading: false,
                 modelsSource: 'remote',

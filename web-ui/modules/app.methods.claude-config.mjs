@@ -211,8 +211,6 @@ export function createClaudeConfigMethods(options = {}) {
             try {
                 const res = await api('claude-local-bridge-status');
                 if (res && !res.error) {
-                    this.claudeLocalBridgeEnabled = !!res.enabled;
-                    this.claudeLocalBridgeActive = !!res.active;
                     if (Array.isArray(res.excludedProviders)) {
                         this.claudeLocalBridgeExcluded = res.excludedProviders;
                     }
@@ -227,8 +225,6 @@ export function createClaudeConfigMethods(options = {}) {
                     this.showMessage(res.error, 'error');
                     return;
                 }
-                this.claudeLocalBridgeEnabled = !!enable;
-                this.claudeLocalBridgeActive = !!res.active;
                 if (enable) {
                     this.showMessage('Claude 本地负载均衡已启用', 'success');
                 } else {
@@ -264,6 +260,10 @@ export function createClaudeConfigMethods(options = {}) {
         claudeLocalBridgeCandidateProviders() {
             return Object.keys(this.claudeConfigs || {}).filter(name => name && !this.isClaudeLocalBridgeExcluded(name))
                 .map(name => ({ name, ...this.claudeConfigs[name] }));
+        },
+
+        claudeLocalBridgeConfigured() {
+            return this.claudeLocalBridgeCandidateProviders().some(p => p.hasKey);
         }
     };
 }

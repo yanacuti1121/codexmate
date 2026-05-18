@@ -84,27 +84,6 @@
                     <div class="config-template-hint">{{ t('claude.model.hint') }}</div>
                 </div>
 
-                <div class="card-list">
-                    <div class="bridge-pool-header">
-                        <span class="bridge-pool-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6 8v4h6v4"/><path d="M18 8v4h-6v4"/></svg>
-                        </span>
-                        <span class="bridge-pool-title">{{ t('claude.localBridge.poolTitle') }}</span>
-                        <span class="bridge-pool-hint">{{ t('claude.localBridge.poolHint') }}</span>
-                    </div>
-                    <div v-if="Object.keys(claudeConfigs || {}).length === 0" class="bridge-pool-empty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-                        <span>{{ t('claude.localBridge.noProviders') }}</span>
-                    </div>
-                    <div v-else class="bridge-pool-list">
-                        <label v-for="(config, name) in claudeConfigs" :key="name" class="bridge-pool-item">
-                            <span class="bridge-pool-item-name">{{ name }}</span>
-                            <span class="bridge-pool-item-status" :class="{ active: !isClaudeLocalBridgeExcluded(name) }">{{ isClaudeLocalBridgeExcluded(name) ? t('claude.localBridge.disabled') : t('claude.localBridge.enabled') }}</span>
-                            <input type="checkbox" :checked="!isClaudeLocalBridgeExcluded(name)" @change="toggleClaudeLocalBridgeExcluded(name)" />
-                        </label>
-                    </div>
-                </div>
-
                 <div class="selector-section">
                     <div class="selector-header"><span class="selector-title">CLAUDE.md</span></div>
                     <button class="btn-tool" @click="openClaudeMdEditor" :disabled="loading || !!initError || agentsLoading">{{ agentsLoading ? t('config.modelLoading') : t('claude.md.open') }}</button>
@@ -128,12 +107,14 @@
                         <div class="card-leading">
                             <div class="card-icon">L</div>
                             <div class="card-content">
-                                <div class="card-title">{{ t('claude.localBridge.title') }}</div>
-                                <div class="card-subtitle card-subtitle-model">{{ t('claude.localBridge.hint') }}</div>
+                                <div class="card-title">
+                                    <span>local</span>
+                                    <span class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
+                                </div>
                             </div>
                         </div>
                         <div class="card-trailing">
-                            <span :class="['pill', claudeLocalBridgeActive ? 'configured' : 'empty']">{{ claudeLocalBridgeActive ? t('claude.localBridge.enabled') : t('claude.localBridge.disabled') }}</span>
+                            <span :class="['pill', claudeLocalBridgeConfigured() ? 'configured' : 'empty']">{{ claudeLocalBridgeConfigured() ? t('claude.configured') : t('claude.notConfigured') }}</span>
                         </div>
                     </div>
                     <div v-for="(config, name) in claudeConfigs" :key="name" :class="['card', { active: currentClaudeConfig === name }]" @click="applyClaudeConfig(name)" @keydown.enter.self.prevent="applyClaudeConfig(name)" @keydown.space.self.prevent="applyClaudeConfig(name)" tabindex="0" role="button" :aria-current="currentClaudeConfig === name ? 'true' : null">
@@ -184,9 +165,6 @@
                             <span class="bridge-pool-item-status" :class="{ active: !isClaudeLocalBridgeExcluded(name) }">{{ isClaudeLocalBridgeExcluded(name) ? t('claude.localBridge.disabled') : t('claude.localBridge.enabled') }}</span>
                             <input type="checkbox" :checked="!isClaudeLocalBridgeExcluded(name)" @change="toggleClaudeLocalBridgeExcluded(name)" />
                         </label>
-                    </div>
-                    <div style="margin-top: 12px;">
-                        <button type="button" class="btn-tool" @click="toggleClaudeLocalBridge(!claudeLocalBridgeActive)">{{ claudeLocalBridgeActive ? t('claude.localBridge.disable') : t('claude.localBridge.enable') }}</button>
                     </div>
                 </div>
 

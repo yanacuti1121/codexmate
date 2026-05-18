@@ -698,7 +698,8 @@ function createWebServerHarness({
             error(...args) {
                 errors.push(args);
             }
-        }
+        },
+        startWinTray() {}
     });
 
     createWebServer({
@@ -896,7 +897,8 @@ test('createWebServer waits for api readiness probe before auto-opening the brow
         setTimeout() {
             throw new Error('unexpected retry');
         },
-        Buffer
+        Buffer,
+        startWinTray() {}
     });
 
     createWebServer({
@@ -1044,7 +1046,8 @@ test('createWebServer health-check does not consume init notice before the first
         consumeInitNotice() {
             consumed += 1;
             return 'startup notice';
-        }
+        },
+        startWinTray() {}
     });
 
     createWebServer({
@@ -1198,7 +1201,8 @@ test('createWebServer retries readiness probe failures before auto-opening the b
             timers.push({ callback, ms });
             return timers.length;
         },
-        Buffer
+        Buffer,
+        startWinTray() {}
     });
 
     // first api probe fails, second api probe succeeds, asset probe succeeds

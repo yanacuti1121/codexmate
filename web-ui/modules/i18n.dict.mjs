@@ -1042,15 +1042,11 @@ const DICT = Object.freeze({
         'claude.action.deleteAria': '删除 Claude 配置：{name}',
         'claude.action.clone': '克隆',
         'claude.action.cloneAria': '克隆 Claude 配置：{name}',
-        'claude.localBridge.title': '本地负载均衡',
-        'claude.localBridge.hint': '启用后请求经本地代理轮询分发到多个 Claude 提供商。',
         'claude.localBridge.poolTitle': '轮询池',
         'claude.localBridge.poolHint': '勾选参与负载均衡的提供商',
         'claude.localBridge.noProviders': '暂无可用提供商，请先添加直连提供商',
         'claude.localBridge.disabled': '未启用',
         'claude.localBridge.enabled': '已启用',
-        'claude.localBridge.enable': '启用负载均衡',
-        'claude.localBridge.disable': '关闭负载均衡',
 
         // OpenClaw config panel
         'openclaw.applyHint': '写入 ~/.openclaw/openclaw.json，支持 JSON5。',
@@ -2101,15 +2097,11 @@ const DICT = Object.freeze({
         'claude.action.deleteAria': 'Claude 設定を削除：{name}',
         'claude.action.clone': 'クローン',
         'claude.action.cloneAria': 'Claude 設定をクローン：{name}',
-        'claude.localBridge.title': 'ローカル負荷分散',
-        'claude.localBridge.hint': '有効にすると、リクエストがローカルプロキシを経由して複数の Claude プロバイダにラウンドロビン分配されます。',
         'claude.localBridge.poolTitle': 'ラウンドロビンプール',
         'claude.localBridge.poolHint': '負荷分散に参加するプロバイダを選択',
         'claude.localBridge.noProviders': '利用可能なプロバイダがありません。まずプロバイダを追加してください。',
         'claude.localBridge.disabled': '無効',
         'claude.localBridge.enabled': '有効',
-        'claude.localBridge.enable': '負荷分散を有効にする',
-        'claude.localBridge.disable': '負荷分散を無効にする',
 
         // OpenClaw config panel
         'openclaw.applyHint': '~/.openclaw/openclaw.json に書き込みます。JSON5 対応。',
@@ -3170,15 +3162,11 @@ const DICT = Object.freeze({
         'claude.action.deleteAria': 'Delete Claude config: {name}',
         'claude.action.clone': 'Clone',
         'claude.action.cloneAria': 'Clone Claude config: {name}',
-        'claude.localBridge.title': 'Local load balancing',
-        'claude.localBridge.hint': 'When enabled, requests are round-robin distributed across multiple Claude providers via a local proxy.',
         'claude.localBridge.poolTitle': 'Round-robin pool',
         'claude.localBridge.poolHint': 'Select providers for load balancing',
         'claude.localBridge.noProviders': 'No providers available. Add a provider first.',
         'claude.localBridge.disabled': 'Disabled',
         'claude.localBridge.enabled': 'Enabled',
-        'claude.localBridge.enable': 'Enable load balancing',
-        'claude.localBridge.disable': 'Disable load balancing',
 
         // OpenClaw config panel
         'openclaw.applyHint': 'Writes to ~/.openclaw/openclaw.json (JSON5 supported).',
