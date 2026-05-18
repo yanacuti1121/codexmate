@@ -149,6 +149,7 @@ const {
     deleteCodexSkills
 } = require('./cli/skills');
 const { cmdImportSkills: cmdImportSkillsFromUrl } = require('./cli/import-skills-url');
+const { cmdToolUpdate } = require('./cli/update');
 const {
     getFileStatSafe,
     isBootstrapLikeText,
@@ -572,7 +573,7 @@ function releaseRunPortIfNeeded(port, host, deps = {}) {
             try {
                 killProcess(pid, 'SIGKILL');
                 released = true;
-            } catch (_) {}
+            } catch (_) { }
         }
     }
 
@@ -727,7 +728,7 @@ function readModels() {
     if (fs.existsSync(MODELS_FILE)) {
         try {
             return JSON.parse(fs.readFileSync(MODELS_FILE, 'utf-8'));
-        } catch (e) {}
+        } catch (e) { }
     }
     return [...DEFAULT_MODELS];
 }
@@ -740,7 +741,7 @@ function readCurrentModels() {
     if (fs.existsSync(CURRENT_MODELS_FILE)) {
         try {
             return JSON.parse(fs.readFileSync(CURRENT_MODELS_FILE, 'utf-8'));
-        } catch (e) {}
+        } catch (e) { }
     }
     return {};
 }
@@ -755,7 +756,7 @@ function updateAuthJson(apiKey) {
         try {
             const content = fs.readFileSync(AUTH_FILE, 'utf-8');
             if (content.trim()) authData = JSON.parse(content);
-        } catch (e) {}
+        } catch (e) { }
     }
     authData['OPENAI_API_KEY'] = apiKey;
     fs.writeFileSync(AUTH_FILE, JSON.stringify(authData, null, 2), 'utf-8');
@@ -860,7 +861,7 @@ function appendLegacySegmentsVariant(provider, segments) {
             configurable: true,
             writable: true
         });
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function setLegacySegmentsMetadata(provider, segments) {
@@ -1874,7 +1875,7 @@ function getConfigTemplate(params = {}) {
             if (raw && raw.trim()) {
                 content = raw;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
     if (
         params.modelAutoCompactTokenLimit !== undefined
@@ -2496,7 +2497,7 @@ function readJsonlRecords(filePath) {
         if (!trimmed) continue;
         try {
             records.push(JSON.parse(trimmed));
-        } catch (e) {}
+        } catch (e) { }
     }
     return records;
 }
@@ -2518,7 +2519,7 @@ function getFileHeadText(filePath, maxBytes = SESSION_SUMMARY_READ_BYTES) {
         return '';
     } finally {
         if (fd !== undefined) {
-            try { fs.closeSync(fd); } catch (e) {}
+            try { fs.closeSync(fd); } catch (e) { }
         }
     }
 }
@@ -2546,7 +2547,7 @@ function getFileTailText(filePath, maxBytes = SESSION_USAGE_TAIL_READ_BYTES) {
         return '';
     } finally {
         if (fd !== undefined) {
-            try { fs.closeSync(fd); } catch (e) {}
+            try { fs.closeSync(fd); } catch (e) { }
         }
     }
 }
@@ -2563,7 +2564,7 @@ function parseJsonlContent(content) {
         if (!trimmed) continue;
         try {
             records.push(JSON.parse(trimmed));
-        } catch (e) {}
+        } catch (e) { }
     }
     return records;
 }
@@ -2811,10 +2812,10 @@ async function countConversationMessagesInFile(filePath, source) {
         return safeCount;
     } finally {
         if (rl) {
-            try { rl.close(); } catch (e) {}
+            try { rl.close(); } catch (e) { }
         }
         if (stream && !stream.destroyed && stream.destroy) {
-            try { stream.destroy(); } catch (e) {}
+            try { stream.destroy(); } catch (e) { }
         }
     }
 }
@@ -2894,10 +2895,10 @@ async function extractSessionDetailPreviewFromFile(filePath, source, messageLimi
         return extractSessionDetailPreviewFromRecords(readJsonlRecords(filePath), source, safeMessageLimit);
     } finally {
         if (rl) {
-            try { rl.close(); } catch (e) {}
+            try { rl.close(); } catch (e) { }
         }
         if (stream && !stream.destroyed && stream.destroy) {
-            try { stream.destroy(); } catch (e) {}
+            try { stream.destroy(); } catch (e) { }
         }
     }
 }
@@ -3330,10 +3331,10 @@ async function scanSessionContentForQuery(session, tokens, options = {}) {
         return scanSessionContentForQueryInRecords(readJsonlRecords(filePath), session.source, state);
     } finally {
         if (rl) {
-            try { rl.close(); } catch (e) {}
+            try { rl.close(); } catch (e) { }
         }
         if (stream && !stream.destroyed && stream.destroy) {
-            try { stream.destroy(); } catch (e) {}
+            try { stream.destroy(); } catch (e) { }
         }
     }
 }
@@ -3441,7 +3442,7 @@ function collectRecentJsonlFiles(rootDir, options = {}) {
             try {
                 const stat = fs.statSync(fullPath);
                 filesMeta.push({ filePath: fullPath, mtimeMs: stat.mtimeMs || 0 });
-            } catch (e) {}
+            } catch (e) { }
 
             if (scanned >= maxFilesScanned) {
                 break;
@@ -3493,7 +3494,7 @@ function collectRecentJsonlFilesFromRoots(rootDirs, options = {}) {
             try {
                 const stat = fs.statSync(fullPath);
                 filesMeta.push({ filePath: fullPath, mtimeMs: stat.mtimeMs || 0 });
-            } catch (_) {}
+            } catch (_) { }
             if (scanned >= maxFilesScanned) {
                 break;
             }
@@ -3716,7 +3717,7 @@ function readTotalTokensFromUsage(usage) {
     const inputTokens = readNonNegativeInteger(usage.input_tokens ?? usage.inputTokens);
     const cachedInputTokens = readNonNegativeInteger(
         usage.cached_input_tokens ?? usage.cachedInputTokens
-            ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
+        ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
     );
     const cacheCreationInputTokens = readNonNegativeInteger(
         usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens
@@ -3736,7 +3737,7 @@ function readUsageTotalsFromUsage(usage) {
     const inputTokens = readNonNegativeInteger(usage.input_tokens ?? usage.inputTokens);
     const cachedInputTokens = readNonNegativeInteger(
         usage.cached_input_tokens ?? usage.cachedInputTokens
-            ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
+        ?? usage.cache_read_input_tokens ?? usage.cacheReadInputTokens
     );
     const cacheCreationInputTokens = readNonNegativeInteger(
         usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens
@@ -4971,7 +4972,7 @@ function listGeminiSessions(limit, options = {}) {
             try {
                 const stat = fs.statSync(fullPath);
                 filesMeta.push({ filePath: fullPath, mtimeMs: stat.mtimeMs || 0 });
-            } catch (_) {}
+            } catch (_) { }
             scanned += 1;
             if (scanned >= maxFilesScanned) {
                 break;
@@ -5795,7 +5796,7 @@ function moveFileSync(sourcePath, targetPath) {
     } catch (error) {
         try {
             fs.unlinkSync(targetPath);
-        } catch (_) {}
+        } catch (_) { }
         throw error;
     }
 }
@@ -5969,7 +5970,7 @@ function purgeExpiredSessionTrashEntries(retentionDays) {
         if (deletedAtMs > 0 && deletedAtMs < cutoffMs) {
             const trashFilePath = resolveSessionTrashFilePath(entry);
             if (trashFilePath) {
-                try { fs.unlinkSync(trashFilePath); } catch (_) {}
+                try { fs.unlinkSync(trashFilePath); } catch (_) { }
             }
             purgedCount += 1;
         } else {
@@ -6290,12 +6291,12 @@ async function restoreSessionTrashItem(params = {}) {
             try {
                 moveFileSync(targetFilePath, trashFilePath);
                 rollbackSucceeded = true;
-            } catch (_) {}
+            } catch (_) { }
         }
         if (rollbackSucceeded && entry.source === 'claude' && claudeIndexPath && fs.existsSync(claudeIndexPath)) {
             try {
                 removeClaudeSessionIndexEntry(claudeIndexPath, targetFilePath, entry.sessionId);
-            } catch (_) {}
+            } catch (_) { }
         }
         return { error: `恢复会话失败: ${e.message}` };
     }
@@ -6442,7 +6443,7 @@ async function trashSessionData(params = {}) {
             try {
                 moveFileSync(trashFilePath, filePath);
                 rollbackSucceeded = true;
-            } catch (_) {}
+            } catch (_) { }
         }
         if (rollbackSucceeded && source === 'claude' && claudeIndexPath && removedClaudeIndexEntry) {
             try {
@@ -6460,10 +6461,10 @@ async function trashSessionData(params = {}) {
                     trashId,
                     trashFileName
                 });
-            } catch (_) {}
+            } catch (_) { }
         }
         if (!rollbackSucceeded && fs.existsSync(trashFilePath)) {
-            try { fs.unlinkSync(trashFilePath); } catch (_) {}
+            try { fs.unlinkSync(trashFilePath); } catch (_) { }
         }
         return { error: `移入回收站失败: ${e.message}` };
     }
@@ -6633,7 +6634,7 @@ async function cloneCodexSession(params = {}) {
                     maxTimestampMs = ts;
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const sessionsDir = getCodexSessionsDir();
@@ -6692,7 +6693,7 @@ async function cloneCodexSession(params = {}) {
     }
     try {
         fs.utimesSync(newFilePath, cloneTime, cloneTime);
-    } catch (e) {}
+    } catch (e) { }
 
     invalidateSessionListCache();
 
@@ -7104,10 +7105,10 @@ async function extractMessagesFromFile(filePath, source, options = {}) {
         return extractMessagesFromRecords(fallbackRecords, source, { maxMessages });
     } finally {
         if (rl) {
-            try { rl.close(); } catch (e) {}
+            try { rl.close(); } catch (e) { }
         }
         if (stream && !stream.destroyed && stream.destroy) {
-            try { stream.destroy(); } catch (e) {}
+            try { stream.destroy(); } catch (e) { }
         }
     }
 
@@ -7735,7 +7736,7 @@ async function importDerivedSessionToNative(params = {}) {
     } catch (e) {
         try {
             if (fs.existsSync(tmpNativePath)) fs.unlinkSync(tmpNativePath);
-        } catch (_) {}
+        } catch (_) { }
         try {
             if (previousNative) {
                 ensureDir(path.dirname(resolvedNativePath));
@@ -7743,7 +7744,7 @@ async function importDerivedSessionToNative(params = {}) {
             } else if (!hadNativeBefore && fs.existsSync(resolvedNativePath)) {
                 fs.unlinkSync(resolvedNativePath);
             }
-        } catch (_) {}
+        } catch (_) { }
         try {
             if (previousMeta) {
                 ensureDir(path.dirname(targetMetaPath));
@@ -7751,7 +7752,7 @@ async function importDerivedSessionToNative(params = {}) {
             } else if (targetMetaPath && fs.existsSync(targetMetaPath)) {
                 fs.unlinkSync(targetMetaPath);
             }
-        } catch (_) {}
+        } catch (_) { }
         try {
             if (indexPath) {
                 if (previousIndex) {
@@ -7761,7 +7762,7 @@ async function importDerivedSessionToNative(params = {}) {
                     fs.unlinkSync(indexPath);
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
         return { error: `Import to native failed: ${e.message}`, errorCode: 'IMPORT_DERIVED_SESSION_FAILED', reason: e.message };
     }
 
@@ -9624,7 +9625,7 @@ function resolveExportOutputPath(outputPath, defaultFileName) {
             if (stat.isDirectory()) {
                 return path.join(resolved, defaultFileName);
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     return resolved;
@@ -9845,7 +9846,7 @@ function watchPathsForRestart(targets, onChange) {
         watcherEntries.delete(watchKey);
         try {
             entry.watcher.close();
-        } catch (_) {}
+        } catch (_) { }
     };
 
     const listDirectoryTree = (rootDir) => {
@@ -10309,12 +10310,12 @@ function streamZipDownloadResponse(res, filePath, options = {}) {
         if (deleteAfterDownload && fs.existsSync(filePath)) {
             try {
                 fs.unlinkSync(filePath);
-            } catch (_) {}
+            } catch (_) { }
         }
         if (onAfterComplete) {
             try {
                 onAfterComplete();
-            } catch (_) {}
+            } catch (_) { }
         }
     };
     stream.on('error', () => {
@@ -10324,7 +10325,7 @@ function streamZipDownloadResponse(res, filePath, options = {}) {
         } else {
             try {
                 res.destroy();
-            } catch (_) {}
+            } catch (_) { }
         }
         finalize();
     });
@@ -10466,7 +10467,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         });
         req.on('error', () => finish(false));
         req.setTimeout(1000, () => {
-            try { req.destroy(); } catch (_) {}
+            try { req.destroy(); } catch (_) { }
             finish(false);
         });
         req.end(payload, 'utf-8');
@@ -10494,7 +10495,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         });
         req.on('error', () => finish(false));
         req.setTimeout(1000, () => {
-            try { req.destroy(); } catch (_) {}
+            try { req.destroy(); } catch (_) { }
             finish(false);
         });
         req.end();
@@ -10569,7 +10570,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         if (res.headersSent) {
             try {
                 res.destroy(error);
-            } catch (_) {}
+            } catch (_) { }
             return;
         }
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -10755,7 +10756,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                                                 result = { error: 'Refusing to access private network baseUrl from non-loopback request' };
                                                 break;
                                             }
-                                        } catch (_) {}
+                                        } catch (_) { }
                                     }
                                     const res = await fetchModelsFromBaseUrl(baseUrl, apiKey);
                                     if (res.error) {
@@ -10826,7 +10827,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = applyClaudeMdFile(params || {});
                             if (result && !result.error) {
                                 const mdTarget = (params && params.targetPath) ? String(params.targetPath) : 'CLAUDE.md';
-                                notifyWebhook('claude-md-edit', 'CLAUDE.md modified: ' + mdTarget, { targetPath: mdTarget }).catch(function () {});
+                                notifyWebhook('claude-md-edit', 'CLAUDE.md modified: ' + mdTarget, { targetPath: mdTarget }).catch(function () { });
                             }
                             break;
                         case 'preview-agents-diff':
@@ -10915,7 +10916,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                                 const summary = cfgFrom
                                     ? ('Provider switched: ' + cfgFrom + ' -> ' + cfgName)
                                     : ('Provider applied: ' + cfgName);
-                                notifyWebhook('provider-switch', summary, { name: cfgName, previousName: cfgFrom }).catch(function () {});
+                                notifyWebhook('provider-switch', summary, { name: cfgName, previousName: cfgFrom }).catch(function () { });
                             }
                             break;
                         case 'get-webhook-config':
@@ -11263,7 +11264,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                                     }
                                     const taskId = typeof params.taskId === 'string' && params.taskId.trim() ? params.taskId.trim() : createTaskId();
                                     const runId = createTaskRunId();
-                                    runTaskPlanInternal(plan, { taskId, runId }).catch(() => {});
+                                    runTaskPlanInternal(plan, { taskId, runId }).catch(() => { });
                                     result = {
                                         ok: true,
                                         started: true,
@@ -11395,11 +11396,11 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                 ? 'application/javascript; charset=utf-8'
                 : ext === '.html'
                     ? 'text/html; charset=utf-8'
-                : ext === '.css'
-                    ? 'text/css; charset=utf-8'
-                    : ext === '.json'
-                        ? 'application/json; charset=utf-8'
-                        : 'application/octet-stream';
+                    : ext === '.css'
+                        ? 'text/css; charset=utf-8'
+                        : ext === '.json'
+                            ? 'application/json; charset=utf-8'
+                            : 'application/octet-stream';
             res.writeHead(200, { 'Content-Type': mime });
             fs.createReadStream(filePath).pipe(res);
         } else if (requestPath.startsWith('/download/')) {
@@ -11458,9 +11459,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                 ? 'application/javascript; charset=utf-8'
                 : ext === '.html'
                     ? 'text/html; charset=utf-8'
-                : ext === '.json'
-                    ? 'application/json; charset=utf-8'
-                    : 'application/octet-stream';
+                    : ext === '.json'
+                        ? 'application/json; charset=utf-8'
+                        : 'application/octet-stream';
             res.writeHead(200, { 'Content-Type': mime });
             fs.createReadStream(filePath).pipe(res);
         } else {
@@ -11522,7 +11523,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             if (done) return;
             done = true;
             for (const socket of connections) {
-                try { socket.destroy(); } catch (_) {}
+                try { socket.destroy(); } catch (_) { }
             }
             connections.clear();
             resolve();
@@ -11638,7 +11639,7 @@ function cmdStart(options = {}) {
 
     // 禁止前端变更侦测与自动重启：避免终端输出噪音与访问时短暂 Connection Refused。
     // 如需热重启，请由开发者自行使用外部 watcher / nodemon 等工具。
-    const stopWatch = () => {};
+    const stopWatch = () => { };
 
     const handleExit = () => {
         stopWatch();
@@ -13623,7 +13624,7 @@ function listWorkflowRunRecords(limit = 20) {
             if (parsed.length >= max) {
                 break;
             }
-        } catch (_) {}
+        } catch (_) { }
     }
     return parsed;
 }
@@ -13722,7 +13723,7 @@ async function runWorkflowById(workflowId, input = {}, options = {}) {
     };
     try {
         appendWorkflowRunRecord(record);
-    } catch (_) {}
+    } catch (_) { }
 
     return {
         success: execution.success === true,
@@ -13920,10 +13921,10 @@ function withTaskQueueLock(fn) {
                 if (ageMs > 5000) {
                     try {
                         fs.unlinkSync(lockPath);
-                    } catch (_) {}
+                    } catch (_) { }
                     lockFd = fs.openSync(lockPath, 'wx', 0o600);
                 }
-            } catch (_) {}
+            } catch (_) { }
         }
     }
     if (!lockFd) {
@@ -13934,10 +13935,10 @@ function withTaskQueueLock(fn) {
     } finally {
         try {
             fs.closeSync(lockFd);
-        } catch (_) {}
+        } catch (_) { }
         try {
             fs.unlinkSync(lockPath);
-        } catch (_) {}
+        } catch (_) { }
     }
 }
 
@@ -14106,7 +14107,7 @@ function writeTaskRunArtifacts(detail = {}) {
     const combined = `${runLogText}${nodeLogText ? `\n\n${nodeLogText}` : ''}`.trim();
     try {
         fs.writeFileSync(path.join(dir, 'logs.txt'), combined, { encoding: 'utf-8', mode: 0o600 });
-    } catch (_) {}
+    } catch (_) { }
 }
 
 async function notifyAutomationOnTaskRun(detail = {}) {
@@ -14131,34 +14132,34 @@ function startAutomationScheduler() {
         }
         tickInFlight = true;
         try {
-        const cfg = readAutomationConfig(AUTOMATION_CONFIG_FILE, { env: process.env });
-        if (!cfg.ok || !cfg.config) {
-            return;
-        }
-        const schedules = Array.isArray(cfg.config.schedules) ? cfg.config.schedules : [];
-        if (schedules.length === 0) {
-            return;
-        }
-        const now = new Date();
-        const tickKey = now.toISOString().slice(0, 16);
-        for (const schedule of schedules) {
-            if (!schedule || schedule.enabled === false) continue;
-            if (!schedule.id || !schedule.cron) continue;
-            if (!isCronMatch(schedule.cron, now)) continue;
-            if (lastTicks.get(schedule.id) === tickKey) continue;
-            lastTicks.set(schedule.id, tickKey);
-            const action = schedule.action && typeof schedule.action === 'object' ? schedule.action : {};
-            const actionType = typeof action.type === 'string' ? action.type.trim().toLowerCase() : '';
-            if (actionType !== 'task.queue.add') continue;
-            const taskPayload = action.task && typeof action.task === 'object' ? action.task : {};
-            try {
-                const enqueue = addTaskToQueue(taskPayload);
-                if (enqueue && enqueue.error) continue;
-                if (action.startQueue === true) {
-                    await startTaskQueueProcessing({ taskId: '', detach: true });
-                }
-            } catch (_) {}
-        }
+            const cfg = readAutomationConfig(AUTOMATION_CONFIG_FILE, { env: process.env });
+            if (!cfg.ok || !cfg.config) {
+                return;
+            }
+            const schedules = Array.isArray(cfg.config.schedules) ? cfg.config.schedules : [];
+            if (schedules.length === 0) {
+                return;
+            }
+            const now = new Date();
+            const tickKey = now.toISOString().slice(0, 16);
+            for (const schedule of schedules) {
+                if (!schedule || schedule.enabled === false) continue;
+                if (!schedule.id || !schedule.cron) continue;
+                if (!isCronMatch(schedule.cron, now)) continue;
+                if (lastTicks.get(schedule.id) === tickKey) continue;
+                lastTicks.set(schedule.id, tickKey);
+                const action = schedule.action && typeof schedule.action === 'object' ? schedule.action : {};
+                const actionType = typeof action.type === 'string' ? action.type.trim().toLowerCase() : '';
+                if (actionType !== 'task.queue.add') continue;
+                const taskPayload = action.task && typeof action.task === 'object' ? action.task : {};
+                try {
+                    const enqueue = addTaskToQueue(taskPayload);
+                    if (enqueue && enqueue.error) continue;
+                    if (action.startQueue === true) {
+                        await startTaskQueueProcessing({ taskId: '', detach: true });
+                    }
+                } catch (_) { }
+            }
         } finally {
             tickInFlight = false;
         }
@@ -14320,7 +14321,7 @@ async function runCodexExecTaskNode(node, context = {}) {
             if (!sessionId) {
                 sessionId = findCodexSessionId(payload);
             }
-        } catch (_) {}
+        } catch (_) { }
     };
     const captureLines = (bucket, text, stream) => {
         const currentPartial = stream === 'stderr' ? stderrPartial : stdoutPartial;
@@ -14355,7 +14356,7 @@ async function runCodexExecTaskNode(node, context = {}) {
             context.registerAbort(() => {
                 try {
                     child.kill('SIGTERM');
-                } catch (_) {}
+                } catch (_) { }
             });
         }
         child.stdout.on('data', (chunk) => {
@@ -14380,7 +14381,7 @@ async function runCodexExecTaskNode(node, context = {}) {
         } else {
             fs.rmdirSync(tempDir, { recursive: true });
         }
-    } catch (_) {}
+    } catch (_) { }
     const success = exit.code === 0;
     const errorMessage = success
         ? ''
@@ -14488,7 +14489,7 @@ async function runTaskPlanInternal(plan, options = {}) {
         abort() {
             try {
                 controller.abort();
-            } catch (_) {}
+            } catch (_) { }
         }
     });
     if (options.queueItem) {
@@ -14502,7 +14503,7 @@ async function runTaskPlanInternal(plan, options = {}) {
             updatedAt: toIsoTime(Date.now()),
             plan
         });
-        if (queued && queued.error) {}
+        if (queued && queued.error) { }
     }
     try {
         const run = await executeTaskPlan(plan, {
@@ -14538,7 +14539,7 @@ async function runTaskPlanInternal(plan, options = {}) {
                         updatedAt: toIsoTime(Date.now()),
                         plan
                     });
-                    if (queued && queued.error) {}
+                    if (queued && queued.error) { }
                 }
             }
         });
@@ -14553,7 +14554,7 @@ async function runTaskPlanInternal(plan, options = {}) {
         writeTaskRunArtifacts(detail);
         try {
             await notifyAutomationOnTaskRun(detail);
-        } catch (_) {}
+        } catch (_) { }
         if (options.queueItem) {
             const queued = upsertTaskQueueItem({
                 ...options.queueItem,
@@ -14567,7 +14568,7 @@ async function runTaskPlanInternal(plan, options = {}) {
                 updatedAt: toIsoTime(Date.now()),
                 plan
             });
-            if (queued && queued.error) {}
+            if (queued && queued.error) { }
         }
         return detail;
     } finally {
@@ -14879,7 +14880,7 @@ function readDetachedTaskWorkerPayload(payloadPath = '') {
     const parsed = readJsonObjectFromFile(filePath, {});
     try {
         fs.unlinkSync(filePath);
-    } catch (_) {}
+    } catch (_) { }
     if (!parsed.ok || !parsed.exists) {
         return { error: parsed.error || 'task worker payload not found' };
     }
@@ -14893,7 +14894,7 @@ function spawnDetachedTaskWorker(payload = {}) {
         detached: true,
         windowsHide: true
     });
-    child.on('error', () => {});
+    child.on('error', () => { });
     if (typeof child.unref === 'function') {
         child.unref();
     }
@@ -14950,7 +14951,7 @@ function readTaskQueueWorkerState() {
     if (!isTaskWorkerProcessId(state.pid)) {
         try {
             fs.unlinkSync(TASK_QUEUE_WORKER_FILE);
-        } catch (_) {}
+        } catch (_) { }
         return null;
     }
     return state;
@@ -14968,7 +14969,7 @@ function writeTaskQueueWorkerState(state = {}) {
 function clearTaskQueueWorkerState() {
     try {
         fs.unlinkSync(TASK_QUEUE_WORKER_FILE);
-    } catch (_) {}
+    } catch (_) { }
 }
 
 function findRunningTaskRunDetailByTaskId(taskId = '') {
@@ -15644,7 +15645,7 @@ function createMcpResources() {
                     pathFilter = parsed.searchParams.get('pathFilter') || '';
                     roleFilter = parsed.searchParams.get('roleFilter') || '';
                     timeRangePreset = parsed.searchParams.get('timeRangePreset') || '';
-                } catch (_) {}
+                } catch (_) { }
                 const normalizedSource = normalizeMcpSource(source);
                 if (normalizedSource === null) {
                     return {
@@ -15704,7 +15705,7 @@ function createMcpResources() {
                             limit = parsedLimit;
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
                 const payload = {
                     runs: listWorkflowRunRecords(limit),
                     limit: Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 20
@@ -15887,13 +15888,14 @@ function printMainHelp() {
     console.log('  codexmate add <名称> <URL> [密钥] [--bridge <openai>]');
     console.log('  codexmate delete <名称>    删除提供商');
     console.log('  codexmate claude            等同于 claude --dangerously-skip-permissions');
-  console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
+    console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
     console.log('  codexmate auth <list|import|switch|delete|status>  认证管理');
     console.log('  codexmate add-model <模型> 添加模型');
     console.log('  codexmate delete-model <模型> 删除模型');
     console.log('  codexmate workflow <list|get|validate|run|runs>  MCP 工作流中心');
     console.log('  codexmate task <plan|run|runs|queue|retry|cancel|logs>  本地任务编排');
     console.log('  codexmate run [--host <HOST>] [--no-browser]    启动 Web 界面');
+    console.log('  codexmate update [--check] 检查并快速更新工具');
     console.log('  codexmate codex [参数...] [--follow-up <文本>|--queued-follow-up <文本> 可重复]  等同于 codex --yolo');
     console.log('    注: follow-up 自动排队仅支持 linux/android/netbsd/openbsd/darwin/freebsd 且 stdin 必须是 TTY，其他平台会报错');
     console.log('  codexmate qwen [参数...]   等同于 qwen --yolo');
@@ -15977,7 +15979,6 @@ async function main() {
         case 'claude': {
             const exitCode = await cmdClaude(args.slice(1));
             process.exit(exitCode);
-            break;
         }
         case 'add-model': cmdAddModel(args[1]); break;
         case 'delete-model': cmdDeleteModel(args[1]); break;
@@ -15986,19 +15987,17 @@ async function main() {
         case 'workflow': await cmdWorkflow(args.slice(1)); break;
         case 'task': await cmdTask(args.slice(1)); break;
         case 'run': cmdStart(parseStartOptions(args.slice(1))); break;
+        case 'update': await cmdToolUpdate(args.slice(1)); break;
         case 'start':
             console.error('错误: 命令已更名为 "run"，请使用: codexmate run');
             process.exit(1);
-            break;
         case 'codex': {
             const exitCode = await cmdCodex(args.slice(1));
             process.exit(exitCode);
-            break;
         }
         case 'qwen': {
             const exitCode = await cmdQwen(args.slice(1));
             process.exit(exitCode);
-            break;
         }
         case 'mcp': await cmdMcp(args.slice(1)); break;
         case 'export-session': await cmdExportSession(args.slice(1)); break;
