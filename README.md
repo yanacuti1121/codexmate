@@ -125,12 +125,7 @@ flowchart TD
 
 ---
 
-## Sub-projects & Ecosystem
-
-- **[MCP Launcher](https://github.com/SakuraByteCore/mcp-launcher)**: Easy to use MCP builder & launcher.
-- **[Codex Response Bridge]**: Internal module to normalize AI responses.
-
-## Special Thanks
+## ArchitectureSpecial Thanks
 
 Special thanks to all contributors for their contributions to Codex Mate ❤️
 

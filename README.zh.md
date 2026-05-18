@@ -125,12 +125,7 @@ flowchart TD
 
 ---
 
-## 子项目与生态
-
-- **[MCP Launcher](https://github.com/SakuraByteCore/mcp-launcher)**: 易于使用的 MCP 构建与启动器。
-- **[Codex Response Bridge]**: 用于归一化 AI 响应的内部模块。
-
-## 特别鸣谢
+## 架构总览特别鸣谢
 
 感谢所有贡献者对 Codex Mate 的辛勤付出 ❤️
 
