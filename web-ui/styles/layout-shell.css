@@ -55,7 +55,6 @@ body::after {
     border-radius: 0;
     box-shadow: 8px 0 28px rgba(92, 68, 52, 0.05), 1px 0 0 rgba(255, 255, 255, 0.5);
     min-height: 100vh;
-    overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
     backdrop-filter: blur(18px) saturate(130%);
@@ -63,11 +62,6 @@ body::after {
 
 .side-rail::-webkit-scrollbar {
     display: none;
-}
-
-.side-rail .brand-title {
-    font-size: 22px;
-    margin-bottom: 0;
 }
 
 .side-section {
@@ -84,8 +78,15 @@ body::after {
 .side-rail-nav {
     display: flex;
     flex-direction: column;
-    gap: 0;
     flex: 1 1 auto;
+    gap: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.side-rail-nav::-webkit-scrollbar {
+    display: none;
 }
 
 .lang-fab {
@@ -205,10 +206,11 @@ body::after {
 }
 
 .side-rail-lang {
-    position: sticky;
+    position: absolute;
     bottom: 0;
+    left: 0;
+    right: 0;
     z-index: 2;
-    margin-top: auto;
     padding: 10px 4px 6px;
     background: linear-gradient(180deg, rgba(255, 248, 241, 0), rgba(255, 248, 241, 0.94) 28%);
     border-top: 1px solid rgba(137, 111, 94, 0.08);
@@ -223,17 +225,6 @@ body::after {
     background: rgba(255, 253, 252, 0.9);
     box-shadow: none;
     backdrop-filter: none;
-}
-
-.side-rail-version {
-    padding: 4px 8px 8px;
-    text-align: center;
-}
-
-.side-rail-version-text {
-    font-size: 11px;
-    color: rgba(137, 111, 94, 0.45);
-    letter-spacing: 0.02em;
 }
 
 .lang-switch {
@@ -465,12 +456,20 @@ body::after {
 }
 
 .brand-kicker {
-    font-size: 11px;
-    line-height: 1;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1.15;
+    font-family: var(--font-family-display);
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
     font-weight: 700;
+}
+
+.brand-version {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    vertical-align: middle;
+    margin-left: 4px;
 }
 
 .brand-subtitle {
@@ -478,15 +477,6 @@ body::after {
     line-height: 1.45;
     color: var(--color-text-secondary);
     max-width: 22ch;
-}
-
-.brand-title {
-    font-size: 18px;
-    line-height: 1.15;
-    font-family: var(--font-family-display);
-    color: var(--color-text-primary);
-    letter-spacing: -0.02em;
-    font-weight: 700;
 }
 
 .github-badge {

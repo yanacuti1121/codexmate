@@ -155,6 +155,12 @@
                                     <div class="session-item-title">{{ session.title || session.sessionId }}</div>
                                     <span class="session-count-badge">{{ session.messageCount == null ? '...' : session.messageCount }}</span>
                                     <span v-if="session.match && session.match.hit" class="session-match-badge">{{ session.match.count }}</span>
+                                    <span
+                                        v-if="sessionContextUtilization[getSessionExportKey(session)] && sessionContextUtilization[getSessionExportKey(session)].percent > 0"
+                                        :class="['session-context-badge', 'session-context-' + sessionContextUtilization[getSessionExportKey(session)].level]"
+                                        :title="'Context: ' + sessionContextUtilization[getSessionExportKey(session)].percent + '%'">
+                                        {{ sessionContextUtilization[getSessionExportKey(session)].percent }}%
+                                    </span>
                                 </div>
                                 <div class="session-item-actions">
                                     <button

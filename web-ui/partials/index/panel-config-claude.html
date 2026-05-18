@@ -94,15 +94,23 @@
                     <div class="selector-header"><span class="selector-title">{{ t('config.health.title') }}</span></div>
                     <button class="btn-tool" @click="runHealthCheck" :disabled="healthCheckLoading || loading || !!initError">{{ healthCheckLoading ? t('config.health.running') : t('config.health.run') }}</button>
                     <div class="config-template-hint">{{ t('config.health.hint') }}</div>
-                    <div v-if="healthCheckLoading && healthCheckBatchTotal" class="config-template-hint">{{ t('config.health.progress', { done: healthCheckBatchDone, total: healthCheckBatchTotal, failed: healthCheckBatchFailed }) }}</div>
-                    <div v-if="healthCheckResult && !healthCheckLoading" class="config-template-hint">{{ healthCheckResult.ok ? t('config.health.ok') : t('config.health.fail') }} · {{ t('config.health.issues', { count: (healthCheckResult.issues || []).length }) }}</div>
-                    <button v-if="healthCheckResult && !healthCheckLoading" type="button" class="btn-mini" @click="showHealthCheckModal = true">{{ t('common.detail') }}</button>
-                    <div v-if="healthCheckResult && !healthCheckLoading && (healthCheckResult.issues || []).length">
-                        <div v-for="(issue, index) in healthCheckResult.issues" :key="issue.code || ('issue-' + index)" class="config-template-hint">{{ issue.message || issue.code || '' }}<span v-if="issue.suggestion"> · {{ issue.suggestion }}</span></div>
-                    </div>
                 </div>
 
                 <div class="card-list">
+                    <div :class="['card', { active: currentClaudeConfig === 'claude-local' }]" @click="currentClaudeConfig = 'claude-local'" @keydown.enter.self.prevent="currentClaudeConfig = 'claude-local'" @keydown.space.self.prevent="currentClaudeConfig = 'claude-local'" tabindex="0" role="button" :aria-current="currentClaudeConfig === 'claude-local' ? 'true' : null">
+                        <div class="card-leading">
+                            <div class="card-icon">L</div>
+                            <div class="card-content">
+                                <div class="card-title">
+                                    <span>local</span>
+                                    <span class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-trailing">
+                            <span :class="['pill', claudeLocalBridgeConfigured() ? 'configured' : 'empty']">{{ claudeLocalBridgeConfigured() ? t('claude.configured') : t('claude.notConfigured') }}</span>
+                        </div>
+                    </div>
                     <div v-for="(config, name) in claudeConfigs" :key="name" :class="['card', { active: currentClaudeConfig === name }]" @click="applyClaudeConfig(name)" @keydown.enter.self.prevent="applyClaudeConfig(name)" @keydown.space.self.prevent="applyClaudeConfig(name)" tabindex="0" role="button" :aria-current="currentClaudeConfig === name ? 'true' : null">
                         <div class="card-leading">
                             <div class="card-icon">{{ name.charAt(0).toUpperCase() }}</div>
@@ -122,7 +130,7 @@
                                 <button class="card-action-btn" @click="openCloneClaudeConfigModal(name, config)" :aria-label="t('claude.action.cloneAria', { name })" :title="t('claude.action.clone')">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 </button>
-                                <button class="card-action-btn" :class="{ loading: claudeShareLoading[name] }" @click="copyClaudeShareCommand(name)" disabled :title="t('claude.action.shareDisabled')" :aria-label="t('config.shareCommand.aria')">
+                                <button class="card-action-btn" :class="{ loading: claudeShareLoading[name] }" @click="copyClaudeShareCommand(name)" :title="t('config.shareCommand')" :aria-label="t('config.shareCommand.aria')">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
                                 </button>
                                 <button class="card-action-btn delete" @click="deleteClaudeConfig(name)" :aria-label="t('claude.action.deleteAria', { name })" :title="t('claude.action.delete')">
@@ -132,5 +140,27 @@
                         </div>
                     </div>
                 </div>
+
+                <div v-if="currentClaudeConfig === 'claude-local'" class="bridge-pool-panel">
+                    <div class="bridge-pool-header">
+                        <span class="bridge-pool-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6 8v4h6v4"/><path d="M18 8v4h-6v4"/></svg>
+                        </span>
+                        <span class="bridge-pool-title">{{ t('claude.localBridge.poolTitle') }}</span>
+                        <span class="bridge-pool-hint">{{ t('claude.localBridge.poolHint') }}</span>
+                    </div>
+                    <div v-if="Object.keys(claudeConfigs || {}).length === 0" class="bridge-pool-empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                        <span>{{ t('claude.localBridge.noProviders') }}</span>
+                    </div>
+                    <div v-else class="bridge-pool-list">
+                        <label v-for="(config, name) in claudeConfigs" :key="name" class="bridge-pool-item">
+                            <span class="bridge-pool-item-name">{{ name }}</span>
+                            <span class="bridge-pool-item-status" :class="{ active: !isClaudeLocalBridgeExcluded(name) }">{{ isClaudeLocalBridgeExcluded(name) ? t('claude.localBridge.disabled') : t('claude.localBridge.enabled') }}</span>
+                            <input type="checkbox" :checked="!isClaudeLocalBridgeExcluded(name)" @change="toggleClaudeLocalBridgeExcluded(name)" />
+                        </label>
+                    </div>
+                </div>
+
                 </template>
             </div>

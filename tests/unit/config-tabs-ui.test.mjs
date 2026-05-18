@@ -328,7 +328,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(html, /<button[\s\S]*?@click="deleteProvider\(provider\.name\)"[\s\S]*?:aria-label="t\('config\.provider\.delete\.aria', \{ name: provider\.name \}\)"[\s\S]*?:title="shouldShowProviderDelete\(provider\) \? t\('common\.delete'\) : t\('common\.notDeletable'\)">/);
     assert.match(html, /<button class="card-action-btn"[^>]*@click="openEditConfigModal\(name\)"[^>]*:aria-label="t\('claude\.action\.editAria', \{ name \}\)"[^>]*:title="t\('claude\.action\.edit'\)">/);
     assert.match(html, /<button class="card-action-btn delete"[^>]*@click="deleteClaudeConfig\(name\)"[^>]*:aria-label="t\('claude\.action\.deleteAria', \{ name \}\)"[^>]*:title="t\('claude\.action\.delete'\)">/);
-    assert.match(html, /<button class="card-action-btn"[^>]*@click="copyClaudeShareCommand\(name\)"[^>]*disabled[^>]*>/);
+    assert.match(html, /<button class="card-action-btn"[^>]*@click="copyClaudeShareCommand\(name\)"[^>]*>/);
     assert.match(html, /<button class="card-action-btn"[^>]*@click="openOpenclawEditModal\(name\)"[^>]*:aria-label="t\('openclaw\.action\.editAria', \{ name \}\)"[^>]*:title="t\('openclaw\.action\.edit'\)">/);
     assert.match(
         html,
@@ -352,10 +352,10 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.doesNotMatch(modalsBasic, /install-cli-modal-title/);
     assert.doesNotMatch(modalsBasic, /showInstallModal/);
     assert.match(modalsBasic, /<input v-model="newProvider\.key" class="form-input" type="password" placeholder="sk-\.\.\.">/);
-    assert.match(modalsBasic, /<input v-model="editingProvider\.key" class="form-input" type="password" :placeholder="t\('placeholder\.keepUnchanged'\)">/);
+    assert.match(modalsBasic, /<input v-model="editingProvider\.key" class="form-input" :type="showEditProviderKey \? 'text' : 'password'" placeholder="sk-\.\.\." autocomplete="off" spellcheck="false">/);
     assert.match(modalsBasic, /<input v-model="newClaudeConfig\.apiKey" class="form-input" type="password" autocomplete="off" spellcheck="false" :placeholder="t\('placeholder\.apiKeyExampleClaude'\)">/);
-    assert.match(modalsBasic, /<input v-model="editingConfig\.apiKey" class="form-input" type="password" autocomplete="off" spellcheck="false" :placeholder="t\('placeholder\.apiKeyExampleClaude'\)">/);
-    assert.strictEqual([...modalsBasic.matchAll(/type="password"/g)].length, 4);
+    assert.match(modalsBasic, /<input v-model="editingConfig\.apiKey" class="form-input" :type="showEditClaudeConfigKey \? 'text' : 'password'" autocomplete="off" spellcheck="false" :placeholder="t\('placeholder\.apiKeyExampleClaude'\)">/);
+    assert.strictEqual([...modalsBasic.matchAll(/type="password"/g)].length, 2);
     assert.match(templateAgentModals, /<div v-if="showConfigTemplateModal" class="modal-overlay" @click\.self="!configTemplateApplying && closeConfigTemplateModal\(\)">/);
     assert.match(templateAgentModals, /<div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="config-template-modal-title">/);
     assert.match(templateAgentModals, /<div class="modal-title" id="config-template-modal-title">\{\{\s*t\('modal\.configTemplate\.title'\)\s*\}\}<\/div>/);

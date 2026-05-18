@@ -122,6 +122,7 @@ export function createStartupClaudeMethods(options = {}) {
                     }
                     this.providersList = listRes.providers;
                     if (typeof this.loadLocalBridgeExcluded === 'function') { this.loadLocalBridgeExcluded(); }
+                    if (typeof this.loadClaudeLocalBridgeStatus === 'function') { this.loadClaudeLocalBridgeStatus(); }
                     if (statusRes.configReady === false) {
                         this.showMessage('配置已加载', 'info');
                     }

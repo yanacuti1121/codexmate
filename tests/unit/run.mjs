@@ -63,7 +63,7 @@ let failures = 0;
 for (const { name, fn } of tests) {
     try {
         await fn();
-        console.log(`\u2713 ${name}`);
+        // console.log(`\u2713 ${name}`);
     } catch (err) {
         failures += 1;
         console.error(`\u2717 ${name}`);

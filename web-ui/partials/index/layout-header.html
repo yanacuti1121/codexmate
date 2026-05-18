@@ -122,8 +122,7 @@
                     <div class="brand-head">
                         <img class="brand-logo" src="/res/logo-pack.webp" alt="Codex Mate logo">
                         <div class="brand-copy">
-                            <div class="brand-kicker">{{ t('brand.kicker.workspace') }}</div>
-                            <div class="brand-title">Codex Mate</div>
+                            <div class="brand-kicker">Codex Mate <span v-if="appVersion" class="brand-version">v{{ appVersion }}</span></div>
                         </div>
                     </div>
                     <div class="brand-subtitle">{{ t('brand.subtitle.localConfigSessionsWorkspace') }}</div>
@@ -339,9 +338,6 @@
                             :aria-pressed="(lang || 'zh') === 'ja'"
                             :class="{ active: (lang || 'zh') === 'ja' }"
                             @click="setLang('ja')">日本語</button>
-                    </div>
-                    <div class="side-rail-version" v-if="appVersion">
-                        <span class="side-rail-version-text">v{{ appVersion }}</span>
                     </div>
                 </div>
             </aside>
