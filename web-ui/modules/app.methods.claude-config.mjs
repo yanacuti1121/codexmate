@@ -10,8 +10,7 @@ export function createClaudeConfigMethods(options = {}) {
 
         onClaudeModelChange() {
             const name = this.currentClaudeConfig;
-            if (!name) {
-                this.showMessage('请先选择配置', 'error');
+            if (!name || name === 'claude-local') {
                 return;
             }
             const model = (this.currentClaudeModel || '').trim();

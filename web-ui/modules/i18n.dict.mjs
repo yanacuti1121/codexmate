@@ -1049,6 +1049,8 @@ const DICT = Object.freeze({
         'claude.localBridge.noProviders': '暂无可用提供商，请先添加直连提供商',
         'claude.localBridge.disabled': '未启用',
         'claude.localBridge.enabled': '已启用',
+        'claude.localBridge.enable': '启用负载均衡',
+        'claude.localBridge.disable': '关闭负载均衡',
 
         // OpenClaw config panel
         'openclaw.applyHint': '写入 ~/.openclaw/openclaw.json，支持 JSON5。',
@@ -2106,6 +2108,8 @@ const DICT = Object.freeze({
         'claude.localBridge.noProviders': '利用可能なプロバイダがありません。まずプロバイダを追加してください。',
         'claude.localBridge.disabled': '無効',
         'claude.localBridge.enabled': '有効',
+        'claude.localBridge.enable': '負荷分散を有効にする',
+        'claude.localBridge.disable': '負荷分散を無効にする',
 
         // OpenClaw config panel
         'openclaw.applyHint': '~/.openclaw/openclaw.json に書き込みます。JSON5 対応。',
@@ -3173,6 +3177,8 @@ const DICT = Object.freeze({
         'claude.localBridge.noProviders': 'No providers available. Add a provider first.',
         'claude.localBridge.disabled': 'Disabled',
         'claude.localBridge.enabled': 'Enabled',
+        'claude.localBridge.enable': 'Enable load balancing',
+        'claude.localBridge.disable': 'Disable load balancing',
 
         // OpenClaw config panel
         'openclaw.applyHint': 'Writes to ~/.openclaw/openclaw.json (JSON5 supported).',
