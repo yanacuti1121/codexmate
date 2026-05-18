@@ -90,6 +90,18 @@
                     <div class="config-template-hint">{{ t('claude.md.hint') }}</div>
                 </div>
 
+                <div class="selector-section">
+                    <div class="selector-header"><span class="selector-title">{{ t('config.health.title') }}</span></div>
+                    <button class="btn-tool" @click="runHealthCheck" :disabled="healthCheckLoading || loading || !!initError">{{ healthCheckLoading ? t('config.health.running') : t('config.health.run') }}</button>
+                    <div class="config-template-hint">{{ t('config.health.hint') }}</div>
+                    <div v-if="healthCheckLoading && healthCheckBatchTotal" class="config-template-hint">{{ t('config.health.progress', { done: healthCheckBatchDone, total: healthCheckBatchTotal, failed: healthCheckBatchFailed }) }}</div>
+                    <div v-if="healthCheckResult && !healthCheckLoading" class="config-template-hint">{{ healthCheckResult.ok ? t('config.health.ok') : t('config.health.fail') }} · {{ t('config.health.issues', { count: (healthCheckResult.issues || []).length }) }}</div>
+                    <button v-if="healthCheckResult && !healthCheckLoading" type="button" class="btn-mini" @click="showHealthCheckModal = true">{{ t('common.detail') }}</button>
+                    <div v-if="healthCheckResult && !healthCheckLoading && (healthCheckResult.issues || []).length">
+                        <div v-for="(issue, index) in healthCheckResult.issues" :key="issue.code || ('issue-' + index)" class="config-template-hint">{{ issue.message || issue.code || '' }}<span v-if="issue.suggestion"> · {{ issue.suggestion }}</span></div>
+                    </div>
+                </div>
+
                 <div class="card-list">
                     <div :class="['card', { active: currentClaudeConfig === 'claude-local' }]" @click="currentClaudeConfig = 'claude-local'" @keydown.enter.self.prevent="currentClaudeConfig = 'claude-local'" @keydown.space.self.prevent="currentClaudeConfig = 'claude-local'" tabindex="0" role="button" :aria-current="currentClaudeConfig === 'claude-local' ? 'true' : null">
                         <div class="card-leading">
