@@ -90,6 +90,12 @@
                     <div class="config-template-hint">{{ t('claude.md.hint') }}</div>
                 </div>
 
+                <div class="selector-section">
+                    <div class="selector-header"><span class="selector-title">{{ t('config.health.title') }}</span></div>
+                    <button class="btn-tool" @click="runHealthCheck" :disabled="healthCheckLoading || loading || !!initError">{{ healthCheckLoading ? t('config.health.running') : t('config.health.run') }}</button>
+                    <div class="config-template-hint">{{ t('config.health.hint') }}</div>
+                </div>
+
                 <div class="card-list">
                     <div :class="['card', { active: currentClaudeConfig === 'claude-local' }]" @click="currentClaudeConfig = 'claude-local'" @keydown.enter.self.prevent="currentClaudeConfig = 'claude-local'" @keydown.space.self.prevent="currentClaudeConfig = 'claude-local'" tabindex="0" role="button" :aria-current="currentClaudeConfig === 'claude-local' ? 'true' : null">
                         <div class="card-leading">
