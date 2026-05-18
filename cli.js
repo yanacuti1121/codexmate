@@ -12,7 +12,6 @@ const http = require('http');
 const https = require('https');
 const net = require('net');
 const readline = require('readline');
-const { startWinTray, stopWinTray } = require('./lib/win-tray');
 const {
     expandHomePath,
     resolveExistingDir,
@@ -11502,7 +11501,6 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             console.log('  监听地址:', host);
         }
         console.log('  退出: Ctrl+C\n');
-        startWinTray({ name: 'CodexMate', port });
         if (isAnyAddressHost(host)) {
             const tokenEnabled = typeof process.env.CODEXMATE_HTTP_TOKEN === 'string' && process.env.CODEXMATE_HTTP_TOKEN.trim().length > 0;
             console.warn(`! 安全提示: 当前监听所有网卡（${tokenEnabled ? '已启用鉴权' : '无鉴权'}）。`);
@@ -11643,7 +11641,6 @@ function cmdStart(options = {}) {
 
     const handleExit = () => {
         stopWatch();
-        stopWinTray();
         stopAutomationScheduler();
         Promise.allSettled([
             serverHandle.stop(),
