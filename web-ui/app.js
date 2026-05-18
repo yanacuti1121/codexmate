@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showModelListModal: false,
                 showClaudeConfigModal: false,
                 showEditConfigModal: false,
+                showEditClaudeConfigKey: false,
                 showOpenclawConfigModal: false,
                 showConfigTemplateModal: false,
                 showAgentsModal: false,

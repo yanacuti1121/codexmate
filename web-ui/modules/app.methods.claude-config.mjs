@@ -61,6 +61,7 @@ export function createClaudeConfigMethods(options = {}) {
                 baseUrl: config.baseUrl || '',
                 model: config.model || ''
             };
+            this.showEditClaudeConfigKey = false;
             this.showEditConfigModal = true;
         },
 
@@ -77,7 +78,12 @@ export function createClaudeConfigMethods(options = {}) {
 
         closeEditConfigModal() {
             this.showEditConfigModal = false;
+            this.showEditClaudeConfigKey = false;
             this.editingConfig = { name: '', apiKey: '', baseUrl: '', model: '' };
+        },
+
+        toggleEditClaudeConfigKey() {
+            this.showEditClaudeConfigKey = !this.showEditClaudeConfigKey;
         },
 
         async saveAndApplyConfig() {
