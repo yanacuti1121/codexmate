@@ -125,7 +125,7 @@ flowchart TD
 
 ---
 
-## ArchitectureSpecial Thanks
+## Special Thanks
 
 Special thanks to all contributors for their contributions to Codex Mate ❤️
 
