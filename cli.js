@@ -192,6 +192,8 @@ const BUILTIN_PROXY_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-proxy.json'
 const BUILTIN_CLAUDE_PROXY_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-claude-proxy.json');
 const OPENAI_BRIDGE_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-openai-bridge.json');
 const LOCAL_BRIDGE_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-local-bridge.json');
+const CLAUDE_LOCAL_BRIDGE_SETTINGS_FILE = path.join(CONFIG_DIR, 'codexmate-claude-local-bridge.json');
+const CLAUDE_LOCAL_PROVIDERS_FILE = path.join(CONFIG_DIR, 'codexmate-claude-bridge.json');
 const CODEX_SESSIONS_DIR = path.join(CONFIG_DIR, 'sessions');
 const SESSION_TRASH_DIR = path.join(CONFIG_DIR, 'codexmate-session-trash');
 const SESSION_TRASH_FILES_DIR = path.join(SESSION_TRASH_DIR, 'files');
@@ -338,6 +340,7 @@ const openaiBridgeHandler = createOpenaiBridgeHttpHandler({
 const localBridgeHandler = createLocalBridgeHttpHandler({
     readConfigFn: readConfig,
     openaiBridgeFile: OPENAI_BRIDGE_SETTINGS_FILE,
+    claudeProvidersFile: CLAUDE_LOCAL_PROVIDERS_FILE,
     localBridgeSettingsFile: LOCAL_BRIDGE_SETTINGS_FILE,
     expectedToken: typeof process.env.CODEXMATE_HTTP_TOKEN === 'string' ? process.env.CODEXMATE_HTTP_TOKEN.trim() : '',
     maxBodySize: MAX_API_BODY_SIZE,
@@ -5571,6 +5574,156 @@ function setLocalBridgeExcludedProviders(params = {}) {
 function getLocalBridgeExcludedProviders() {
     const settings = readLocalBridgeSettings();
     return { excludedProviders: settings.excludedProviders };
+}
+
+// ============================================================================
+// Claude Local Bridge
+// ============================================================================
+
+function readClaudeLocalBridgeSettings() {
+    const defaults = { enabled: false, lastActiveBaseUrl: '', lastModel: '', excludedProviders: [] };
+    try {
+        if (!fs.existsSync(CLAUDE_LOCAL_BRIDGE_SETTINGS_FILE)) return defaults;
+        const raw = JSON.parse(fs.readFileSync(CLAUDE_LOCAL_BRIDGE_SETTINGS_FILE, 'utf-8'));
+        return {
+            enabled: !!raw.enabled,
+            lastActiveBaseUrl: typeof raw.lastActiveBaseUrl === 'string' ? raw.lastActiveBaseUrl.trim() : '',
+            lastModel: typeof raw.lastModel === 'string' ? raw.lastModel.trim() : '',
+            excludedProviders: Array.isArray(raw.excludedProviders) ? raw.excludedProviders.filter(p => typeof p === 'string') : []
+        };
+    } catch (e) {
+        return defaults;
+    }
+}
+
+function writeClaudeLocalBridgeSettings(settings) {
+    fs.writeFileSync(CLAUDE_LOCAL_BRIDGE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+function readClaudeLocalProvidersFile() {
+    try {
+        if (!fs.existsSync(CLAUDE_LOCAL_PROVIDERS_FILE)) return { providers: {} };
+        const raw = JSON.parse(fs.readFileSync(CLAUDE_LOCAL_PROVIDERS_FILE, 'utf-8'));
+        return { providers: (raw && typeof raw.providers === 'object') ? raw.providers : {} };
+    } catch (e) {
+        return { providers: {} };
+    }
+}
+
+function writeClaudeLocalProvidersFile(data) {
+    ensureDir(CONFIG_DIR);
+    fs.writeFileSync(CLAUDE_LOCAL_PROVIDERS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+function syncClaudeProvidersToBridgeFile() {
+    // Sync Claude configs from localStorage-equivalent (browser) to bridge file
+    // Called when providers are added/updated/deleted via web UI
+    const existing = readClaudeLocalProvidersFile();
+    const providers = existing.providers || {};
+    // Preserve existing entries, update from params
+    return { providers };
+}
+
+function toggleClaudeLocalBridge(params = {}) {
+    const enable = !!params.enable;
+    const settings = readClaudeLocalBridgeSettings();
+
+    try {
+        const readResult = readJsonObjectFromFile(CLAUDE_SETTINGS_FILE, {});
+        if (!readResult.ok) {
+            return { success: false, error: readResult.error || '读取 Claude settings.json 失败' };
+        }
+        const currentSettings = readResult.data || {};
+        const currentEnv = (currentSettings.env && typeof currentSettings.env === 'object' && !Array.isArray(currentSettings.env))
+            ? currentSettings.env : {};
+        const currentBaseUrl = typeof currentEnv.ANTHROPIC_BASE_URL === 'string' ? currentEnv.ANTHROPIC_BASE_URL.trim() : '';
+
+        if (enable) {
+            if (currentBaseUrl.includes('/bridge/claude-local/')) {
+                return { success: true, enabled: true, notice: '已启用 Claude 本地负载均衡' };
+            }
+            settings.lastActiveBaseUrl = currentBaseUrl;
+            settings.lastModel = typeof currentEnv.ANTHROPIC_MODEL === 'string' ? currentEnv.ANTHROPIC_MODEL.trim() : '';
+            settings.enabled = true;
+            writeClaudeLocalBridgeSettings(settings);
+
+            const localPort = resolveWebPort();
+            const localBaseUrl = `http://127.0.0.1:${localPort}/bridge/claude-local/v1`;
+            const nextEnv = { ...currentEnv, ANTHROPIC_BASE_URL: localBaseUrl };
+            const nextSettings = { ...currentSettings, env: nextEnv };
+            ensureDir(CLAUDE_DIR);
+            backupFileIfNeededOnce(CLAUDE_SETTINGS_FILE);
+            writeJsonAtomic(CLAUDE_SETTINGS_FILE, nextSettings);
+            return { success: true, enabled: true, previousBaseUrl: currentBaseUrl };
+        } else {
+            if (!currentBaseUrl.includes('/bridge/claude-local/')) {
+                settings.enabled = false;
+                writeClaudeLocalBridgeSettings(settings);
+                return { success: true, enabled: false, notice: 'Claude 本地负载均衡未启用' };
+            }
+            const restoreBaseUrl = settings.lastActiveBaseUrl || '';
+            if (!restoreBaseUrl) {
+                settings.enabled = false;
+                writeClaudeLocalBridgeSettings(settings);
+                return { success: true, enabled: false, notice: '已关闭 Claude 本地负载均衡（无历史配置可恢复）' };
+            }
+            const nextEnv = { ...currentEnv, ANTHROPIC_BASE_URL: restoreBaseUrl };
+            if (settings.lastModel) {
+                nextEnv.ANTHROPIC_MODEL = settings.lastModel;
+            }
+            const nextSettings = { ...currentSettings, env: nextEnv };
+            ensureDir(CLAUDE_DIR);
+            backupFileIfNeededOnce(CLAUDE_SETTINGS_FILE);
+            writeJsonAtomic(CLAUDE_SETTINGS_FILE, nextSettings);
+            settings.enabled = false;
+            writeClaudeLocalBridgeSettings(settings);
+            return { success: true, enabled: false, restoredBaseUrl: restoreBaseUrl, restoredModel: settings.lastModel };
+        }
+    } catch (e) {
+        return { error: e && e.message ? e.message : '操作失败' };
+    }
+}
+
+function getClaudeLocalBridgeStatus() {
+    const settings = readClaudeLocalBridgeSettings();
+    let currentBaseUrl = '';
+    try {
+        const readResult = readJsonObjectFromFile(CLAUDE_SETTINGS_FILE, {});
+        if (readResult.ok && readResult.data && readResult.data.env) {
+            currentBaseUrl = typeof readResult.data.env.ANTHROPIC_BASE_URL === 'string' ? readResult.data.env.ANTHROPIC_BASE_URL.trim() : '';
+        }
+    } catch (e) { /* ignore */ }
+    const providersData = readClaudeLocalProvidersFile();
+    const providerNames = Object.keys(providersData.providers || {});
+    return {
+        enabled: settings.enabled,
+        active: currentBaseUrl.includes('/bridge/claude-local/'),
+        excludedProviders: settings.excludedProviders,
+        lastActiveBaseUrl: settings.lastActiveBaseUrl,
+        lastModel: settings.lastModel,
+        providers: providerNames
+    };
+}
+
+function setClaudeLocalBridgeExcludedProviders(params = {}) {
+    const names = Array.isArray(params.names) ? params.names.filter(n => typeof n === 'string' && n.trim()) : [];
+    const settings = readClaudeLocalBridgeSettings();
+    settings.excludedProviders = names;
+    writeClaudeLocalBridgeSettings(settings);
+    return { success: true, excludedProviders: names };
+}
+
+function getClaudeLocalBridgeExcludedProviders() {
+    const settings = readClaudeLocalBridgeSettings();
+    return { excludedProviders: settings.excludedProviders };
+}
+
+function syncClaudeBridgeProviders(params = {}) {
+    const providers = (params.providers && typeof params.providers === 'object') ? params.providers : {};
+    const existing = readClaudeLocalProvidersFile();
+    const excluded = existing.excludedProviders || [];
+    writeClaudeLocalProvidersFile({ providers, excludedProviders: excluded });
+    return { success: true, count: Object.keys(providers).length };
 }
 
 function removeClaudeSessionIndexEntry(indexPath, sessionFilePath, sessionId) {
@@ -11006,6 +11159,21 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'local-bridge-get-excluded':
                             result = getLocalBridgeExcludedProviders();
+                            break;
+                        case 'claude-local-bridge-toggle':
+                            result = toggleClaudeLocalBridge(params || {});
+                            break;
+                        case 'claude-local-bridge-status':
+                            result = getClaudeLocalBridgeStatus();
+                            break;
+                        case 'claude-local-bridge-set-excluded':
+                            result = setClaudeLocalBridgeExcludedProviders(params || {});
+                            break;
+                        case 'claude-local-bridge-get-excluded':
+                            result = getClaudeLocalBridgeExcludedProviders();
+                            break;
+                        case 'claude-local-bridge-sync-providers':
+                            result = syncClaudeBridgeProviders(params || {});
                             break;
                         case 'workflow-list':
                             result = listWorkflowDefinitions();

@@ -41,6 +41,11 @@ export function createClaudeConfigMethods(options = {}) {
             if (this.currentClaudeConfig) {
                 try { localStorage.setItem('currentClaudeConfig', this.currentClaudeConfig); } catch (_) {}
             }
+            this.syncClaudeBridgeProviders();
+        },
+
+        async syncClaudeBridgeProviders() {
+            try { await api('claude-local-bridge-sync-providers', { providers: this.claudeConfigs || {} }); } catch (_) {}
         },
 
         openCloneClaudeConfigModal(name, config) {
@@ -201,6 +206,65 @@ export function createClaudeConfigMethods(options = {}) {
                 baseUrl: '',
                 model: ''
             };
+        },
+
+        async loadClaudeLocalBridgeStatus() {
+            try {
+                const res = await api('claude-local-bridge-status');
+                if (res && !res.error) {
+                    this.claudeLocalBridgeEnabled = !!res.enabled;
+                    this.claudeLocalBridgeActive = !!res.active;
+                    if (Array.isArray(res.excludedProviders)) {
+                        this.claudeLocalBridgeExcluded = res.excludedProviders;
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        async toggleClaudeLocalBridge(enable) {
+            try {
+                const res = await api('claude-local-bridge-toggle', { enable });
+                if (res.error) {
+                    this.showMessage(res.error, 'error');
+                    return;
+                }
+                this.claudeLocalBridgeEnabled = !!enable;
+                this.claudeLocalBridgeActive = !!res.active;
+                if (enable) {
+                    this.showMessage('Claude 本地负载均衡已启用', 'success');
+                } else {
+                    this.showMessage('Claude 本地负载均衡已关闭', 'success');
+                }
+            } catch (e) {
+                this.showMessage('操作失败', 'error');
+            }
+        },
+
+        async toggleClaudeLocalBridgeExcluded(providerName) {
+            const name = String(providerName || '').trim();
+            if (!name) return;
+            const idx = this.claudeLocalBridgeExcluded.indexOf(name);
+            const next = [...this.claudeLocalBridgeExcluded];
+            if (idx >= 0) {
+                next.splice(idx, 1);
+            } else {
+                next.push(name);
+            }
+            try {
+                const res = await api('claude-local-bridge-set-excluded', { names: next });
+                if (res && !res.error) {
+                    this.claudeLocalBridgeExcluded = next;
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        isClaudeLocalBridgeExcluded(providerName) {
+            return this.claudeLocalBridgeExcluded.indexOf(String(providerName || '').trim()) >= 0;
+        },
+
+        claudeLocalBridgeCandidateProviders() {
+            return Object.keys(this.claudeConfigs || {}).filter(name => name && !this.isClaudeLocalBridgeExcluded(name))
+                .map(name => ({ name, ...this.claudeConfigs[name] }));
         }
     };
 }
