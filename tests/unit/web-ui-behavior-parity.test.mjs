@@ -411,6 +411,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
     ];
     allowedExtraCurrentKeys.push(
         'lang',
+        'configTemplateContext',
         'configTemplateDiffVisible',
         'configTemplateDiffLoading',
         'configTemplateDiffError',
@@ -424,6 +425,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'healthCheckBatchDone',
         'healthCheckBatchFailed',
         'showHealthCheckModal',
+        'showCodexBridgePoolModal',
+        'showClaudeBridgePoolModal',
         'pluginsActiveId',
         'pluginsLoading',
         'pluginsError',
@@ -571,6 +574,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'normalizeConfigTemplateDiffConfirmEnabled',
         'setConfigTemplateDiffConfirmEnabled',
         'extractClaudeResumeKeyFromFilePath',
+        'openClaudeConfigTemplateEditor',
+        'applyClaudeLocalBridge',
         'loadPluginsOverview',
         'selectPlugin',
         'createPromptTemplate',

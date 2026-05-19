@@ -71,6 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAgentsModal: false,
                 showSkillsModal: false,
                 showHealthCheckModal: false,
+                showCodexBridgePoolModal: false,
+                showClaudeBridgePoolModal: false,
                 // Plugins
                 pluginsActiveId: 'prompt-templates',
                 pluginsLoading: false,
@@ -98,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmDialogResolver: null,
                 configTemplateContent: '',
                 configTemplateApplying: false,
+                configTemplateContext: 'codex',
                 configTemplateDiffVisible: false,
                 configTemplateDiffLoading: false,
                 configTemplateDiffError: '',
