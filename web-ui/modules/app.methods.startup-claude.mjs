@@ -383,6 +383,15 @@ export function createStartupClaudeMethods(options = {}) {
         },
 
         syncClaudeModelFromConfig() {
+            if (this.currentClaudeConfig === 'claude-local') {
+                const candidates = this.claudeLocalBridgeCandidateProviders
+                    ? this.claudeLocalBridgeCandidateProviders()
+                    : [];
+                const active = candidates.find(cp => !this.isClaudeLocalBridgeExcluded(cp.name));
+                this.currentClaudeModel = active && active.model ? active.model : '';
+                this.claudeCustomModelDraft = this.currentClaudeModel;
+                return;
+            }
             const config = this.getCurrentClaudeConfig();
             this.currentClaudeModel = config && config.model ? config.model : '';
             this.claudeCustomModelDraft = this.currentClaudeModel;

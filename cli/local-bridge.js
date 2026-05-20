@@ -74,7 +74,7 @@ function buildClaudeUpstreamPool(claudeProvidersFile, excludedProviders) {
         if (excludedSet.has(name.toLowerCase())) continue;
         const baseUrl = typeof p.baseUrl === 'string' ? p.baseUrl.trim() : '';
         if (!baseUrl || !isValidHttpUrl(normalizeBaseUrl(baseUrl))) continue;
-        pool.push({ name, baseUrl: normalizeBaseUrl(baseUrl), apiKey: typeof p.apiKey === 'string' ? p.apiKey : '' });
+        pool.push({ name, baseUrl: normalizeBaseUrl(baseUrl), apiKey: typeof p.apiKey === 'string' ? p.apiKey : '', model: typeof p.model === 'string' ? p.model.trim() : '' });
     }
     if (pool.length === 0) return { error: '请先添加可用的 Claude 上游提供商' };
     return { pool };
@@ -271,7 +271,7 @@ function createLocalBridgeHttpHandler(options = {}) {
                     return;
                 }
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-                res.end(JSON.stringify({ object: 'codexmate.claude_local_bridge', provider: entry.name, status: 'ok', pool: pool.map(p => p.name) }));
+                res.end(JSON.stringify({ object: 'codexmate.claude_local_bridge', provider: entry.name, model: entry.model || '', status: 'ok', pool: pool.map(p => p.name) }));
                 return;
             }
 
@@ -285,7 +285,12 @@ function createLocalBridgeHttpHandler(options = {}) {
 
             let parsedBody;
             try { parsedBody = bodyResult.body ? JSON.parse(bodyResult.body) : {}; } catch (_) { parsedBody = {}; }
+            // Override model to match the selected upstream provider
+            if (entry.model && parsedBody && typeof parsedBody === 'object') {
+                parsedBody.model = entry.model;
+            }
             const wantsStream = !!(parsedBody && parsedBody.stream);
+            const bodyToForward = JSON.stringify(parsedBody);
             const upstreamUrl = joinApiUrl(entry.baseUrl.replace(/\/+$/, ''), suffix);
             const headers = { 'Content-Type': 'application/json' };
             if (entry.apiKey) {
@@ -300,7 +305,7 @@ function createLocalBridgeHttpHandler(options = {}) {
                 // Streaming proxy: pipe upstream SSE directly to client
                 const upstreamResult = await streamClaudeUpstream(upstreamUrl, {
                     method: req.method || 'POST',
-                    body: bodyResult.body,
+                    body: bodyToForward,
                     headers,
                     maxBytes: maxUpstreamBytes,
                     httpAgent,
@@ -322,7 +327,7 @@ function createLocalBridgeHttpHandler(options = {}) {
             // Non-streaming proxy
             const upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
                 method: req.method || 'POST',
-                body: bodyResult.body || null,
+                body: bodyToForward || null,
                 headers,
                 maxBytes: maxUpstreamBytes,
                 httpAgent,
