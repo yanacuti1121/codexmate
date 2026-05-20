@@ -7,7 +7,7 @@ const toml = require('@iarna/toml');
 const JSON5 = require('json5');
 const zipLib = require('zip-lib');
 const yauzl = require('yauzl');
-const { exec, execSync, spawn, spawnSync } = require('child_process');
+const { exec, execSync, execFileSync, spawn, spawnSync } = require('child_process');
 const http = require('http');
 const https = require('https');
 const net = require('net');
@@ -175,7 +175,7 @@ const {
 } = require('./lib/download-artifacts');
 
 const DEFAULT_WEB_PORT = 3737;
-const DEFAULT_WEB_HOST = '0.0.0.0';
+const DEFAULT_WEB_HOST = '127.0.0.1';
 const DEFAULT_WEB_OPEN_HOST = '127.0.0.1';
 
 // ============================================================================
@@ -758,7 +758,7 @@ function updateAuthJson(apiKey) {
         } catch (e) { }
     }
     authData['OPENAI_API_KEY'] = apiKey;
-    fs.writeFileSync(AUTH_FILE, JSON.stringify(authData, null, 2), 'utf-8');
+    fs.writeFileSync(AUTH_FILE, JSON.stringify(authData, null, 2), { encoding: 'utf-8', mode: 0o600 });
 }
 
 function isPlainObject(value) {
@@ -1711,6 +1711,7 @@ const {
     path,
     os,
     execSync,
+    execFileSync,
     zipLib,
     yauzl,
     ensureDir,
@@ -7892,7 +7893,7 @@ function normalizeImportPayload(payload) {
             const name = item.name || item.provider || '';
             const baseUrl = item.baseUrl || item.base_url || item.url || '';
             const apiKey = item.apiKey ?? item.key ?? item.preferred_auth_method ?? null;
-            if (name && baseUrl) {
+            if (name && baseUrl && /^[a-zA-Z0-9_\-.\s]+$/.test(name)) {
                 providers[name] = { baseUrl, apiKey };
             }
         }
@@ -7901,7 +7902,7 @@ function normalizeImportPayload(payload) {
             if (!item || typeof item !== 'object') continue;
             const baseUrl = item.baseUrl || item.base_url || item.url || '';
             const apiKey = item.apiKey ?? item.key ?? item.preferred_auth_method ?? null;
-            if (name && baseUrl) {
+            if (name && baseUrl && /^[a-zA-Z0-9_\-.\s]+$/.test(name)) {
                 providers[name] = { baseUrl, apiKey };
             }
         }
@@ -9237,6 +9238,9 @@ function applyClaudeSettingsRaw(params = {}) {
     if (!content.trim()) {
         return { error: '内容不能为空' };
     }
+    if (content.length > 1024 * 1024) {
+        return { error: '内容过大（最大 1MB）' };
+    }
     let parsed;
     try {
         parsed = JSON.parse(content);
@@ -10119,7 +10123,7 @@ function assertRequestAuthorized(req, res) {
         return { ok: false, mode: 'missing-token' };
     }
     const actual = extractRequestToken(req);
-    if (!actual || actual !== expected) {
+    if (!actual || !safeTimingEqual(actual, expected)) {
         writeJsonResponse(res, 401, { error: 'Unauthorized' });
         return { ok: false, mode: 'unauthorized' };
     }
@@ -10576,7 +10580,38 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         res.end('Internal Server Error');
     };
 
+    const rateLimitMap = new Map();
+    const RATE_LIMIT_WINDOW_MS = 60000;
+    const RATE_LIMIT_MAX = 120;
+    function checkRateLimit(key) {
+        const now = Date.now();
+        const entry = rateLimitMap.get(key);
+        if (!entry || now - entry.start > RATE_LIMIT_WINDOW_MS) {
+            rateLimitMap.set(key, { start: now, count: 1 });
+            return true;
+        }
+        entry.count++;
+        if (entry.count > RATE_LIMIT_MAX) return false;
+        return true;
+    }
+    setInterval(function () {
+        const now = Date.now();
+        for (const [key, entry] of rateLimitMap.entries()) {
+            if (now - entry.start > RATE_LIMIT_WINDOW_MS * 2) rateLimitMap.delete(key);
+        }
+    }, RATE_LIMIT_WINDOW_MS).unref();
+
     const server = http.createServer((req, res) => {
+        const securityHeaders = {
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:"
+        };
+        const origWriteHead = res.writeHead.bind(res);
+        res.writeHead = function (statusCode, headers) {
+            const merged = Object.assign({}, securityHeaders, headers || {});
+            return origWriteHead(statusCode, merged);
+        };
         const requestPath = (req.url || '/').split('?')[0];
         const sendJson = (statusCode, payload) => {
             const body = JSON.stringify(payload || {}, null, 2);
@@ -10599,6 +10634,12 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             || requestPath.startsWith('/download/')
         ) {
             const remoteAddr = req && req.socket ? req.socket.remoteAddress : '';
+            const rateLimitKey = (remoteAddr || 'unknown') + ':' + requestPath;
+            if (!checkRateLimit(rateLimitKey)) {
+                res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60' });
+                res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
+                return;
+            }
             const isLoopback = !remoteAddr
                 || remoteAddr === '127.0.0.1'
                 || remoteAddr === '::1'
@@ -10619,7 +10660,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                 const actual = match && match[1]
                     ? match[1].trim()
                     : (rawAuth ? rawAuth : (typeof headers['x-codexmate-token'] === 'string' ? String(headers['x-codexmate-token']).trim() : ''));
-                if (!actual || actual !== expected) {
+                if (!actual || !safeTimingEqual(actual, expected)) {
                     sendJson(401, { error: 'Unauthorized' });
                     return;
                 }

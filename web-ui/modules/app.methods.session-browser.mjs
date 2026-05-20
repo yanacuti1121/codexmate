@@ -479,14 +479,13 @@ export function createSessionBrowserMethods(options = {}) {
             if (typeof text !== 'string' || !text) return text;
             var tokens = this.queryTokens;
             if (!tokens || tokens.length === 0) return text;
-            var result = text;
+            var escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             for (var i = 0; i < tokens.length; i++) {
-                var token = tokens[i];
-                var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\        async onSessionSourceChange(event) {');
-                var re = new RegExp('(' + escaped + ')', 'gi');
-                result = result.replace(re, '<mark>$1</mark>');
+                var token = tokens[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                var re = new RegExp('(' + token + ')', 'gi');
+                escaped = escaped.replace(re, '<mark>$1</mark>');
             }
-            return result;
+            return escaped;
         },
 
         async onSessionSourceChange(event) {

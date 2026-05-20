@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const https = require('https');
 const { execSync, spawn } = require('child_process');
 
@@ -147,8 +148,16 @@ function updateViaStandalone(version) {
     if (process.platform !== 'win32') {
         console.log('[Update] 尝试自动执行安装脚本...');
         try {
-            const script = 'curl -fsSL https://raw.githubusercontent.com/SakuraByteCore/codexmate/main/scripts/install.sh | bash';
-            execSync(script, { stdio: 'inherit' });
+            const crypto = require('crypto');
+            const tmpScript = path.join(os.tmpdir(), `codexmate-install-${Date.now()}.sh`);
+            const { execFileSync, execSync: _unused } = require('child_process');
+            execSync(`curl -fsSL -o "${tmpScript}" https://raw.githubusercontent.com/SakuraByteCore/codexmate/main/scripts/install.sh`, { stdio: 'inherit' });
+            const scriptContent = fs.readFileSync(tmpScript, 'utf-8');
+            const checksum = crypto.createHash('sha256').update(scriptContent).digest('hex');
+            console.log(`[Update] Script checksum: ${checksum}`);
+            fs.chmodSync(tmpScript, 0o755);
+            execFileSync('bash', [tmpScript], { stdio: 'inherit' });
+            try { fs.unlinkSync(tmpScript); } catch (_) {}
         } catch (e) {
             console.warn('[Update] 自动脚本执行失败，请手动运行。');
         }

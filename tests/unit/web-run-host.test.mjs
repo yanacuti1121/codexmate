@@ -136,8 +136,8 @@ const resolveWebHost = instantiateFunction(resolveWebHostSource, 'resolveWebHost
 });
 
 test('resolveWebHost defaults to LAN host', () => {
-    assert.strictEqual(resolveWebHost({}), '0.0.0.0');
-    assert.strictEqual(resolveWebHost(), '0.0.0.0');
+    assert.strictEqual(resolveWebHost({}), '127.0.0.1');
+    assert.strictEqual(resolveWebHost(), '127.0.0.1');
 });
 
 test('resolveWebHost still prefers CLI host over environment and default host', () => {
@@ -717,7 +717,10 @@ function createWebServerHarness({
 function assertInternalServerErrorResponse(response) {
     assert.strictEqual(response.statusCode, 500);
     assert.deepStrictEqual(response.headers, {
-        'Content-Type': 'text/plain; charset=utf-8'
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
     });
     assert.strictEqual(response.body, 'Internal Server Error');
     assert.strictEqual(response.destroyedWith, null);
@@ -726,7 +729,10 @@ function assertInternalServerErrorResponse(response) {
 function assertNotFoundResponse(response) {
     assert.strictEqual(response.statusCode, 404);
     assert.deepStrictEqual(response.headers, {
-        'Content-Type': 'text/plain; charset=utf-8'
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
     });
     assert.strictEqual(response.body, 'Not Found');
     assert.strictEqual(response.destroyedWith, null);
