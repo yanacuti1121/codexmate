@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showHealthCheckModal: false,
                 showCodexBridgePoolModal: false,
                 showClaudeBridgePoolModal: false,
+                showWebhookModal: false,
                 // Plugins
                 pluginsActiveId: 'prompt-templates',
                 pluginsLoading: false,
