@@ -794,6 +794,7 @@ test('listClaudeSessions uses jsonl timestamps when session index time is stale 
         entries: [{
             sessionId: 'today-session',
             fullPath: sessionPath,
+            updatedAt: '2026-04-11T22:00:00.000Z',
             created: '2026-04-12T00:59:00.000Z',
             firstPrompt: 'today claude code',
             messageCount: 2

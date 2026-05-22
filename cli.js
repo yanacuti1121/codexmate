@@ -4815,6 +4815,9 @@ function listClaudeSessions(limit, options = {}) {
             const tailRecords = parseJsonlTailRecords(filePath, summaryReadBytes);
             for (const record of tailRecords) {
                 if (record && record.timestamp) {
+                    if (!createdAt) {
+                        createdAt = toIsoTime(record.timestamp, createdAt);
+                    }
                     updatedAt = updateLatestIso(updatedAt, record.timestamp);
                 }
                 applySessionUsageSummaryFromRecord(usageState, record, 'claude');
