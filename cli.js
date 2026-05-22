@@ -10617,7 +10617,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         const securityHeaders = {
             'X-Content-Type-Options': 'nosniff',
             'X-Frame-Options': 'DENY',
-            'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:"
+            'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:"
         };
         const origWriteHead = res.writeHead.bind(res);
         res.writeHead = function (statusCode, headers) {
@@ -10646,17 +10646,17 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             || requestPath.startsWith('/download/')
         ) {
             const remoteAddr = req && req.socket ? req.socket.remoteAddress : '';
-            const rateLimitKey = (remoteAddr || 'unknown') + ':' + requestPath;
-            if (!checkRateLimit(rateLimitKey)) {
-                res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60' });
-                res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
-                return;
-            }
             const isLoopback = !remoteAddr
                 || remoteAddr === '127.0.0.1'
                 || remoteAddr === '::1'
                 || remoteAddr === '::ffff:127.0.0.1';
             if (!isLoopback) {
+                const rateLimitKey = (remoteAddr || 'unknown') + ':' + requestPath;
+                if (!checkRateLimit(rateLimitKey)) {
+                    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60' });
+                    res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
+                    return;
+                }
                 const expected = typeof process.env.CODEXMATE_HTTP_TOKEN === 'string'
                     ? process.env.CODEXMATE_HTTP_TOKEN.trim()
                     : '';

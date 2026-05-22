@@ -1,109 +1,158 @@
-		                <!-- 设置面板 -->
-		                <div
-		                    v-show="mainTab === 'settings'"
-		                    class="mode-content"
-		                    id="panel-settings"
-		                    role="tabpanel"
-		                    :aria-labelledby="'tab-settings'">
+                <!-- 设置面板 -->
+                <div
+                    v-show="mainTab === 'settings'"
+                    class="mode-content"
+                    id="panel-settings"
+                    role="tabpanel"
+                    :aria-labelledby="'tab-settings'">
 
-		                    <!-- 快捷设置：轻透、直觉、一触即达 -->
-		                    <section class="settings-quick" aria-label="快捷设置">
-		                        <div class="settings-quick-item">
-		                            <label class="settings-quick-label" for="settings-share-prefix">分享命令</label>
-		                            <select
-		                                id="settings-share-prefix"
-		                                class="settings-quick-select"
-		                                :value="shareCommandPrefix"
-		                                @change="setShareCommandPrefix($event.target.value)">
-		                                <option value="npm start">npm start</option>
-		                                <option value="codexmate">codexmate</option>
-		                            </select>
-		                        </div>
-		                        <div class="settings-quick-divider"></div>
-		                        <label class="settings-quick-toggle">
-		                            <input type="checkbox" :checked="configTemplateDiffConfirmEnabled" @change="setConfigTemplateDiffConfirmEnabled($event.target.checked)">
-		                            <span class="toggle-track">
-		                                <span class="toggle-thumb"></span>
-		                            </span>
-		                            <span class="toggle-label">模板预览</span>
-		                        </label>
-		                    </section>
+                    <div class="settings-tab-header">
+                        <div
+                            class="segmented-control"
+                            role="tablist"
+                            :aria-label="t('settings.tabs.aria')">
+                            <button
+                                id="settings-tab-general"
+                                type="button"
+                                role="tab"
+                                aria-controls="settings-panel-general"
+                                :aria-selected="settingsTab === 'general'"
+                                :tabindex="settingsTab === 'general' ? 0 : -1"
+                                :class="['segmented-option', { active: settingsTab === 'general' }]"
+                                @click="onSettingsTabClick('general')">{{ t('settings.tab.general') }}</button>
+                            <button
+                                id="settings-tab-data"
+                                type="button"
+                                role="tab"
+                                aria-controls="settings-panel-data"
+                                :aria-selected="settingsTab === 'data'"
+                                :tabindex="settingsTab === 'data' ? 0 : -1"
+                                :class="['segmented-option', { active: settingsTab === 'data' }]"
+                                @click="onSettingsTabClick('data')">{{ t('settings.tab.data') }}</button>
+                        </div>
+                    </div>
 
-		                    <div class="settings-grid">
+                    <div
+                        v-show="settingsTab === 'general'"
+                        id="settings-panel-general"
+                        role="tabpanel"
+                        aria-labelledby="settings-tab-general">
+                        <div class="settings-grid">
+                            <section class="settings-card" :aria-label="t('settings.sharePrefix.title')">
+                                <div class="settings-card-main">
+                                    <div class="settings-card-content">
+                                        <div class="settings-card-title">{{ t('settings.sharePrefix.title') }}</div>
+                                        <p class="settings-card-desc">{{ t('settings.sharePrefix.meta') }}</p>
+                                        <label class="selector-label" for="settings-share-prefix">{{ t('settings.sharePrefix.label') }}</label>
+                                        <select
+                                            id="settings-share-prefix"
+                                            class="model-select"
+                                            :value="shareCommandPrefix"
+                                            @change="setShareCommandPrefix($event.target.value)">
+                                            <option value="npm start">npm start</option>
+                                            <option value="codexmate">codexmate</option>
+                                        </select>
+                                        <p class="settings-card-hint">{{ t('settings.sharePrefix.hint') }}</p>
+                                    </div>
+                                </div>
+                            </section>
 
-		                        <!-- Webhook：状态即界面 -->
-		                        <section class="settings-card" :aria-label="'Webhook'">
-		                            <div class="settings-card-main">
-		                                <div class="settings-card-content">
-		                                    <h3 class="settings-card-title">Webhook</h3>
-		                                    <p class="settings-card-desc">配置变更时外发通知</p>
-		                                    <div class="webhook-status">
-		                                        <span class="webhook-status-dot" :class="{ active: webhookConfig.enabled }"></span>
-		                                        <span class="webhook-status-label">{{ webhookConfig.enabled ? '已启用' : '已禁用' }}</span>
-		                                        <code v-if="webhookConfig.url" class="webhook-url">{{ webhookConfig.url }}</code>
-		                                    </div>
-		                                </div>
-		                            </div>
-		                            <button class="settings-card-action" @click="openWebhookModal" :class="{ 'settings-card-action--active': webhookConfig.enabled }">
-		                                <span v-if="webhookConfig.enabled">{{ webhookConfig.url ? '编辑' : '配置' }}</span>
-		                                <span v-else>启用</span>
-		                            </button>
-		                        </section>
+                            <section class="settings-card" :aria-label="t('settings.templateConfirm.title')">
+                                <div class="settings-card-main">
+                                    <div class="settings-card-content">
+                                        <div class="settings-card-title">{{ t('settings.templateConfirm.title') }}</div>
+                                        <p class="settings-card-desc">{{ t('settings.templateConfirm.meta') }}</p>
+                                        <label class="settings-toggle-row">
+                                            <input type="checkbox" :checked="configTemplateDiffConfirmEnabled" @change="setConfigTemplateDiffConfirmEnabled($event.target.checked)">
+                                            <span class="toggle-track">
+                                                <span class="toggle-thumb"></span>
+                                            </span>
+                                            <span>{{ t('settings.templateConfirm.toggle') }}</span>
+                                        </label>
+                                        <p class="settings-card-hint">{{ t('settings.templateConfirm.hint') }}</p>
+                                    </div>
+                                </div>
+                            </section>
 
-		                        <!-- 数据备份 -->
-		                        <section class="settings-card" :aria-label="'数据备份'">
-		                            <div class="settings-card-main">
-		                                <div class="settings-card-content">
-		                                    <h3 class="settings-card-title">数据备份</h3>
-		                                    <p class="settings-card-desc">导出 / 导入配置文件</p>
-		                                </div>
-		                            </div>
-		                            <div class="settings-card-actions">
-		                                <button class="settings-card-action" @click="downloadClaudeDirectory" :disabled="claudeDownloadLoading">
-		                                    <span>Claude</span>
-		                                </button>
-		                                <button class="settings-card-action" @click="downloadCodexDirectory" :disabled="codexDownloadLoading">
-		                                    <span>Codex</span>
-		                                </button>
-		                            </div>
-		                            <input ref="claudeImportInput" class="sr-only" type="file" accept=".zip" @change="handleClaudeImportChange">
-		                            <input ref="codexImportInput" class="sr-only" type="file" accept=".zip" @change="handleCodexImportChange">
-		                        </section>
+                            <section class="settings-card" :aria-label="'Webhook'">
+                                <div class="settings-card-main">
+                                    <div class="settings-card-content">
+                                        <div class="settings-card-title">Webhook</div>
+                                        <p class="settings-card-desc">配置变更时外发通知</p>
+                                        <div class="webhook-status">
+                                            <span class="webhook-status-dot" :class="{ active: webhookConfig.enabled }"></span>
+                                            <span class="webhook-status-label">{{ webhookConfig.enabled ? '已启用' : '已禁用' }}</span>
+                                            <code v-if="webhookConfig.url" class="webhook-url">{{ webhookConfig.url }}</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="settings-card-action" @click="openWebhookModal" :class="{ 'settings-card-action--active': webhookConfig.enabled }">
+                                    <span v-if="webhookConfig.enabled">{{ webhookConfig.url ? '编辑' : '配置' }}</span>
+                                    <span v-else>启用</span>
+                                </button>
+                            </section>
+                        </div>
+                    </div>
 
-		                        <!-- 回收站 -->
-		                        <section class="settings-card" :aria-label="'回收站'">
-		                            <div class="settings-card-main">
-		                                <div class="settings-card-content">
-		                                    <h3 class="settings-card-title">回收站</h3>
-		                                    <p class="settings-card-desc">删除的会话暂存于此</p>
-		                                </div>
-		                            </div>
-		                            <div class="settings-card-trailing">
-		                                <label class="settings-toggle-inline">
-		                                    <input type="checkbox" :checked="sessionTrashEnabled" @change="setSessionTrashEnabled($event.target.checked)">
-		                                    <span class="toggle-track toggle-track--small">
-		                                        <span class="toggle-thumb"></span>
-		                                    </span>
-		                                </label>
-		                                <div class="settings-retention">
-		                                    <input type="number" min="1" max="365" :value="sessionTrashRetentionDays" @change="setSessionTrashRetentionDays(Number($event.target.value))" class="settings-retention-input" />
-		                                    <span>天</span>
-		                                </div>
-		                            </div>
-		                        </section>
+                    <div
+                        v-show="settingsTab === 'data'"
+                        id="settings-panel-data"
+                        role="tabpanel"
+                        aria-labelledby="settings-tab-data">
+                        <div class="settings-grid">
+                            <section class="settings-card" :aria-label="t('settings.backup.title')">
+                                <div class="settings-card-main">
+                                    <div class="settings-card-content">
+                                        <div class="settings-card-title">{{ t('settings.backup.title') }}</div>
+                                        <p class="settings-card-desc">{{ t('settings.backup.meta') }}</p>
+                                    </div>
+                                </div>
+                                <div class="settings-card-actions">
+                                    <button class="settings-card-action" @click="downloadClaudeDirectory" :disabled="claudeDownloadLoading">
+                                        <span>{{ claudeDownloadLoading ? t('settings.importing') : t('settings.backup.oneClickClaude') }}</span>
+                                    </button>
+                                    <button class="settings-card-action" @click="downloadCodexDirectory" :disabled="codexDownloadLoading">
+                                        <span>{{ codexDownloadLoading ? t('settings.importing') : t('settings.backup.oneClickCodex') }}</span>
+                                    </button>
+                                </div>
+                                <input ref="claudeImportInput" class="sr-only" type="file" accept=".zip" @change="handleClaudeImportChange">
+                                <input ref="codexImportInput" class="sr-only" type="file" accept=".zip" @change="handleCodexImportChange">
+                            </section>
 
-		                        <!-- 危险操作 -->
-		                        <section class="settings-card settings-card--destructive" :aria-label="'危险操作'">
-		                            <div class="settings-card-main">
-		                                <div class="settings-card-content">
-		                                    <h3 class="settings-card-title">重置配置</h3>
-		                                    <p class="settings-card-desc">恢复为默认设置（会先备份当前配置）</p>
-		                                </div>
-		                            </div>
-		                            <button class="settings-card-action settings-card-action--danger" @click="resetConfig" :disabled="resetConfigLoading || loading || !!initError">
-		                                {{ resetConfigLoading ? '重置中...' : '重置' }}
-		                            </button>
-		                        </section>
+                            <section class="settings-card" :aria-label="t('settings.trashConfig.title')">
+                                <div class="settings-card-main">
+                                    <div class="settings-card-content">
+                                        <div class="settings-card-title">{{ t('settings.trashConfig.title') }}</div>
+                                        <p class="settings-card-desc">{{ t('settings.trashConfig.meta') }}</p>
+                                        <label class="settings-toggle-row">
+                                            <input type="checkbox" :checked="sessionTrashEnabled" @change="setSessionTrashEnabled($event.target.checked)">
+                                            <span class="toggle-track">
+                                                <span class="toggle-thumb"></span>
+                                            </span>
+                                            <span>{{ t('settings.deleteBehavior.toggle') }}</span>
+                                        </label>
+                                        <div class="settings-retention">
+                                            <label for="settings-trash-retention-days">{{ t('settings.trash.retentionLabel') }}</label>
+                                            <input id="settings-trash-retention-days" type="number" min="1" max="365" :value="sessionTrashRetentionDays" @change="setSessionTrashRetentionDays(Number($event.target.value))" class="settings-retention-input" />
+                                            <span>天</span>
+                                        </div>
+                                        <p class="settings-card-hint">{{ t('settings.trash.retentionHint') }}</p>
+                                    </div>
+                                </div>
+                            </section>
 
-		                    </div>
-		                </div>
+                            <section class="settings-card settings-card--destructive" :aria-label="t('settings.reset.title')">
+                                <div class="settings-card-main">
+                                    <div class="settings-card-content">
+                                        <div class="settings-card-title">{{ t('settings.reset.title') }}</div>
+                                        <p class="settings-card-desc">{{ t('settings.reset.meta') }}</p>
+                                        <p class="settings-card-hint">{{ t('settings.reset.hint') }}</p>
+                                    </div>
+                                </div>
+                                <button class="settings-card-action settings-card-action--danger" @click="resetConfig" :disabled="resetConfigLoading || loading || !!initError">
+                                    {{ resetConfigLoading ? t('settings.reset.loading') : t('settings.reset.button') }}
+                                </button>
+                            </section>
+                        </div>
+                    </div>
+                </div>
