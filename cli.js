@@ -4235,6 +4235,9 @@ function parseClaudeSessionSummary(filePath, options = {}) {
 
     const tailRecords = parseJsonlTailRecords(filePath, summaryReadBytes);
     for (const record of tailRecords) {
+        if (record && record.timestamp) {
+            updatedAt = updateLatestIso(updatedAt, record.timestamp);
+        }
         applySessionUsageSummaryFromRecord(usageState, record, 'claude');
         totalTokens = usageState.totalTokens || 0;
         contextWindow = usageState.contextWindow || 0;
@@ -4742,8 +4745,8 @@ function listClaudeSessions(limit, options = {}) {
                 continue;
             }
 
-            const updatedAt = toIsoTime(entry.modified || entry.fileMtime, '');
-            const createdAt = toIsoTime(entry.created, '');
+            let updatedAt = toIsoTime(entry.modified || entry.fileMtime, fileStat.mtime.toISOString());
+            let createdAt = toIsoTime(entry.created, '');
             let title = truncateText(entry.summary || entry.firstPrompt || sessionId, 120);
             let messageCount = Number.isFinite(entry.messageCount) ? Math.max(0, entry.messageCount - 1) : 0;
             let totalTokens = 0;
@@ -4775,6 +4778,12 @@ function listClaudeSessions(limit, options = {}) {
 
                 const quickMessages = [];
                 for (const record of quickRecords) {
+                    if (record && record.timestamp) {
+                        if (!createdAt) {
+                            createdAt = toIsoTime(record.timestamp, createdAt);
+                        }
+                        updatedAt = updateLatestIso(updatedAt, record.timestamp);
+                    }
                     applySessionUsageSummaryFromRecord(usageState, record, 'claude');
                     const recordModels = readSessionModelsFromRecord(record);
                     for (const recordModel of recordModels) {
@@ -4805,6 +4814,9 @@ function listClaudeSessions(limit, options = {}) {
 
             const tailRecords = parseJsonlTailRecords(filePath, summaryReadBytes);
             for (const record of tailRecords) {
+                if (record && record.timestamp) {
+                    updatedAt = updateLatestIso(updatedAt, record.timestamp);
+                }
                 applySessionUsageSummaryFromRecord(usageState, record, 'claude');
                 const recordModels = readSessionModelsFromRecord(record);
                 for (const recordModel of recordModels) {
