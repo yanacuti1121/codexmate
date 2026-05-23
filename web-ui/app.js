@@ -424,11 +424,24 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const url = new URL(window.location.href);
                 let shouldReplace = false;
-                // 修复 /web-ui/web-ui/ 重复路径
-                if (url.pathname.includes('/web-ui/web-ui/')) {
+
+                // 修复多层 /web-ui/ 重复路径（如 /web-ui/web-ui/web-ui/index.html）
+                // 使用循环确保所有重复都被移除
+                let prevPathname;
+                do {
+                    prevPathname = url.pathname;
+                    // 移除连续的 /web-ui/web-ui/ 为单个 /web-ui/
                     url.pathname = url.pathname.replace(/\/web-ui\/web-ui\//g, '/web-ui/');
+                    // 移除开头的 /web-ui/web-ui/（如果有）
+                    if (url.pathname.startsWith('/web-ui/web-ui/')) {
+                        url.pathname = '/web-ui/' + url.pathname.slice('/web-ui/web-ui/'.length);
+                    }
+                } while (url.pathname !== prevPathname);
+
+                if (prevPathname !== url.pathname) {
                     shouldReplace = true;
                 }
+
                 // 修复 /web-ui/ (斜尾) → /web-ui
                 if (url.pathname === '/web-ui/') {
                     url.pathname = '/web-ui';
