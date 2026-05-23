@@ -420,6 +420,30 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         mounted() {
+            // URL 规范化：修复 /web-ui/ 404 和 /web-ui/web-ui/ 重复路径问题
+            try {
+                const url = new URL(window.location.href);
+                let shouldReplace = false;
+                // 修复 /web-ui/web-ui/ 重复路径
+                if (url.pathname.includes('/web-ui/web-ui/')) {
+                    url.pathname = url.pathname.replace(/\/web-ui\/web-ui\//g, '/web-ui/');
+                    shouldReplace = true;
+                }
+                // 修复 /web-ui/ (斜尾) → /web-ui
+                if (url.pathname === '/web-ui/') {
+                    url.pathname = '/web-ui';
+                    shouldReplace = true;
+                }
+                // 修复 /web-ui/index.html → /web-ui
+                if (url.pathname === '/web-ui/index.html') {
+                    url.pathname = '/web-ui';
+                    shouldReplace = true;
+                }
+                if (shouldReplace) {
+                    window.history.replaceState(null, '', url.toString());
+                }
+            } catch (_) {}
+
             if (typeof this.initI18n === 'function') {
                 this.initI18n();
             }

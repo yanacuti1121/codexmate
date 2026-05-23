@@ -11408,7 +11408,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                     res.end(errorBody, 'utf-8');
                 }
             });
-        } else if (requestPath === '/web-ui') {
+        } else if (requestPath === '/web-ui' || requestPath === '/web-ui/') {
             try {
                 const html = readBundledWebUiHtml(htmlPath);
                 res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -11417,6 +11417,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                 writeWebUiAssetError(res, requestPath, error);
             }
         } else if (requestPath.startsWith('/web-ui/')) {
+            // Skip the /web-ui/ directory itself, which is handled above
             const normalized = path.normalize(requestPath).replace(/^([\\.\\/])+/, '');
             const filePath = path.join(__dirname, normalized);
             if (!isPathInside(filePath, webDir)) {
@@ -11425,6 +11426,19 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                 return;
             }
             const relativePath = path.relative(webDir, filePath).replace(/\\/g, '/');
+
+            // Check if this is a direct request for index.html
+            if (relativePath === 'index.html' || relativePath === '') {
+                try {
+                    const html = readBundledWebUiHtml(htmlPath);
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(html);
+                } catch (error) {
+                    writeWebUiAssetError(res, requestPath, error);
+                }
+                return;
+            }
+
             const dynamicAsset = PUBLIC_WEB_UI_DYNAMIC_ASSETS.get(relativePath);
             if (dynamicAsset) {
                 try {
