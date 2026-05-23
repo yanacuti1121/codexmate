@@ -64,10 +64,14 @@ module.exports = async function testWebUiAssets(ctx) {
     assert(!/<!--\s*@include\s+/.test(bundledIndex.body), '/web-ui/index.html should not leak include directives');
 
     const bundledIndexWithSlash = await getText(port, '/web-ui/');
-    assert(bundledIndexWithSlash.statusCode === 404, '/web-ui/ should preserve the legacy 404 contract');
+    assert(bundledIndexWithSlash.statusCode === 200, '/web-ui/ should return 200 after URL routing fix');
     assert(
-        /^text\/plain\b/.test(String(bundledIndexWithSlash.headers['content-type'] || '')),
-        '/web-ui/ should preserve plain-text not found semantics'
+        /^text\/html\b/.test(String(bundledIndexWithSlash.headers['content-type'] || '')),
+        '/web-ui/ should return html content type after fix'
+    );
+    assert(
+        bundledIndexWithSlash.body.includes('id="settings-panel-data"'),
+        '/web-ui/ should return the same content as /web-ui/index.html'
     );
 
     const appEntry = await getText(port, '/web-ui/app.js');

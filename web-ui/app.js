@@ -427,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 修复多层 /web-ui/ 重复路径（如 /web-ui/web-ui/web-ui/index.html）
                 // 使用循环确保所有重复都被移除
+                const originalPathname = url.pathname;
                 let prevPathname;
                 do {
                     prevPathname = url.pathname;
@@ -438,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } while (url.pathname !== prevPathname);
 
-                if (prevPathname !== url.pathname) {
+                if (originalPathname !== url.pathname) {
                     shouldReplace = true;
                 }
 
