@@ -108,7 +108,10 @@
                                     <svg class="bridge-pool-summary-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6 8v4h6v4"/><path d="M18 8v4h-6v4"/></svg>
                                     <span class="bridge-pool-summary-text">{{ t('claude.localBridge.enabled') }} {{ claudeLocalBridgeCandidateProviders().filter(cp => !isClaudeLocalBridgeExcluded(cp.name)).length }} / {{ claudeLocalBridgeCandidateProviders().length }}</span>
                                 </div>
-                                <div class="card-title">claude-local</div>
+                                <div class="card-title">
+                                    <span>local</span>
+                                    <span class="provider-readonly-badge">{{ t('config.badge.system') }}</span>
+                                </div>
                                 <div class="card-subtitle card-subtitle-model">{{ t('claude.localBridge.poolHint') }}</div>
                             </div>
                         </div>
