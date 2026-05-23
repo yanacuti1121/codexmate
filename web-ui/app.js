@@ -420,29 +420,23 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         mounted() {
-            // URL 规范化：/web-ui 入口重定向到 /，修复资源重复路径
+            // URL 规范化：将 /web-ui/* 重定向到根路径 /
             try {
-                const url = new URL(window.location.href);
-                let pathname = url.pathname;
-
-                // 循环修复多层 /web-ui/ 重复
-                let prevPathname;
-                do {
-                    prevPathname = pathname;
-                    pathname = pathname.replace(/\/+web-ui\/+web-ui\/+/g, '/web-ui/');
-                } while (pathname !== prevPathname);
-
-                // /web-ui/* 入口重定向到根路径
+                const pathname = window.location.pathname;
                 if (pathname === '/web-ui' || pathname === '/web-ui/' || pathname === '/web-ui/index.html') {
-                    const targetUrl = new URL(url);
-                    targetUrl.pathname = '/';
-                    window.location.replace(targetUrl.toString());
+                    const url = new URL(window.location.href);
+                    url.pathname = '/';
+                    // 移除查询参数和 hash，保持 URL 纯净
+                    url.search = '';
+                    url.hash = '';
+                    window.location.replace(url.toString());
                     return;
                 }
-
-                // 修复资源路径中的重复 /web-ui/web-ui/
-                if (pathname !== url.pathname) {
-                    url.pathname = pathname;
+                // 清理任何查询参数和 hash，保持 URL 为 /
+                if (window.location.search || window.location.hash) {
+                    const url = new URL(window.location.href);
+                    url.search = '';
+                    url.hash = '';
                     window.history.replaceState(null, '', url.toString());
                 }
             } catch (_) {}

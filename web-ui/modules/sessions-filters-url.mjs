@@ -57,18 +57,15 @@ export function applySessionsFilterUrlState(vm, state) {
 
 export function buildSessionsFilterShareUrl(vm) {
     try {
-        const url = new URL(window.location.href);
-        if (url.pathname === '/session') return '';
+        // 使用干净的根路径作为基础 URL
+        const baseUrl = window.location.origin + '/';
+        const url = new URL(baseUrl);
+        url.searchParams.set('tab', 'sessions');
         url.searchParams.set('s_source', String(vm.sessionFilterSource || 'all'));
         if (vm.sessionPathFilter) url.searchParams.set('s_path', String(vm.sessionPathFilter || ''));
-        else url.searchParams.delete('s_path');
         if (vm.sessionQuery && isSessionQueryEnabled(vm.sessionFilterSource)) url.searchParams.set('s_query', String(vm.sessionQuery || ''));
-        else url.searchParams.delete('s_query');
         if (vm.sessionRoleFilter && vm.sessionRoleFilter !== 'all') url.searchParams.set('s_role', String(vm.sessionRoleFilter || 'all'));
-        else url.searchParams.delete('s_role');
         if (vm.sessionTimePreset && vm.sessionTimePreset !== 'all') url.searchParams.set('s_time', String(vm.sessionTimePreset || 'all'));
-        else url.searchParams.delete('s_time');
-        url.searchParams.set('tab', 'sessions');
         return url.toString();
     } catch (_) {
         return '';
@@ -76,10 +73,7 @@ export function buildSessionsFilterShareUrl(vm) {
 }
 
 export function syncSessionsFilterUrl(vm) {
-    const url = buildSessionsFilterShareUrl(vm);
-    if (!url) return;
-    try {
-        window.history.replaceState(null, '', url);
-    } catch (_) {}
+    // URL 保持静态，不同步状态到 URL
+    // 所有状态通过 localStorage 管理
 }
 
