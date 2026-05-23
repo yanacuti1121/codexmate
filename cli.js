@@ -4235,6 +4235,9 @@ function parseClaudeSessionSummary(filePath, options = {}) {
 
     const tailRecords = parseJsonlTailRecords(filePath, summaryReadBytes);
     for (const record of tailRecords) {
+        if (record && record.timestamp) {
+            updatedAt = updateLatestIso(updatedAt, record.timestamp);
+        }
         applySessionUsageSummaryFromRecord(usageState, record, 'claude');
         totalTokens = usageState.totalTokens || 0;
         contextWindow = usageState.contextWindow || 0;
@@ -4742,8 +4745,8 @@ function listClaudeSessions(limit, options = {}) {
                 continue;
             }
 
-            const updatedAt = toIsoTime(entry.modified || entry.fileMtime, '');
-            const createdAt = toIsoTime(entry.created, '');
+            let updatedAt = toIsoTime(entry.modified || entry.fileMtime, fileStat.mtime.toISOString());
+            let createdAt = toIsoTime(entry.created, '');
             let title = truncateText(entry.summary || entry.firstPrompt || sessionId, 120);
             let messageCount = Number.isFinite(entry.messageCount) ? Math.max(0, entry.messageCount - 1) : 0;
             let totalTokens = 0;
@@ -4775,6 +4778,12 @@ function listClaudeSessions(limit, options = {}) {
 
                 const quickMessages = [];
                 for (const record of quickRecords) {
+                    if (record && record.timestamp) {
+                        if (!createdAt) {
+                            createdAt = toIsoTime(record.timestamp, createdAt);
+                        }
+                        updatedAt = updateLatestIso(updatedAt, record.timestamp);
+                    }
                     applySessionUsageSummaryFromRecord(usageState, record, 'claude');
                     const recordModels = readSessionModelsFromRecord(record);
                     for (const recordModel of recordModels) {
@@ -4805,6 +4814,12 @@ function listClaudeSessions(limit, options = {}) {
 
             const tailRecords = parseJsonlTailRecords(filePath, summaryReadBytes);
             for (const record of tailRecords) {
+                if (record && record.timestamp) {
+                    if (!createdAt) {
+                        createdAt = toIsoTime(record.timestamp, createdAt);
+                    }
+                    updatedAt = updateLatestIso(updatedAt, record.timestamp);
+                }
                 applySessionUsageSummaryFromRecord(usageState, record, 'claude');
                 const recordModels = readSessionModelsFromRecord(record);
                 for (const recordModel of recordModels) {
@@ -10605,7 +10620,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         const securityHeaders = {
             'X-Content-Type-Options': 'nosniff',
             'X-Frame-Options': 'DENY',
-            'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:"
+            'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:"
         };
         const origWriteHead = res.writeHead.bind(res);
         res.writeHead = function (statusCode, headers) {
@@ -10634,17 +10649,17 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             || requestPath.startsWith('/download/')
         ) {
             const remoteAddr = req && req.socket ? req.socket.remoteAddress : '';
-            const rateLimitKey = (remoteAddr || 'unknown') + ':' + requestPath;
-            if (!checkRateLimit(rateLimitKey)) {
-                res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60' });
-                res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
-                return;
-            }
             const isLoopback = !remoteAddr
                 || remoteAddr === '127.0.0.1'
                 || remoteAddr === '::1'
                 || remoteAddr === '::ffff:127.0.0.1';
             if (!isLoopback) {
+                const rateLimitKey = (remoteAddr || 'unknown') + ':' + requestPath;
+                if (!checkRateLimit(rateLimitKey)) {
+                    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60' });
+                    res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
+                    return;
+                }
                 const expected = typeof process.env.CODEXMATE_HTTP_TOKEN === 'string'
                     ? process.env.CODEXMATE_HTTP_TOKEN.trim()
                     : '';

@@ -419,6 +419,20 @@
                 mainTab: targetTab,
                 configMode: targetTab === 'config' ? this.configMode : this.configMode
             });
+            if (targetTab !== 'sessions') {
+                try {
+                    const url = new URL(window.location.href);
+                    if (url.pathname !== '/session') {
+                        url.searchParams.delete('s_source');
+                        url.searchParams.delete('s_path');
+                        url.searchParams.delete('s_query');
+                        url.searchParams.delete('s_role');
+                        url.searchParams.delete('s_time');
+                        url.searchParams.delete('tab');
+                        window.history.replaceState(null, '', url.toString());
+                    }
+                } catch (_) {}
+            }
             this.cancelTouchNavIntentReset();
             if (targetTab === 'sessions') {
                 this.cancelScheduledSessionTabDeferredTeardown();

@@ -717,7 +717,7 @@ function createWebServerHarness({
 function assertInternalServerErrorResponse(response) {
     assert.strictEqual(response.statusCode, 500);
     assert.deepStrictEqual(response.headers, {
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
         'Content-Type': 'text/plain; charset=utf-8',
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY'
@@ -729,7 +729,7 @@ function assertInternalServerErrorResponse(response) {
 function assertNotFoundResponse(response) {
     assert.strictEqual(response.statusCode, 404);
     assert.deepStrictEqual(response.headers, {
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
         'Content-Type': 'text/plain; charset=utf-8',
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY'
