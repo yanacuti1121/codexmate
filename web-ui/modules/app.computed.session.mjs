@@ -602,11 +602,10 @@ export function createSessionComputed() {
             const sessions = this.sessionUsageCharts && Array.isArray(this.sessionUsageCharts.filteredSessions)
                 ? this.sessionUsageCharts.filteredSessions
                 : this.sessionsUsageList;
-            const compareEnabled = this.sessionsUsageCompareEnabled === true && this.sessionsUsageTimeRange !== 'all';
             const rangeDays = this.sessionsUsageTimeRange === '30d' ? 30 : 7;
             const dayMs = 24 * 60 * 60 * 1000;
             const baseMs = Date.parse(`${dayKey}T00:00:00.000Z`);
-            const prevKey = compareEnabled && Number.isFinite(baseMs)
+            const prevKey = Number.isFinite(baseMs)
                 ? new Date(baseMs - (rangeDays * dayMs)).toISOString().slice(0, 10)
                 : '';
             let sessionCount = 0;
@@ -636,7 +635,7 @@ export function createSessionComputed() {
                 } else if (isPrev) {
                     prevTokenTotal += sessionTokens;
                 }
-                                const model = typeof session.model === 'string' ? session.model.trim() : '';
+                const model = typeof session.model === 'string' ? session.model.trim() : '';
                 if (isCurrent && model) {
                     modelMap.set(model, (modelMap.get(model) || 0) + 1);
                 }
@@ -667,17 +666,159 @@ export function createSessionComputed() {
                 }));
             return {
                 dayKey,
-                compareEnabled,
                 prevKey,
                 sessionCount,
                 messageCount,
                 tokenTotal,
                 tokenLabel: formatUsageSummaryNumber(tokenTotal),
                 prevTokenTotal,
-                prevTokenLabel: compareEnabled ? formatUsageSummaryNumber(prevTokenTotal) : '0',
-                deltaTokenLabel: compareEnabled ? formatSignedUsageSummaryNumber(tokenTotal - prevTokenTotal) : '0',
+                prevTokenLabel: prevKey ? formatUsageSummaryNumber(prevTokenTotal) : null,
+                deltaTokenLabel: prevKey ? formatSignedUsageSummaryNumber(tokenTotal - prevTokenTotal) : null,
                 topSessions,
                 topModels
+            };
+        },
+
+        usageHeroMainValue() {
+            const summary = this.sessionUsageCharts && this.sessionUsageCharts.summary
+                ? this.sessionUsageCharts.summary
+                : null;
+            if (!summary) return '0';
+            return formatCompactUsageSummaryNumber(summary.totalTokens || 0);
+        },
+
+        usageHeroSubLabel() {
+            const summary = this.sessionUsageCharts && this.sessionUsageCharts.summary
+                ? this.sessionUsageCharts.summary
+                : null;
+            if (!summary) return '';
+            const t = typeof this.t === 'function' ? this.t : null;
+            const sessionCount = summary.totalSessions || 0;
+            const rangeLabel = this.sessionsUsageTimeRange === '30d' ? '30天' : (this.sessionsUsageTimeRange === 'all' ? '全部' : '7天');
+            const rangeText = t ? t('usage.range.' + this.sessionsUsageTimeRange) : rangeLabel;
+            return `${formatUsageSummaryNumber(sessionCount)} sessions · ${rangeText}`;
+        },
+
+        usageHeroDelta() {
+            const range = this.sessionsUsageTimeRange;
+            if (range === 'all') return null;
+            const summary = this.sessionUsageCharts && this.sessionUsageCharts.summary
+                ? this.sessionUsageCharts.summary
+                : null;
+            if (!summary || !summary.totalTokens) return null;
+
+            const rangeDays = range === '30d' ? 30 : 7;
+            const dayMs = 24 * 60 * 60 * 1000;
+            const nowMs = Date.now();
+            const prevStartMs = nowMs - (rangeDays * 2 * dayMs);
+            const prevEndMs = nowMs - (rangeDays * dayMs);
+
+            let prevTokens = 0;
+            for (const session of (Array.isArray(this.sessionsUsageList) ? this.sessionsUsageList : [])) {
+                if (!session || typeof session !== 'object') continue;
+                const updatedAtMs = Date.parse(session.updatedAt || '');
+                if (!Number.isFinite(updatedAtMs)) continue;
+                if (updatedAtMs >= prevStartMs && updatedAtMs < prevEndMs) {
+                    const sessionTokens = Number.isFinite(Number(session.totalTokens))
+                        ? Math.max(0, Math.floor(Number(session.totalTokens)))
+                        : 0;
+                    prevTokens += sessionTokens;
+                }
+            }
+
+            if (prevTokens === 0) return null;
+            const currentTokens = summary.totalTokens;
+            const delta = currentTokens - prevTokens;
+            const deltaPercent = prevTokens > 0 ? Math.round((delta / prevTokens) * 100) : 0;
+            const arrow = delta > 0 ? '↑' : (delta < 0 ? '↓' : '–');
+            const sign = delta >= 0 ? '+' : '';
+            return `${arrow} ${sign}${deltaPercent}%`;
+        },
+
+        usageHeroDeltaClass() {
+            const summary = this.sessionUsageCharts && this.sessionUsageCharts.summary
+                ? this.sessionUsageCharts.summary
+                : null;
+            if (!summary || !summary.totalTokens) return '';
+
+            const range = this.sessionsUsageTimeRange;
+            if (range === 'all') return '';
+
+            const rangeDays = range === '30d' ? 30 : 7;
+            const dayMs = 24 * 60 * 60 * 1000;
+            const nowMs = Date.now();
+            const prevStartMs = nowMs - (rangeDays * 2 * dayMs);
+            const prevEndMs = nowMs - (rangeDays * dayMs);
+
+            let prevTokens = 0;
+            for (const session of (Array.isArray(this.sessionsUsageList) ? this.sessionsUsageList : [])) {
+                if (!session || typeof session !== 'object') continue;
+                const updatedAtMs = Date.parse(session.updatedAt || '');
+                if (!Number.isFinite(updatedAtMs)) continue;
+                if (updatedAtMs >= prevStartMs && updatedAtMs < prevEndMs) {
+                    const sessionTokens = Number.isFinite(Number(session.totalTokens))
+                        ? Math.max(0, Math.floor(Number(session.totalTokens)))
+                        : 0;
+                    prevTokens += sessionTokens;
+                }
+            }
+
+            if (prevTokens === 0) return '';
+            const currentTokens = summary.totalTokens;
+            return currentTokens >= prevTokens ? 'delta-up' : 'delta-down';
+        },
+
+        sessionsUsageSelectedDay() {
+            return this.sessionsUsageSelectedDayKey || '';
+        },
+
+        sessionUsageWave() {
+            const daily = this.sessionUsageDaily && typeof this.sessionUsageDaily === 'object'
+                ? this.sessionUsageDaily
+                : null;
+            if (!daily || !Array.isArray(daily.rows) || daily.rows.length === 0) {
+                return { points: [], labels: [], linePath: '', areaPath: '', width: 800, maxTokens: 0 };
+            }
+
+            const rows = daily.rows;
+            const maxTokens = daily.maxTokens || 1;
+            const width = 800;
+            const height = 140;
+            const padding = { top: 10, bottom: 30, left: 0, right: 0 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+
+            const points = rows.map((row, index) => {
+                const x = padding.left + (index / (rows.length - 1 || 1)) * chartWidth;
+                const normalizedValue = maxTokens > 0 ? (row.tokenTotal / maxTokens) : 0;
+                const y = padding.top + chartHeight - (normalizedValue * chartHeight);
+                return { x, y, key: row.key, value: row.tokenTotal, label: row.label };
+            });
+
+            const linePath = points.length > 1
+                ? `M ${points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ')}`
+                : '';
+
+            const areaPath = points.length > 1
+                ? `${linePath} L ${points[points.length - 1].x.toFixed(1)},${(padding.top + chartHeight).toFixed(1)} L ${points[0].x.toFixed(1)},${(padding.top + chartHeight).toFixed(1)} Z`
+                : '';
+
+            const selectedKey = this.sessionsUsageSelectedDayKey;
+            const selectedPoint = points.find(p => p.key === selectedKey) || points[points.length - 1] || null;
+
+            return {
+                points,
+                labels: rows.map((row, index) => ({
+                    key: row.key,
+                    text: row.label
+                })),
+                linePath,
+                areaPath,
+                width,
+                height,
+                maxTokens,
+                hoverX: selectedPoint ? selectedPoint.x : 0,
+                hoverY: selectedPoint ? selectedPoint.y : 0
             };
         },
 

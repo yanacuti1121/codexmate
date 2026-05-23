@@ -1,4 +1,4 @@
-                <!-- Usage 统计 -->
+                <!-- Usage 统计 - 时光之河设计 -->
                 <div
                     v-show="mainTab === 'usage'"
                     class="mode-content"
@@ -11,84 +11,122 @@
                             <button type="button" class="usage-range-btn" :class="{ active: sessionsUsageTimeRange === '7d' }" @click="setSessionsUsageTimeRange('7d')">{{ t('usage.range.7d') }}</button>
                             <button type="button" class="usage-range-btn" :class="{ active: sessionsUsageTimeRange === '30d' }" @click="setSessionsUsageTimeRange('30d')">{{ t('usage.range.30d') }}</button>
                             <button type="button" class="usage-range-btn" :class="{ active: sessionsUsageTimeRange === 'all' }" @click="setSessionsUsageTimeRange('all')">{{ t('usage.range.all') }}</button>
-                            <button type="button" class="usage-range-btn usage-range-btn-compare" :class="{ active: sessionsUsageCompareEnabled }" @click="toggleSessionsUsageCompare" :disabled="sessionsUsageTimeRange === 'all'">{{ t('usage.compare.toggle') }}</button>
                             <button type="button" class="usage-range-btn usage-range-btn-icon" @click="loadSessionsUsage({ forceRefresh: true, range: sessionsUsageTimeRange })" :disabled="sessionsUsageLoading" :title="t('usage.refresh')">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                             </button>
                         </div>
                     </div>
 
-                    <div v-if="sessionsUsageLoading && !sessionsUsageList.length" class="session-empty">{{ t('usage.loading') }}</div>
-                    <div v-else-if="sessionsUsageError && !sessionsUsageList.length" class="usage-empty">{{ sessionsUsageError }}</div>
-                    <div v-else-if="!sessionsUsageList.length" class="usage-empty">{{ t('usage.empty') }}</div>
+                    <div v-if="sessionsUsageLoading && !sessionsUsageList.length" class="usage-empty-state">
+                        <div class="usage-empty-illustration">
+                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4" opacity="0.3"/>
+                                <circle cx="32" cy="32" r="20" stroke="currentColor" stroke-width="2" opacity="0.5"/>
+                                <path d="M32 20V32L40 36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <p class="usage-empty-text">{{ t('usage.loading') }}</p>
+                    </div>
+                    <div v-else-if="sessionsUsageError && !sessionsUsageList.length" class="usage-empty-state">
+                        <div class="usage-empty-illustration">
+                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 20L44 44M44 20L20 44" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <p class="usage-empty-text">{{ sessionsUsageError }}</p>
+                    </div>
+                    <div v-else-if="!sessionsUsageList.length" class="usage-empty-state">
+                        <div class="usage-empty-illustration">
+                            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="12" y="16" width="40" height="32" rx="2" stroke="currentColor" stroke-width="2"/>
+                                <path d="M20 26H44M20 32H36M20 38H32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <p class="usage-empty-text">{{ t('usage.empty') }}</p>
+                    </div>
                     <template v-else>
                         <div class="usage-content" :class="{ 'usage-content-loading': sessionsUsageLoading }">
                             <div v-if="sessionsUsageLoading" class="usage-content-overlay" aria-live="polite">
                                 <span class="usage-spinner" aria-hidden="true"></span>
                             </div>
 
-                            <div v-if="usageCurrentSessionStats" class="usage-current-session-bar">
-                                <span class="usage-current-session-dot"></span>
-                                <span class="usage-current-session-label">{{ usageCurrentSessionStats.label }}</span>
-                                <span class="usage-current-session-stat">{{ usageCurrentSessionStats.tokenLabel }} tokens</span>
-                                <span class="usage-current-session-stat">{{ usageCurrentSessionStats.apiDurationLabel }} API</span>
-                                <span class="usage-current-session-stat">{{ usageCurrentSessionStats.totalDurationLabel }} total</span>
-                            </div>
-
-                            <div class="usage-summary-grid">
-                                <div v-for="card in sessionUsageSummaryCards" :key="card.key" class="usage-summary-card" :title="card.title || ''">
-                                    <div class="usage-summary-card-value">{{ card.value }}</div>
-                                    <div class="usage-summary-card-label">{{ card.label }}</div>
+                            <!-- Hero 区域：合并当前会话条 + 主要指标 -->
+                            <div class="usage-hero">
+                                <div v-if="usageCurrentSessionStats" class="usage-hero-active">
+                                    <span class="usage-hero-active-dot"></span>
+                                    <span class="usage-hero-active-label">{{ usageCurrentSessionStats.label }}</span>
+                                    <span class="usage-hero-active-stat">{{ usageCurrentSessionStats.tokenLabel }} tokens</span>
+                                    <span class="usage-hero-active-stat">{{ usageCurrentSessionStats.apiDurationLabel }} API</span>
+                                    <span class="usage-hero-active-stat">{{ usageCurrentSessionStats.totalDurationLabel }} total</span>
                                 </div>
-                            </div>
 
-                            <section v-if="sessionUsageDaily && sessionUsageDaily.rows.length" class="usage-card">
-                                <div class="usage-card-head">
-                                    <div class="usage-card-title">{{ t('usage.daily.title') }}</div>
-                                    <div class="usage-card-subtitle">{{ t('usage.daily.subtitle') }}</div>
-                                </div>
-                                <div class="usage-daily-chart">
-                                    <div v-for="day in sessionUsageDaily.rows" :key="day.key" class="usage-daily-bar-group" @click="selectSessionsUsageDay(day.key)" :class="{ active: sessionsUsageSelectedDay === day.key }">
-                                        <div class="usage-daily-bar-stack">
-                                            <div class="usage-daily-bar-fill" :style="{ height: day.tokenPercent + '%' }"></div>
-                                            <div v-if="day.compareEnabled" class="usage-daily-bar-prev" :style="{ height: day.prevTokenPercent + '%' }"></div>
-                                        </div>
-                                        <div class="usage-daily-bar-label">{{ day.label }}</div>
+                                <div class="usage-hero-metrics">
+                                    <div class="usage-hero-main">{{ usageHeroMainValue }}</div>
+                                    <div class="usage-hero-sub">
+                                        <span>{{ usageHeroSubLabel }}</span>
+                                        <span v-if="usageHeroDelta" :class="['usage-hero-delta', usageHeroDeltaClass]">
+                                            {{ usageHeroDelta }}
+                                        </span>
                                     </div>
                                 </div>
-                                <div class="usage-daily-legend">
-                                    <span class="usage-daily-legend-item"><span class="usage-daily-legend-swatch current"></span>{{ t('usage.legend.current') }}</span>
-                                    <span v-if="sessionsUsageCompareEnabled" class="usage-daily-legend-item"><span class="usage-daily-legend-swatch prev"></span>{{ t('usage.compare.prev') }}</span>
-                                </div>
-                                <template v-if="sessionsUsageSelectedDaySummary">
-                                    <div class="usage-daydetail">
-                                        <div class="usage-daydetail-header">
-                                            <span class="usage-daydetail-date">{{ sessionsUsageSelectedDaySummary.dayKey }}</span>
-                                            <span class="usage-daydetail-stats">{{ sessionsUsageSelectedDaySummary.sessionCount }} sessions · {{ sessionsUsageSelectedDaySummary.tokenLabel }} tokens</span>
-                                        </div>
-                                        <div v-if="sessionsUsageSelectedDaySummary.compareEnabled" class="usage-daydetail-compare">
-                                            {{ t('usage.compare.prev') }} {{ sessionsUsageSelectedDaySummary.prevTokenLabel }} tokens · {{ t('usage.compare.delta') }} {{ sessionsUsageSelectedDaySummary.deltaTokenLabel }}
-                                        </div>
+                            </div>
+
+                            <!-- 波浪图：替换柱状图 -->
+                            <section v-if="sessionUsageWave.points && sessionUsageWave.points.length" class="usage-card usage-wave-section">
+                                <div class="usage-card-title">{{ t('usage.daily.title') }}</div>
+                                <div class="usage-wave-container">
+                                    <svg class="usage-wave-chart" viewBox="0 0 800 140" preserveAspectRatio="none">
+                                        <defs>
+                                            <linearGradient :id="'wave-gradient-' + sessionsUsageTimeRange" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" :stop-color="'var(--color-brand)'" stop-opacity="0.3"/>
+                                                <stop offset="100%" :stop-color="'var(--color-brand)'" stop-opacity="0"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <!-- 填充区域 -->
+                                        <path :d="sessionUsageWave.areaPath" :fill="'url(#wave-gradient-' + sessionsUsageTimeRange + ')'" class="usage-wave-area"/>
+                                        <!-- 曲线 -->
+                                        <path :d="sessionUsageWave.linePath" fill="none" :stroke="'var(--color-brand)'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="usage-wave-line"/>
+                                        <!-- 悬停指示线 -->
+                                        <line v-if="sessionsUsageSelectedDay" x1="0" :x2="sessionUsageWave.width" :y1="sessionUsageWave.hoverY" :y2="sessionUsageWave.hoverY" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity="0.4" class="usage-wave-hover-line"/>
+                                        <!-- 悬停点 -->
+                                        <circle v-if="sessionsUsageSelectedDay" :cx="sessionUsageWave.hoverX" :cy="sessionUsageWave.hoverY" r="5" :fill="'var(--color-surface)'" :stroke="'var(--color-brand)'" stroke-width="2.5" class="usage-wave-hover-point"/>
+                                    </svg>
+                                    <div class="usage-wave-labels">
+                                        <span v-for="label in sessionUsageWave.labels" :key="label.key"
+                                              class="usage-wave-label"
+                                              :class="{ active: sessionsUsageSelectedDay === label.key }"
+                                              @click="selectSessionsUsageDay(label.key)">
+                                            {{ label.text }}
+                                        </span>
                                     </div>
-                                </template>
+                                </div>
+                                <div v-if="sessionsUsageSelectedDaySummary" class="usage-daydetail">
+                                    <div class="usage-daydetail-header">
+                                        <span class="usage-daydetail-date">{{ sessionsUsageSelectedDaySummary.dayKey }}</span>
+                                        <span class="usage-daydetail-stats">{{ sessionsUsageSelectedDaySummary.sessionCount }} sessions · {{ sessionsUsageSelectedDaySummary.tokenLabel }} tokens</span>
+                                    </div>
+                                    <div v-if="sessionsUsageSelectedDaySummary.prevTokenLabel !== null" class="usage-daydetail-compare">
+                                        {{ t('usage.compare.prev') }} {{ sessionsUsageSelectedDaySummary.prevTokenLabel }} tokens · {{ t('usage.compare.delta') }} {{ sessionsUsageSelectedDaySummary.deltaTokenLabel }}
+                                    </div>
+                                </div>
                             </section>
 
                             <div class="usage-chart-grid">
-                                <section class="usage-card usage-card-hourly-heatmap">
+                                <!-- 热力图：垂直活动条 -->
+                                <section class="usage-card usage-hourly-heatmap">
                                     <div class="usage-card-title">{{ t('usage.hourlyHeatmap.title') }}</div>
                                     <div class="hourly-heatmap-wrapper">
                                         <div class="hourly-heatmap-header">
                                             <div class="hourly-heatmap-corner"></div>
                                             <div v-for="h in 24" :key="'hdr-' + h" class="hourly-heatmap-hour-label">{{ h - 1 }}</div>
                                         </div>
-                                        <div v-for="row in sessionUsageHeatmap.rows" :key="row.weekday" class="hourly-heatmap-row">
+                                        <div v-for="row in sessionUsageHourlyHeatmap.rows" :key="row.weekday" class="hourly-heatmap-row">
                                             <div class="hourly-heatmap-weekday-label">{{ row.weekday }}</div>
                                             <div v-for="cell in row.cells" :key="'cell-' + row.weekday + '-' + cell.hour" :class="['hourly-heatmap-cell', 'level-' + cell.level]" :title="cell.tooltip"></div>
                                         </div>
                                     </div>
                                     <div class="hourly-heatmap-legend">
                                         <span class="hourly-heatmap-legend-label">{{ t('usage.hourlyHeatmap.legend.less') }}</span>
-                                        <span class="hourly-heatmap-cell level-0"></span>
                                         <span class="hourly-heatmap-cell level-1"></span>
                                         <span class="hourly-heatmap-cell level-2"></span>
                                         <span class="hourly-heatmap-cell level-3"></span>
@@ -97,38 +135,47 @@
                                     </div>
                                 </section>
 
-                                <section class="usage-card">
-                                    <div class="usage-card-title">{{ t('usage.paths.title') }}</div>
-                                    <div v-if="!sessionUsageCharts.topPaths.length" class="usage-list-value">{{ t('usage.paths.empty') }}</div>
-                                    <div v-else class="usage-list">
-                                        <div v-for="item in sessionUsageCharts.topPaths" :key="item.path" class="usage-list-row">
-                                            <div class="usage-list-path" :title="item.path">{{ item.path }}</div>
-                                            <div class="usage-list-stat">{{ item.count }}</div>
-                                            <div class="usage-progress"><div class="usage-progress-fill" :style="{ width: ((item.count / Math.max((sessionUsageCharts.topPaths.length ? sessionUsageCharts.topPaths[0].count : 1), 1)) * 100) + '%' }"></div></div>
-                                        </div>
-                                    </div>
-                                </section>
-
+                                <!-- Top Sessions -->
                                 <section class="usage-card">
                                     <div class="usage-card-title">{{ t('usage.sessions.topDensity') }}</div>
                                     <div v-if="!sessionUsageCharts.topSessionsByMessages.length" class="usage-list-value">{{ t('usage.sessions.empty') }}</div>
-                                    <div v-else class="usage-list">
-                                        <div v-for="item in sessionUsageCharts.topSessionsByMessages" :key="item.key + '-dense'" class="usage-list-row">
-                                            <div class="usage-list-title" :title="item.title">{{ item.title }}</div>
-                                            <div class="usage-list-stat">{{ item.messageCount }}</div>
-                                            <div class="usage-list-meta">{{ item.sourceLabel }} · {{ item.updatedAtLabel }}</div>
+                                    <div v-else class="usage-list-compact">
+                                        <div v-for="item in sessionUsageCharts.topSessionsByMessages" :key="item.key + '-dense'" class="usage-list-compact-item" @click="selectSession(item)" :title="item.title">
+                                            <span class="usage-list-bullet">·</span>
+                                            <div class="usage-list-compact-content">
+                                                <div class="usage-list-title">{{ item.title }}</div>
+                                                <div class="usage-list-meta">{{ item.messageCount }} msgs · {{ item.sourceLabel }} · {{ item.updatedAtLabel }}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>
 
+                                <!-- Recent Activity -->
                                 <section class="usage-card">
                                     <div class="usage-card-title">{{ t('usage.recent.title') }}</div>
                                     <div v-if="!sessionUsageCharts.recentSessions.length" class="usage-list-value">{{ t('usage.sessions.empty') }}</div>
-                                    <div v-else class="usage-list">
-                                        <div v-for="item in sessionUsageCharts.recentSessions" :key="item.key" class="usage-list-row">
-                                            <div class="usage-list-title" :title="item.title">{{ item.title }}</div>
-                                            <span :class="['pill', item.source === 'codex' ? 'configured' : 'empty']">{{ item.sourceLabel }}</span>
-                                            <div class="usage-list-meta">{{ item.messageCount }} msgs · {{ item.updatedAtLabel }}</div>
+                                    <div v-else class="usage-list-compact">
+                                        <div v-for="item in sessionUsageCharts.recentSessions" :key="item.key" class="usage-list-compact-item" @click="selectSession(item)">
+                                            <span class="usage-list-bullet">·</span>
+                                            <div class="usage-list-compact-content">
+                                                <div class="usage-list-title">{{ item.title }}</div>
+                                                <div class="usage-list-meta">{{ item.messageCount }} msgs · {{ item.sourceLabel }} · {{ item.updatedAtLabel }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <!-- Top Paths -->
+                                <section class="usage-card usage-paths-section">
+                                    <div class="usage-card-title">{{ t('usage.paths.title') }}</div>
+                                    <div v-if="!sessionUsageCharts.topPaths.length" class="usage-list-value">{{ t('usage.paths.empty') }}</div>
+                                    <div v-else class="usage-list-paths">
+                                        <div v-for="(item, index) in sessionUsageCharts.topPaths" :key="item.path" class="usage-list-path-row">
+                                            <span class="usage-list-path-rank">{{ index + 1 }}</span>
+                                            <div class="usage-list-path-content">
+                                                <div class="usage-list-path" :title="item.path">{{ item.path }}</div>
+                                                <div class="usage-list-path-stat">{{ item.count }}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </section>
