@@ -100,7 +100,7 @@
                 </div>
 
                 <div class="card-list">
-                    <div :class="['card', { active: currentClaudeConfig === 'claude-local' }]" @click="applyClaudeLocalBridge()" @keydown.enter.self.prevent="applyClaudeLocalBridge()" @keydown.space.self.prevent="applyClaudeLocalBridge()" tabindex="0" role="button" :aria-current="currentClaudeConfig === 'claude-local' ? 'true' : null">
+                    <div :class="['card', { active: currentClaudeConfig === 'claude-local', disabled: isClaudeLocalBridgeDisabled() }]" @click="!isClaudeLocalBridgeDisabled() && applyClaudeLocalBridge()" @keydown.enter.self.prevent="!isClaudeLocalBridgeDisabled() && applyClaudeLocalBridge()" @keydown.space.self.prevent="!isClaudeLocalBridgeDisabled() && applyClaudeLocalBridge()" :tabindex="isClaudeLocalBridgeDisabled() ? -1 : 0" role="button" :aria-current="currentClaudeConfig === 'claude-local' ? 'true' : null">
                         <div class="card-leading">
                             <div class="card-icon">L</div>
                             <div class="card-content">

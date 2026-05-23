@@ -84,16 +84,16 @@ export function createDashboardComputed() {
         },
         displayProvidersList() {
             const list = Array.isArray(this.providersList) ? [...this.providersList] : [];
-            // codex/claude 模式下不显示 local provider
-            const filtered = (this.configMode === 'codex' || this.configMode === 'claude')
-                ? list.filter(p => p.name !== 'local')
-                : list;
-            filtered.sort((a, b) => {
+            list.sort((a, b) => {
                 if (a.name === 'local') return -1;
                 if (b.name === 'local') return 1;
                 return 0;
             });
-            return filtered;
+            return list;
+        },
+
+        isLocalProviderDisabled() {
+            return this.configMode === 'codex';
         },
 
         displayProviderUrl() {

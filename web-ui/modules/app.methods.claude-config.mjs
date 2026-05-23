@@ -266,6 +266,10 @@ export function createClaudeConfigMethods(options = {}) {
             return this.claudeLocalBridgeCandidateProviders().some(p => p.hasKey);
         },
 
+        isClaudeLocalBridgeDisabled() {
+            return this.configMode === 'claude';
+        },
+
         async applyClaudeLocalBridge() {
             this.currentClaudeConfig = 'claude-local';
             try { localStorage.setItem('currentClaudeConfig', 'claude-local'); } catch (_) {}
