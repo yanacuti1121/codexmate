@@ -84,12 +84,16 @@ export function createDashboardComputed() {
         },
         displayProvidersList() {
             const list = Array.isArray(this.providersList) ? [...this.providersList] : [];
-            list.sort((a, b) => {
+            // codex/claude 模式下不显示 local provider
+            const filtered = (this.configMode === 'codex' || this.configMode === 'claude')
+                ? list.filter(p => p.name !== 'local')
+                : list;
+            filtered.sort((a, b) => {
                 if (a.name === 'local') return -1;
                 if (b.name === 'local') return 1;
                 return 0;
             });
-            return list;
+            return filtered;
         },
 
         displayProviderUrl() {
