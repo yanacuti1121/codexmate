@@ -420,40 +420,29 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         mounted() {
-            // URL 规范化：修复 /web-ui/ 404 和 /web-ui/web-ui/ 重复路径问题
+            // URL 规范化：/web-ui 入口重定向到 /，修复资源重复路径
             try {
                 const url = new URL(window.location.href);
-                let shouldReplace = false;
+                let pathname = url.pathname;
 
-                // 修复多层 /web-ui/ 重复路径（如 /web-ui/web-ui/web-ui/index.html）
-                // 使用循环确保所有重复都被移除
-                const originalPathname = url.pathname;
+                // 循环修复多层 /web-ui/ 重复
                 let prevPathname;
                 do {
-                    prevPathname = url.pathname;
-                    // 移除连续的 /web-ui/web-ui/ 为单个 /web-ui/
-                    url.pathname = url.pathname.replace(/\/web-ui\/web-ui\//g, '/web-ui/');
-                    // 移除开头的 /web-ui/web-ui/（如果有）
-                    if (url.pathname.startsWith('/web-ui/web-ui/')) {
-                        url.pathname = '/web-ui/' + url.pathname.slice('/web-ui/web-ui/'.length);
-                    }
-                } while (url.pathname !== prevPathname);
+                    prevPathname = pathname;
+                    pathname = pathname.replace(/\/+web-ui\/+web-ui\/+/g, '/web-ui/');
+                } while (pathname !== prevPathname);
 
-                if (originalPathname !== url.pathname) {
-                    shouldReplace = true;
+                // /web-ui/* 入口重定向到根路径
+                if (pathname === '/web-ui' || pathname === '/web-ui/' || pathname === '/web-ui/index.html') {
+                    const targetUrl = new URL(url);
+                    targetUrl.pathname = '/';
+                    window.location.replace(targetUrl.toString());
+                    return;
                 }
 
-                // 修复 /web-ui/ (斜尾) → /web-ui
-                if (url.pathname === '/web-ui/') {
-                    url.pathname = '/web-ui';
-                    shouldReplace = true;
-                }
-                // 修复 /web-ui/index.html → /web-ui
-                if (url.pathname === '/web-ui/index.html') {
-                    url.pathname = '/web-ui';
-                    shouldReplace = true;
-                }
-                if (shouldReplace) {
+                // 修复资源路径中的重复 /web-ui/web-ui/
+                if (pathname !== url.pathname) {
+                    url.pathname = pathname;
                     window.history.replaceState(null, '', url.toString());
                 }
             } catch (_) {}

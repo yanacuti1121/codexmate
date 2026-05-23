@@ -32,56 +32,57 @@ function getText(port, requestPath, timeoutMs = 2000) {
 /**
  * 测试 Web UI URL 路由修复
  *
- * 背景：之前 /web-ui/ 返回 404，且可能出现 /web-ui/web-ui/index.html
- * 这样的重复路径问题。
+ * 背景：/web-ui 入口已废弃，统一使用根路径 /。
+ * 资源文件仍挂载在 /web-ui/* 下。
  *
  * 修复内容：
- * 1. 服务器侧：/web-ui/ 和 /web-ui/index.html 都返回 HTML
- * 2. 客户端侧：自动规范化重复路径和 index.html 显式请求
+ * 1. 服务端：/web-ui、/web-ui/、/web-ui/index.html 返回 404
+ * 2. 根路径 / 返回 HTML
+ * 3. 资源路径 /web-ui/app.js 等继续工作
+ * 4. 客户端：访问 /web-ui/* 时自动跳转到 /
  */
 module.exports = async function testWebUiUrlRouting(ctx) {
     const { port } = ctx;
 
     // ========== 服务器侧路由测试 ==========
 
-    // 测试 /web-ui (无斜尾) - 应该返回 HTML
+    // 测试根路径 / - 应该返回 HTML
+    const rootPath = await getText(port, '/');
+    assert(
+        rootPath.statusCode === 200,
+        `/ should return 200, got ${rootPath.statusCode}`
+    );
+    assert(
+        /^text\/html\b/.test(String(rootPath.headers['content-type'] || '')),
+        '/ should return html content type'
+    );
+    assert(
+        rootPath.body.includes('id="app"'),
+        '/ should contain Vue app mount point'
+    );
+
+    // 测试 /web-ui (无斜尾) - 应该返回 404
     const webUiNoSlash = await getText(port, '/web-ui');
     assert(
-        webUiNoSlash.statusCode === 200,
-        `/web-ui should return 200, got ${webUiNoSlash.statusCode}`
-    );
-    assert(
-        /^text\/html\b/.test(String(webUiNoSlash.headers['content-type'] || '')),
-        '/web-ui should return html content type'
+        webUiNoSlash.statusCode === 404,
+        `/web-ui should return 404, got ${webUiNoSlash.statusCode}`
     );
 
-    // 测试 /web-ui/ (有斜尾) - 修复后应该返回 HTML（之前是 404）
+    // 测试 /web-ui/ (有斜尾) - 应该返回 404
     const webUiWithSlash = await getText(port, '/web-ui/');
     assert(
-        webUiWithSlash.statusCode === 200,
-        `/web-ui/ should return 200 after fix, got ${webUiWithSlash.statusCode}`
-    );
-    assert(
-        /^text\/html\b/.test(String(webUiWithSlash.headers['content-type'] || '')),
-        '/web-ui/ should return html content type'
+        webUiWithSlash.statusCode === 404,
+        `/web-ui/ should return 404, got ${webUiWithSlash.statusCode}`
     );
 
-    // 测试 /web-ui/index.html (显式请求) - 应该返回 HTML
+    // 测试 /web-ui/index.html (显式请求) - 应该返回 404
     const webUiIndexHtml = await getText(port, '/web-ui/index.html');
     assert(
-        webUiIndexHtml.statusCode === 200,
-        `/web-ui/index.html should return 200, got ${webUiIndexHtml.statusCode}`
-    );
-    assert(
-        /^text\/html\b/.test(String(webUiIndexHtml.headers['content-type'] || '')),
-        '/web-ui/index.html should return html content type'
-    );
-    assert(
-        webUiIndexHtml.body.includes('id="app"'),
-        '/web-ui/index.html should contain Vue app mount point'
+        webUiIndexHtml.statusCode === 404,
+        `/web-ui/index.html should return 404, got ${webUiIndexHtml.statusCode}`
     );
 
-    // 测试 /web-ui/app.js - 应该返回 JavaScript
+    // 测试 /web-ui/app.js - 应该返回 JavaScript（资源路径继续工作）
     const appJs = await getText(port, '/web-ui/app.js');
     assert(
         appJs.statusCode === 200,
@@ -92,15 +93,15 @@ module.exports = async function testWebUiUrlRouting(ctx) {
         '/web-ui/app.js should return javascript content type'
     );
 
-    // 测试带 query 参数的请求
-    const webUiWithQuery = await getText(port, '/web-ui/?s=1');
+    // 测试带 query 参数的根路径请求
+    const rootWithQuery = await getText(port, '/?s=1');
     assert(
-        webUiWithQuery.statusCode === 200,
-        `/web-ui/?s=1 should return 200, got ${webUiWithQuery.statusCode}`
+        rootWithQuery.statusCode === 200,
+        `/?s=1 should return 200, got ${rootWithQuery.statusCode}`
     );
     assert(
-        /^text\/html\b/.test(String(webUiWithQuery.headers['content-type'] || '')),
-        '/web-ui/?s=1 should return html content type'
+        /^text\/html\b/.test(String(rootWithQuery.headers['content-type'] || '')),
+        '/?s=1 should return html content type'
     );
 
     // 测试带 query 参数的资源请求
@@ -112,19 +113,25 @@ module.exports = async function testWebUiUrlRouting(ctx) {
 
     // ========== 重复路径测试 ==========
 
-    // 测试 /web-ui/web-ui/index.html (双层重复)
-    // 服务器应该正确处理并返回 HTML（通过 normalized 路径处理）
-    const doubleRepeat = await getText(port, '/web-ui/web-ui/index.html');
+    // 测试 /web-ui/web-ui/ - 应该返回 404
+    const doubleRepeatSlash = await getText(port, '/web-ui/web-ui/');
     assert(
-        doubleRepeat.statusCode === 200,
-        `/web-ui/web-ui/index.html should return 200, got ${doubleRepeat.statusCode}`
+        doubleRepeatSlash.statusCode === 404,
+        `/web-ui/web-ui/ should return 404, got ${doubleRepeatSlash.statusCode}`
     );
 
-    // 测试 /web-ui/web-ui/app.js
+    // 测试 /web-ui/web-ui/index.html - 应该返回 404
+    const doubleRepeat = await getText(port, '/web-ui/web-ui/index.html');
+    assert(
+        doubleRepeat.statusCode === 404,
+        `/web-ui/web-ui/index.html should return 404, got ${doubleRepeat.statusCode}`
+    );
+
+    // 测试 /web-ui/web-ui/app.js - 资源重复路径修复
     const doubleRepeatApp = await getText(port, '/web-ui/web-ui/app.js');
     assert(
         doubleRepeatApp.statusCode === 200,
-        `/web-ui/web-ui/app.js should return 200, got ${doubleRepeatApp.statusCode}`
+        `/web-ui/web-ui/app.js should return 200 after normalization, got ${doubleRepeatApp.statusCode}`
     );
 
     // ========== 安全测试 ==========

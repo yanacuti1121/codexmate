@@ -9,38 +9,29 @@
  */
 function normalizeWebUiUrl(inputUrl) {
     const url = new URL(inputUrl);
-    let shouldReplace = false;
+    let pathname = url.pathname;
 
-    // 修复多层 /web-ui/ 重复路径（如 /web-ui/web-ui/web-ui/index.html）
-    // 使用循环确保所有重复都被移除
-    const originalPathname = url.pathname;
+    // 循环修复多层 /web-ui/ 重复
     let prevPathname;
     do {
-        prevPathname = url.pathname;
-        // 移除连续的 /web-ui/web-ui/ 为单个 /web-ui/
-        url.pathname = url.pathname.replace(/\/web-ui\/web-ui\//g, '/web-ui/');
-        // 移除开头的 /web-ui/web-ui/（如果有）
-        if (url.pathname.startsWith('/web-ui/web-ui/')) {
-            url.pathname = '/web-ui/' + url.pathname.slice('/web-ui/web-ui/'.length);
-        }
-    } while (url.pathname !== prevPathname);
+        prevPathname = pathname;
+        pathname = pathname.replace(/\/+web-ui\/+web-ui\/+/g, '/web-ui/');
+    } while (pathname !== prevPathname);
 
-    if (originalPathname !== url.pathname) {
-        shouldReplace = true;
+    // /web-ui/* 入口重定向到根路径
+    if (pathname === '/web-ui' || pathname === '/web-ui/' || pathname === '/web-ui/index.html') {
+        const targetUrl = new URL(url);
+        targetUrl.pathname = '/';
+        return targetUrl.toString();
     }
 
-    // 修复 /web-ui/ (斜尾) → /web-ui
-    if (url.pathname === '/web-ui/') {
-        url.pathname = '/web-ui';
-        shouldReplace = true;
-    }
-    // 修复 /web-ui/index.html → /web-ui
-    if (url.pathname === '/web-ui/index.html') {
-        url.pathname = '/web-ui';
-        shouldReplace = true;
+    // 如果路径有变化，返回修正后的 URL
+    if (pathname !== url.pathname) {
+        url.pathname = pathname;
+        return url.toString();
     }
 
-    return shouldReplace ? url.toString() : inputUrl;
+    return inputUrl;
 }
 
 /**
@@ -54,118 +45,109 @@ const testCases = [
         expected: 'http://127.0.0.1:3737/'
     },
     {
-        description: '/web-ui 不应修改',
-        input: 'http://127.0.0.1:3737/web-ui',
-        expected: 'http://127.0.0.1:3737/web-ui'
-    },
-    {
         description: '/session 不应修改',
         input: 'http://127.0.0.1:3737/session?source=codex',
         expected: 'http://127.0.0.1:3737/session?source=codex'
     },
 
-    // 斜尾规范化
+    // /web-ui 入口重定向到根路径
     {
-        description: '/web-ui/ 应规范化为 /web-ui',
+        description: '/web-ui 应重定向到 /',
+        input: 'http://127.0.0.1:3737/web-ui',
+        expected: 'http://127.0.0.1:3737/'
+    },
+    {
+        description: '/web-ui/ 应重定向到 /',
         input: 'http://127.0.0.1:3737/web-ui/',
-        expected: 'http://127.0.0.1:3737/web-ui'
+        expected: 'http://127.0.0.1:3737/'
     },
     {
-        description: '/web-ui/?s=1 应保留参数',
+        description: '/web-ui/?s=1 应重定向并保留参数',
         input: 'http://127.0.0.1:3737/web-ui/?s=1',
-        expected: 'http://127.0.0.1:3737/web-ui?s=1'
+        expected: 'http://127.0.0.1:3737/?s=1'
     },
     {
-        description: '/web-ui/#section 应保留 hash',
+        description: '/web-ui/#section 应重定向并保留 hash',
         input: 'http://127.0.0.1:3737/web-ui/#section',
-        expected: 'http://127.0.0.1:3737/web-ui#section'
+        expected: 'http://127.0.0.1:3737/#section'
     },
     {
-        description: '/web-ui/?s=1#section 应保留参数和 hash',
+        description: '/web-ui/?s=1#section 应重定向并保留参数和 hash',
         input: 'http://127.0.0.1:3737/web-ui/?s=1#section',
-        expected: 'http://127.0.0.1:3737/web-ui?s=1#section'
+        expected: 'http://127.0.0.1:3737/?s=1#section'
     },
-
-    // index.html 显式请求
     {
-        description: '/web-ui/index.html 应规范化为 /web-ui',
+        description: '/web-ui/index.html 应重定向到 /',
         input: 'http://127.0.0.1:3737/web-ui/index.html',
-        expected: 'http://127.0.0.1:3737/web-ui'
+        expected: 'http://127.0.0.1:3737/'
     },
     {
-        description: '/web-ui/index.html?s=1 应保留参数',
+        description: '/web-ui/index.html?s=1 应重定向并保留参数',
         input: 'http://127.0.0.1:3737/web-ui/index.html?s=1',
-        expected: 'http://127.0.0.1:3737/web-ui?s=1'
+        expected: 'http://127.0.0.1:3737/?s=1'
     },
     {
-        description: '/web-ui/index.html#section 应保留 hash',
+        description: '/web-ui/index.html#section 应重定向并保留 hash',
         input: 'http://127.0.0.1:3737/web-ui/index.html#section',
-        expected: 'http://127.0.0.1:3737/web-ui#section'
+        expected: 'http://127.0.0.1:3737/#section'
     },
 
-    // 单层重复路径
+    // 重复路径 - index.html 变体重定向到 /
     {
-        description: '/web-ui/web-ui/index.html 应规范化为 /web-ui',
-        input: 'http://127.0.0.1:3737/web-ui/web-ui/index.html',
-        expected: 'http://127.0.0.1:3737/web-ui'
+        description: '/web-ui/web-ui/ 应重定向到 /',
+        input: 'http://127.0.0.1:3737/web-ui/web-ui/',
+        expected: 'http://127.0.0.1:3737/'
     },
+    {
+        description: '/web-ui/web-ui/index.html 应重定向到 /',
+        input: 'http://127.0.0.1:3737/web-ui/web-ui/index.html',
+        expected: 'http://127.0.0.1:3737/'
+    },
+    {
+        description: '/web-ui/web-ui/web-ui/index.html 应重定向到 /',
+        input: 'http://127.0.0.1:3737/web-ui/web-ui/web-ui/index.html',
+        expected: 'http://127.0.0.1:3737/'
+    },
+
+    // 资源重复路径规范化
     {
         description: '/web-ui/web-ui/app.js 应规范化为 /web-ui/app.js',
         input: 'http://127.0.0.1:3737/web-ui/web-ui/app.js',
         expected: 'http://127.0.0.1:3737/web-ui/app.js'
-    },
-
-    // 多层重复路径
-    {
-        description: '/web-ui/web-ui/web-ui/index.html 应规范化为 /web-ui',
-        input: 'http://127.0.0.1:3737/web-ui/web-ui/web-ui/index.html',
-        expected: 'http://127.0.0.1:3737/web-ui'
-    },
-    {
-        description: '/web-ui/web-ui/web-ui/web-ui/index.html 应规范化为 /web-ui',
-        input: 'http://127.0.0.1:3737/web-ui/web-ui/web-ui/web-ui/index.html',
-        expected: 'http://127.0.0.1:3737/web-ui'
     },
     {
         description: '/web-ui/web-ui/app.js?s=1 应保留参数',
         input: 'http://127.0.0.1:3737/web-ui/web-ui/app.js?s=1&debug=1',
         expected: 'http://127.0.0.1:3737/web-ui/app.js?s=1&debug=1'
     },
-
-    // 混合场景
     {
-        description: '/web-ui/web-ui/ 应规范化为 /web-ui',
-        input: 'http://127.0.0.1:3737/web-ui/web-ui/',
-        expected: 'http://127.0.0.1:3737/web-ui'
-    },
-    {
-        description: '/web-ui/web-ui/?s=1 应规范化并保留参数',
+        description: '/web-ui/web-ui/?s=1 应重定向并保留参数',
         input: 'http://127.0.0.1:3737/web-ui/web-ui/?s=1',
-        expected: 'http://127.0.0.1:3737/web-ui?s=1'
+        expected: 'http://127.0.0.1:3737/?s=1'
     },
 
     // 会话浏览相关 URL
     {
-        description: '/web-ui?tab=sessions&s_source=codex 不应修改',
+        description: '/web-ui?tab=sessions 应重定向并保留参数',
         input: 'http://127.0.0.1:3737/web-ui?tab=sessions&s_source=codex',
-        expected: 'http://127.0.0.1:3737/web-ui?tab=sessions&s_source=codex'
+        expected: 'http://127.0.0.1:3737/?tab=sessions&s_source=codex'
     },
     {
-        description: '/web-ui/index.html?tab=sessions 应规范化并保留参数',
+        description: '/web-ui/index.html?tab=sessions 应重定向并保留参数',
         input: 'http://127.0.0.1:3737/web-ui/index.html?tab=sessions&s_source=claude',
-        expected: 'http://127.0.0.1:3737/web-ui?tab=sessions&s_source=claude'
+        expected: 'http://127.0.0.1:3737/?tab=sessions&s_source=claude'
     },
 
     // Edge cases
     {
         description: '带端口和自定义域的 URL',
         input: 'http://example.com:8080/web-ui/index.html',
-        expected: 'http://example.com:8080/web-ui'
+        expected: 'http://example.com:8080/'
     },
     {
         description: 'HTTPS URL',
         input: 'https://example.com/web-ui/',
-        expected: 'https://example.com/web-ui'
+        expected: 'https://example.com/'
     },
 
     // 不应影响其他路径

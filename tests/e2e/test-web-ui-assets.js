@@ -44,35 +44,13 @@ module.exports = async function testWebUiAssets(ctx) {
     assert(!rootPage.body.includes('src="web-ui/app.js"'), 'root web ui page should not use a relative app entry');
     assert(!/<!--\s*@include\s+/.test(rootPage.body), 'root web ui page should not leak include directives');
 
+    // /web-ui/index.html now returns 404 (only root path serves HTML)
     const bundledIndex = await getText(port, '/web-ui/index.html');
-    assert(bundledIndex.statusCode === 200, '/web-ui/index.html should return 200');
-    assert(
-        /^text\/html\b/.test(String(bundledIndex.headers['content-type'] || '')),
-        '/web-ui/index.html should return html content type'
-    );
-    assert(bundledIndex.body.includes('id="settings-panel-data"'), '/web-ui/index.html should inline settings partials');
-    assert(bundledIndex.body.includes('src="/web-ui/app.js"'), '/web-ui/index.html should point to the absolute app entry');
-    assert(
-        bundledIndex.body.includes('src="/res/vue.global.prod.js"'),
-        '/web-ui/index.html should use the production Vue browser build'
-    );
-    assert(
-        !bundledIndex.body.includes('src="/res/runtime.global.prod.js"'),
-        '/web-ui/index.html should not use the runtime-only Vue build'
-    );
-    assert(!bundledIndex.body.includes('src="web-ui/app.js"'), '/web-ui/index.html should not use a relative app entry');
-    assert(!/<!--\s*@include\s+/.test(bundledIndex.body), '/web-ui/index.html should not leak include directives');
+    assert(bundledIndex.statusCode === 404, '/web-ui/index.html should return 404');
 
+    // /web-ui/ now returns 404 (only root path serves HTML)
     const bundledIndexWithSlash = await getText(port, '/web-ui/');
-    assert(bundledIndexWithSlash.statusCode === 200, '/web-ui/ should return 200 after URL routing fix');
-    assert(
-        /^text\/html\b/.test(String(bundledIndexWithSlash.headers['content-type'] || '')),
-        '/web-ui/ should return html content type after fix'
-    );
-    assert(
-        bundledIndexWithSlash.body.includes('id="settings-panel-data"'),
-        '/web-ui/ should return the same content as /web-ui/index.html'
-    );
+    assert(bundledIndexWithSlash.statusCode === 404, '/web-ui/ should return 404');
 
     const appEntry = await getText(port, '/web-ui/app.js');
     assert(appEntry.statusCode === 200, 'app entry should return 200');

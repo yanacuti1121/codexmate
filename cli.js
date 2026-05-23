@@ -11408,14 +11408,6 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                     res.end(errorBody, 'utf-8');
                 }
             });
-        } else if (requestPath === '/web-ui' || requestPath === '/web-ui/') {
-            try {
-                const html = readBundledWebUiHtml(htmlPath);
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end(html);
-            } catch (error) {
-                writeWebUiAssetError(res, requestPath, error);
-            }
         } else if (requestPath.startsWith('/web-ui/')) {
             // Skip the /web-ui/ directory itself, which is handled above
             const normalized = path.normalize(requestPath).replace(/^([\\.\\/])+/, '');
@@ -11427,15 +11419,10 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             }
             const relativePath = path.relative(webDir, filePath).replace(/\\/g, '/');
 
-            // Check if this is a direct request for index.html
-            if (relativePath === 'index.html' || relativePath === '') {
-                try {
-                    const html = readBundledWebUiHtml(htmlPath);
-                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end(html);
-                } catch (error) {
-                    writeWebUiAssetError(res, requestPath, error);
-                }
+            // Empty relativePath means direct /web-ui/ access - return 404
+            if (relativePath === '' || relativePath === 'index.html') {
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Not Found');
                 return;
             }
 
@@ -11534,12 +11521,18 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             res.writeHead(200, { 'Content-Type': mime });
             fs.createReadStream(filePath).pipe(res);
         } else {
-            try {
-                const html = readBundledWebUiHtml(htmlPath);
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end(html);
-            } catch (error) {
-                writeWebUiAssetError(res, requestPath, error);
+            // Only serve HTML for root path; /web-ui returns 404
+            if (requestPath === '/') {
+                try {
+                    const html = readBundledWebUiHtml(htmlPath);
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(html);
+                } catch (error) {
+                    writeWebUiAssetError(res, requestPath, error);
+                }
+            } else {
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Not Found');
             }
         }
     });
