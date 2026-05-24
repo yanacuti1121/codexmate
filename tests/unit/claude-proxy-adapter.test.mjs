@@ -4,7 +4,9 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
     buildBuiltinClaudeResponsesRequest,
+    buildBuiltinClaudeChatCompletionsRequest,
     buildAnthropicMessageFromResponses,
+    buildAnthropicMessageFromChatCompletion,
     buildAnthropicStreamEvents,
     buildAnthropicModelsPayload
 } = require('../../cli/claude-proxy');
@@ -62,6 +64,46 @@ test('buildBuiltinClaudeResponsesRequest maps anthropic messages/tools into resp
     ]);
 });
 
+test('buildBuiltinClaudeChatCompletionsRequest maps anthropic messages/tools into chat completions payload', () => {
+    const payload = buildBuiltinClaudeChatCompletionsRequest({
+        model: 'DeepSeek-V4-pro',
+        max_tokens: 128,
+        system: [{ type: 'text', text: 'system prompt' }],
+        messages: [
+            { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+            { role: 'assistant', content: [{ type: 'tool_use', id: 'toolu_1', name: 'lookup', input: { q: 'hi' } }] },
+            { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'tool ok' }] }
+        ],
+        tools: [{ name: 'lookup', description: 'Lookup', input_schema: { type: 'object', properties: { q: { type: 'string' } } } }],
+        tool_choice: { type: 'tool', name: 'lookup' },
+        stop_sequences: ['END']
+    });
+
+    assert.strictEqual(payload.model, 'DeepSeek-V4-pro');
+    assert.strictEqual(payload.max_tokens, 128);
+    assert.strictEqual(payload.stream, false);
+    assert.deepStrictEqual(payload.stop, ['END']);
+    assert.deepStrictEqual(payload.tool_choice, { type: 'function', function: { name: 'lookup' } });
+    assert.deepStrictEqual(payload.tools, [{
+        type: 'function',
+        function: {
+            name: 'lookup',
+            description: 'Lookup',
+            parameters: { type: 'object', properties: { q: { type: 'string' } } }
+        }
+    }]);
+    assert.deepStrictEqual(payload.messages, [
+        { role: 'system', content: 'system prompt' },
+        { role: 'user', content: 'hello' },
+        {
+            role: 'assistant',
+            content: null,
+            tool_calls: [{ id: 'toolu_1', type: 'function', function: { name: 'lookup', arguments: '{"q":"hi"}' } }]
+        },
+        { role: 'tool', tool_call_id: 'toolu_1', content: 'tool ok' }
+    ]);
+});
+
 test('buildAnthropicMessageFromResponses maps responses output into anthropic message', () => {
     const message = buildAnthropicMessageFromResponses({
         id: 'resp_123',
@@ -97,6 +139,35 @@ test('buildAnthropicMessageFromResponses maps responses output into anthropic me
     assert.deepStrictEqual(message.content, [
         { type: 'text', text: 'proxy ok' },
         { type: 'tool_use', id: 'toolu_9', name: 'lookup', input: { city: 'tokyo' } }
+    ]);
+});
+
+test('buildAnthropicMessageFromChatCompletion maps chat completion output into anthropic message', () => {
+    const message = buildAnthropicMessageFromChatCompletion({
+        id: 'chatcmpl_123',
+        model: 'DeepSeek-V4-pro',
+        choices: [{
+            finish_reason: 'tool_calls',
+            message: {
+                role: 'assistant',
+                content: 'proxy ok',
+                tool_calls: [{
+                    id: 'call_9',
+                    type: 'function',
+                    function: { name: 'lookup', arguments: '{"city":"tokyo"}' }
+                }]
+            }
+        }],
+        usage: { prompt_tokens: 11, completion_tokens: 5 }
+    }, { model: 'fallback' });
+
+    assert.strictEqual(message.id, 'chatcmpl_123');
+    assert.strictEqual(message.model, 'DeepSeek-V4-pro');
+    assert.strictEqual(message.stop_reason, 'tool_use');
+    assert.deepStrictEqual(message.usage, { input_tokens: 11, output_tokens: 5 });
+    assert.deepStrictEqual(message.content, [
+        { type: 'text', text: 'proxy ok' },
+        { type: 'tool_use', id: 'call_9', name: 'lookup', input: { city: 'tokyo' } }
     ]);
 });
 

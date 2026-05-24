@@ -487,7 +487,8 @@ test('mergeClaudeConfig preserves externalCredentialType across edits without ap
             model: typeof config.model === 'string' ? config.model.trim() : '',
             authToken: typeof config.authToken === 'string' ? config.authToken.trim() : '',
             useKey: typeof config.useKey === 'string' ? config.useKey.trim() : '',
-            externalCredentialType: typeof config.externalCredentialType === 'string' ? config.externalCredentialType.trim() : ''
+            externalCredentialType: typeof config.externalCredentialType === 'string' ? config.externalCredentialType.trim() : '',
+            targetApi: typeof config.targetApi === 'string' ? config.targetApi.trim() : 'responses'
         })
     };
 
@@ -507,7 +508,8 @@ test('mergeClaudeConfig preserves externalCredentialType across edits without ap
         baseUrl: 'https://api.anthropic.com/',
         model: 'claude-3-7-sonnet',
         hasKey: true,
-        externalCredentialType: 'auth-token'
+        externalCredentialType: 'auth-token',
+        targetApi: 'responses'
     });
 });
 

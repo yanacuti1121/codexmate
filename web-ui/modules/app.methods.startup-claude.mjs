@@ -247,7 +247,8 @@ export function createStartupClaudeMethods(options = {}) {
                 baseUrl: next.baseUrl,
                 model: next.model || previous.model || 'glm-4.7',
                 hasKey: !!(next.apiKey || externalCredentialType),
-                externalCredentialType
+                externalCredentialType,
+                targetApi: next.targetApi || previous.targetApi || 'responses'
             };
         },
 

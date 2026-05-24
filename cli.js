@@ -290,6 +290,7 @@ const DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS = Object.freeze({
     port: 8328,
     provider: '',
     authSource: 'provider',
+    targetApi: 'responses',
     timeoutMs: 30000
 });
 const CLI_INSTALL_TARGETS = Object.freeze([
@@ -5488,7 +5489,9 @@ const {
     HTTPS_KEEP_ALIVE_AGENT,
     readConfigOrVirtualDefault,
     resolveBuiltinProxyProviderName,
-    resolveAuthTokenFromCurrentProfile
+    resolveAuthTokenFromCurrentProfile,
+    OPENAI_BRIDGE_SETTINGS_FILE,
+    resolveOpenaiBridgeUpstream
 });
 
 function applyBuiltinProxyProvider(params = {}) {

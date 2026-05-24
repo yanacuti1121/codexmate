@@ -69,13 +69,18 @@ export function normalizeClaudeConfig(config) {
     const useKey = normalizeClaudeValue(safe.useKey);
     const externalCredentialType = normalizeClaudeValue(safe.externalCredentialType)
         || (apiKey ? '' : (authToken ? 'auth-token' : (useKey ? 'claude-code-use-key' : '')));
+    const targetApiRaw = normalizeClaudeValue(safe.targetApi).toLowerCase();
+    const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+        ? 'chat_completions'
+        : 'responses';
     return {
         apiKey,
         baseUrl: normalizeClaudeValue(safe.baseUrl),
         model: normalizeClaudeValue(safe.model),
         authToken,
         useKey,
-        externalCredentialType
+        externalCredentialType,
+        targetApi
     };
 }
 

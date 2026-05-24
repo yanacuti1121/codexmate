@@ -52,7 +52,8 @@ export function createClaudeConfigMethods(options = {}) {
                 name: '',
                 apiKey: config.apiKey || '',
                 baseUrl: config.baseUrl || '',
-                model: config.model || ''
+                model: config.model || '',
+                targetApi: config.targetApi || 'responses'
             };
             this.showClaudeConfigModal = true;
         },
@@ -63,7 +64,8 @@ export function createClaudeConfigMethods(options = {}) {
                 name: name,
                 apiKey: config.apiKey || '',
                 baseUrl: config.baseUrl || '',
-                model: config.model || ''
+                model: config.model || '',
+                targetApi: config.targetApi || 'responses'
             };
             this.showEditClaudeConfigKey = false;
             this.showEditConfigModal = true;
@@ -83,7 +85,7 @@ export function createClaudeConfigMethods(options = {}) {
         closeEditConfigModal() {
             this.showEditConfigModal = false;
             this.showEditClaudeConfigKey = false;
-            this.editingConfig = { name: '', apiKey: '', baseUrl: '', model: '' };
+            this.editingConfig = { name: '', apiKey: '', baseUrl: '', model: '', targetApi: 'responses' };
         },
 
         toggleEditClaudeConfigKey() {
@@ -105,7 +107,7 @@ export function createClaudeConfigMethods(options = {}) {
                 return;
             }
 
-            const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}`;
+            const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
                 const res = await api('apply-claude-config', { config });
                 if (res.error || res.success === false) {
@@ -181,7 +183,7 @@ export function createClaudeConfigMethods(options = {}) {
                 return this.showMessage('请先配置 API Key', 'error');
             }
 
-            const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}`;
+            const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
                 const res = await api('apply-claude-config', { config });
                 if (res.error || res.success === false) {
@@ -203,7 +205,8 @@ export function createClaudeConfigMethods(options = {}) {
                 name: '',
                 apiKey: '',
                 baseUrl: '',
-                model: ''
+                model: '',
+                targetApi: 'responses'
             };
         },
 

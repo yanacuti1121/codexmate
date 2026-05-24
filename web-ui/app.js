@@ -275,12 +275,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentClaudeConfig: '',
                 currentClaudeModel: '',
                 claudeCustomModelDraft: '',
-                editingConfig: { name: '', apiKey: '', baseUrl: '', model: '' },
+                editingConfig: { name: '', apiKey: '', baseUrl: '', model: '', targetApi: 'responses' },
                 claudeConfigs: {
                     '智谱GLM': {
                         apiKey: '',
                         baseUrl: 'https://open.bigmodel.cn/api/anthropic',
                         model: 'glm-4.7',
+                        targetApi: 'responses',
                         hasKey: false
                     }
                 },
@@ -288,7 +289,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: '',
                     apiKey: '',
                     baseUrl: '',
-                    model: ''
+                    model: '',
+                    targetApi: 'responses'
                 },
                 currentOpenclawConfig: '',
                 openclawConfigs: {
@@ -534,6 +536,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             config.apiKey = '';
                             config.hasKey = false;
                         }
+                        const targetApiRaw = typeof config.targetApi === 'string' ? config.targetApi.trim().toLowerCase() : '';
+                        config.targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+                            ? 'chat_completions'
+                            : 'responses';
                     }
                     localStorage.setItem('claudeConfigs', JSON.stringify(this.claudeConfigs));
                 } catch (e) {

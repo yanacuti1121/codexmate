@@ -133,6 +133,23 @@ function appendAnthropicMessageToResponsesInput(target, message) {
     flushBuffered();
 }
 
+function mapAnthropicToolChoiceToChat(toolChoice) {
+    if (!toolChoice) return undefined;
+    if (typeof toolChoice === 'string') {
+        if (toolChoice === 'auto' || toolChoice === 'none') return toolChoice;
+        if (toolChoice === 'any') return 'required';
+        return undefined;
+    }
+    if (!toolChoice || typeof toolChoice !== 'object') return undefined;
+    const type = typeof toolChoice.type === 'string' ? toolChoice.type.trim().toLowerCase() : '';
+    if (type === 'auto' || type === 'none') return type;
+    if (type === 'any') return 'required';
+    if (type === 'tool' && typeof toolChoice.name === 'string' && toolChoice.name.trim()) {
+        return { type: 'function', function: { name: toolChoice.name.trim() } };
+    }
+    return undefined;
+}
+
 function mapAnthropicToolChoiceToResponses(toolChoice) {
     if (!toolChoice) return undefined;
     if (typeof toolChoice === 'string') {
@@ -218,6 +235,122 @@ function buildBuiltinClaudeResponsesRequest(payload = {}) {
     return requestBody;
 }
 
+function appendAnthropicMessageToChatMessages(target, message) {
+    if (!message || typeof message !== 'object') return;
+    const roleRaw = typeof message.role === 'string' ? message.role.trim().toLowerCase() : '';
+    const role = roleRaw === 'assistant' ? 'assistant' : 'user';
+    let textParts = [];
+    const toolCalls = [];
+
+    const flushText = () => {
+        const content = textParts.join('\n\n').trim();
+        if (!content) return;
+        target.push({ role, content });
+        textParts = [];
+    };
+
+    for (const block of normalizeAnthropicContentBlocks(message.content)) {
+        if (!block || typeof block !== 'object') continue;
+        if (block.type === 'text' && typeof block.text === 'string' && block.text) {
+            textParts.push(block.text);
+            continue;
+        }
+        if (block.type === 'tool_use' && role === 'assistant' && typeof block.name === 'string' && block.name.trim()) {
+            toolCalls.push({
+                id: typeof block.id === 'string' && block.id.trim()
+                    ? block.id.trim()
+                    : `call_${crypto.randomBytes(8).toString('hex')}`,
+                type: 'function',
+                function: {
+                    name: block.name.trim(),
+                    arguments: safeJsonStringify(block.input && typeof block.input === 'object' ? block.input : {})
+                }
+            });
+            continue;
+        }
+        if (block.type === 'tool_result' && typeof block.tool_use_id === 'string' && block.tool_use_id.trim()) {
+            flushText();
+            target.push({
+                role: 'tool',
+                tool_call_id: block.tool_use_id.trim(),
+                content: stringifyAnthropicToolResultContent(block.content)
+            });
+            continue;
+        }
+        textParts.push(`[unsupported anthropic block: ${typeof block.type === 'string' ? block.type : 'unknown'}]`);
+    }
+
+    if (role === 'assistant' && toolCalls.length) {
+        const content = textParts.join('\n\n').trim();
+        target.push({
+            role: 'assistant',
+            content: content || null,
+            tool_calls: toolCalls
+        });
+        return;
+    }
+    flushText();
+}
+
+function buildBuiltinClaudeChatCompletionsRequest(payload = {}) {
+    const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+    if (!model) {
+        throw new Error('Anthropic messages 请求缺少 model');
+    }
+    const messages = Array.isArray(payload.messages) ? payload.messages : [];
+    if (!messages.length) {
+        throw new Error('Anthropic messages 请求缺少 messages');
+    }
+
+    const requestBody = { model, messages: [] };
+    const systemText = collectAnthropicTextContent(payload.system);
+    if (systemText) {
+        requestBody.messages.push({ role: 'system', content: systemText });
+    }
+    for (const message of messages) {
+        appendAnthropicMessageToChatMessages(requestBody.messages, message);
+    }
+
+    const maxTokens = parseInt(String(payload.max_tokens), 10);
+    if (Number.isFinite(maxTokens) && maxTokens > 0) {
+        requestBody.max_tokens = maxTokens;
+    }
+    if (Number.isFinite(payload.temperature)) {
+        requestBody.temperature = Number(payload.temperature);
+    }
+    if (Number.isFinite(payload.top_p)) {
+        requestBody.top_p = Number(payload.top_p);
+    }
+    if (Array.isArray(payload.stop_sequences) && payload.stop_sequences.length) {
+        const stop = payload.stop_sequences.filter((item) => typeof item === 'string' && item.trim());
+        if (stop.length) requestBody.stop = stop;
+    }
+    if (Array.isArray(payload.tools) && payload.tools.length) {
+        requestBody.tools = payload.tools
+            .map((tool) => {
+                if (!tool || typeof tool !== 'object') return null;
+                const name = typeof tool.name === 'string' ? tool.name.trim() : '';
+                if (!name) return null;
+                return {
+                    type: 'function',
+                    function: {
+                        name,
+                        description: typeof tool.description === 'string' ? tool.description : '',
+                        parameters: isPlainObject(tool.input_schema) ? tool.input_schema : { type: 'object', properties: {} }
+                    }
+                };
+            })
+            .filter(Boolean);
+        if (!requestBody.tools.length) delete requestBody.tools;
+    }
+    const toolChoice = mapAnthropicToolChoiceToChat(payload.tool_choice);
+    if (toolChoice !== undefined) {
+        requestBody.tool_choice = toolChoice;
+    }
+    requestBody.stream = false;
+    return requestBody;
+}
+
 function parseJsonObjectLoose(value) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
         return value;
@@ -294,6 +427,81 @@ function buildAnthropicStopReasonFromResponses(payload, content) {
         return 'max_tokens';
     }
     return 'end_turn';
+}
+
+function buildAnthropicUsageFromChatCompletion(payload) {
+    const usage = payload && payload.usage && typeof payload.usage === 'object' ? payload.usage : {};
+    return {
+        input_tokens: readResponsesUsageValue(usage.prompt_tokens),
+        output_tokens: readResponsesUsageValue(usage.completion_tokens)
+    };
+}
+
+function normalizeChatMessageContentText(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        return content.map((item) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object' && typeof item.text === 'string') return item.text;
+            return '';
+        }).filter(Boolean).join('\n\n');
+    }
+    return '';
+}
+
+function buildAnthropicStopReasonFromChatChoice(choice, content) {
+    if (Array.isArray(content) && content.some((item) => item && item.type === 'tool_use')) {
+        return 'tool_use';
+    }
+    const finishReason = choice && typeof choice.finish_reason === 'string' ? choice.finish_reason : '';
+    if (finishReason === 'length') return 'max_tokens';
+    if (finishReason === 'tool_calls' || finishReason === 'function_call') return 'tool_use';
+    return 'end_turn';
+}
+
+function buildAnthropicMessageFromChatCompletion(payload, requestPayload = {}) {
+    const choices = Array.isArray(payload && payload.choices) ? payload.choices : [];
+    const choice = choices.find((item) => item && item.message) || choices[0] || {};
+    const chatMessage = choice && choice.message && typeof choice.message === 'object' ? choice.message : {};
+    const content = [];
+    const text = normalizeChatMessageContentText(chatMessage.content);
+    if (text) {
+        content.push({ type: 'text', text });
+    }
+    const toolCalls = Array.isArray(chatMessage.tool_calls) ? chatMessage.tool_calls : [];
+    for (const call of toolCalls) {
+        if (!call || typeof call !== 'object') continue;
+        const fn = call.function && typeof call.function === 'object' ? call.function : {};
+        const name = typeof fn.name === 'string' ? fn.name : '';
+        if (!name) continue;
+        content.push({
+            type: 'tool_use',
+            id: typeof call.id === 'string' && call.id.trim()
+                ? call.id.trim()
+                : `toolu_${crypto.randomBytes(8).toString('hex')}`,
+            name,
+            input: parseJsonObjectLoose(fn.arguments)
+        });
+    }
+    if (!content.length) {
+        const fallbackText = extractModelResponseText(payload);
+        if (fallbackText) content.push({ type: 'text', text: fallbackText });
+    }
+    const usage = buildAnthropicUsageFromChatCompletion(payload);
+    return {
+        id: typeof payload.id === 'string' && payload.id.trim()
+            ? payload.id.trim()
+            : `msg_${crypto.randomBytes(8).toString('hex')}`,
+        type: 'message',
+        role: 'assistant',
+        model: typeof payload.model === 'string' && payload.model.trim()
+            ? payload.model.trim()
+            : (typeof requestPayload.model === 'string' ? requestPayload.model : ''),
+        content,
+        stop_reason: buildAnthropicStopReasonFromChatChoice(choice, content),
+        stop_sequence: null,
+        usage
+    };
 }
 
 function buildAnthropicMessageFromResponses(payload, requestPayload = {}) {
@@ -433,7 +641,9 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         HTTPS_KEEP_ALIVE_AGENT,
         readConfigOrVirtualDefault,
         resolveBuiltinProxyProviderName,
-        resolveAuthTokenFromCurrentProfile
+        resolveAuthTokenFromCurrentProfile,
+        OPENAI_BRIDGE_SETTINGS_FILE,
+        resolveOpenaiBridgeUpstream
     } = deps;
 
     if (!BUILTIN_CLAUDE_PROXY_SETTINGS_FILE) {
@@ -463,10 +673,14 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         const port = parseInt(String(merged.port), 10);
         const provider = typeof merged.provider === 'string' ? merged.provider.trim() : '';
         const authSourceRaw = typeof merged.authSource === 'string' ? merged.authSource.trim().toLowerCase() : '';
+        const targetApiRaw = typeof merged.targetApi === 'string' ? merged.targetApi.trim().toLowerCase() : '';
         const timeoutMs = parseInt(String(merged.timeoutMs), 10);
         const authSource = authSourceRaw === 'profile' || authSourceRaw === 'none' || authSourceRaw === 'request'
             ? authSourceRaw
             : 'provider';
+        const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+            ? 'chat_completions'
+            : 'responses';
 
         return {
             enabled: merged.enabled !== false,
@@ -474,6 +688,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             port: Number.isFinite(port) && port > 0 && port <= 65535 ? port : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.port,
             provider,
             authSource,
+            targetApi,
             timeoutMs: Number.isFinite(timeoutMs) && timeoutMs >= 1000
                 ? timeoutMs
                 : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.timeoutMs
@@ -539,9 +754,34 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             return { error: `上游 provider 不存在: ${providerName}` };
         }
 
-        const wireApi = normalizeWireApi(provider.wire_api);
-        if (wireApi !== 'responses') {
-            return { error: `Claude 兼容代理仅支持上游 responses provider: ${providerName}` };
+        const targetApi = settings.targetApi === 'chat_completions' ? 'chat_completions' : 'responses';
+        if (targetApi === 'responses') {
+            const wireApi = normalizeWireApi(provider.wire_api);
+            if (wireApi !== 'responses') {
+                return { error: `Claude 兼容代理仅支持上游 responses provider: ${providerName}` };
+            }
+        }
+
+        if (targetApi === 'chat_completions'
+            && provider.codexmate_bridge === 'openai'
+            && typeof resolveOpenaiBridgeUpstream === 'function'
+            && OPENAI_BRIDGE_SETTINGS_FILE) {
+            const bridgeUpstream = resolveOpenaiBridgeUpstream(OPENAI_BRIDGE_SETTINGS_FILE, providerName);
+            if (bridgeUpstream && bridgeUpstream.error) {
+                return { error: bridgeUpstream.error };
+            }
+            const bridgeBaseUrl = typeof bridgeUpstream.baseUrl === 'string' ? bridgeUpstream.baseUrl.trim() : '';
+            if (!bridgeBaseUrl || !isValidHttpUrl(bridgeBaseUrl)) {
+                return { error: `OpenAI 转换上游 base_url 无效: ${providerName}` };
+            }
+            const bridgeToken = typeof bridgeUpstream.apiKey === 'string' ? bridgeUpstream.apiKey.trim() : '';
+            return {
+                providerName,
+                baseUrl: normalizeBaseUrl(bridgeBaseUrl),
+                authHeader: bridgeToken ? (/^bearer\s+/i.test(bridgeToken) ? bridgeToken : `Bearer ${bridgeToken}`) : '',
+                extraHeaders: isPlainObject(bridgeUpstream.headers) ? bridgeUpstream.headers : {},
+                targetApi
+            };
         }
 
         const baseUrl = typeof provider.base_url === 'string' ? provider.base_url.trim() : '';
@@ -567,7 +807,9 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         return {
             providerName,
             baseUrl: normalizeBaseUrl(baseUrl),
-            authHeader
+            authHeader,
+            extraHeaders: {},
+            targetApi
         };
     }
 
@@ -770,7 +1012,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
                 ok: true,
                 upstreamProvider: upstream.providerName,
                 upstreamBaseUrl: upstream.baseUrl,
-                mode: 'anthropic-to-responses'
+                mode: upstream.targetApi === 'chat_completions' ? 'anthropic-to-chat-completions' : 'anthropic-to-responses'
             });
             res.writeHead(200, {
                 'Content-Type': 'application/json; charset=utf-8',
@@ -796,6 +1038,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
                 method: 'GET',
                 pathSuffix: 'models',
                 authHeader: authResult.authHeader,
+                headers: upstream.extraHeaders,
                 timeoutMs: settings.timeoutMs
             });
             if (upstreamResponse.statusCode < 200 || upstreamResponse.statusCode >= 300) {
@@ -828,12 +1071,16 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         }
 
         const payload = await readJsonRequestBody(req);
-        const upstreamRequestBody = buildBuiltinClaudeResponsesRequest(payload);
+        const isChatCompletionsMode = upstream.targetApi === 'chat_completions' || settings.targetApi === 'chat_completions';
+        const upstreamRequestBody = isChatCompletionsMode
+            ? buildBuiltinClaudeChatCompletionsRequest(payload)
+            : buildBuiltinClaudeResponsesRequest(payload);
         const upstreamResponse = await requestBuiltinClaudeProxyUpstream(upstream, {
             method: 'POST',
-            pathSuffix: 'responses',
+            pathSuffix: isChatCompletionsMode ? 'chat/completions' : 'responses',
             body: upstreamRequestBody,
             authHeader: authResult.authHeader,
+            headers: upstream.extraHeaders,
             timeoutMs: settings.timeoutMs
         });
 
@@ -847,7 +1094,9 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             return;
         }
 
-        const anthropicMessage = buildAnthropicMessageFromResponses(upstreamResponse.payload || {}, payload);
+        const anthropicMessage = isChatCompletionsMode
+            ? buildAnthropicMessageFromChatCompletion(upstreamResponse.payload || {}, payload)
+            : buildAnthropicMessageFromResponses(upstreamResponse.payload || {}, payload);
         if (payload.stream === true) {
             writeAnthropicStreamEvents(res, anthropicMessage);
             return;
@@ -946,7 +1195,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
                 running: true,
                 listenUrl: runtime.listenUrl,
                 upstreamProvider: upstream.providerName,
-                mode: 'anthropic-to-responses',
+                mode: upstream.targetApi === 'chat_completions' ? 'anthropic-to-chat-completions' : 'anthropic-to-responses',
                 settings
             };
         } catch (e) {
@@ -995,7 +1244,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
                     listenUrl: runtime.listenUrl,
                     upstreamProvider: runtime.upstream.providerName,
                     upstreamBaseUrl: runtime.upstream.baseUrl,
-                    mode: 'anthropic-to-responses'
+                    mode: runtime.upstream.targetApi === 'chat_completions' ? 'anthropic-to-chat-completions' : 'anthropic-to-responses'
                 }
                 : null
         };
@@ -1016,7 +1265,9 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
 module.exports = {
     createBuiltinClaudeProxyRuntimeController,
     buildBuiltinClaudeResponsesRequest,
+    buildBuiltinClaudeChatCompletionsRequest,
     buildAnthropicMessageFromResponses,
+    buildAnthropicMessageFromChatCompletion,
     buildAnthropicStreamEvents,
     buildAnthropicModelsPayload
 };

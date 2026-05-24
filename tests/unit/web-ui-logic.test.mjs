@@ -51,7 +51,7 @@ test('normalizeClaudeValue trims strings and ignores non-string', () => {
 
 test('normalizeClaudeConfig trims all fields', () => {
     const cfg = normalizeClaudeConfig({ apiKey: ' key ', baseUrl: ' url ', model: ' model ', authToken: ' token ', useKey: ' yes ', externalCredentialType: ' auth-token ' });
-    assert.deepStrictEqual(cfg, { apiKey: 'key', baseUrl: 'url', model: 'model', authToken: 'token', useKey: 'yes', externalCredentialType: 'auth-token' });
+    assert.deepStrictEqual(cfg, { apiKey: 'key', baseUrl: 'url', model: 'model', authToken: 'token', useKey: 'yes', externalCredentialType: 'auth-token', targetApi: 'responses' });
 });
 
 test('normalizeClaudeConfig infers external credential type from authToken and useKey', () => {
@@ -63,7 +63,8 @@ test('normalizeClaudeConfig infers external credential type from authToken and u
             model: '',
             authToken: 'token',
             useKey: '',
-            externalCredentialType: 'auth-token'
+            externalCredentialType: 'auth-token',
+            targetApi: 'responses'
         }
     );
     assert.deepStrictEqual(
@@ -74,9 +75,15 @@ test('normalizeClaudeConfig infers external credential type from authToken and u
             model: '',
             authToken: '',
             useKey: '1',
-            externalCredentialType: 'claude-code-use-key'
+            externalCredentialType: 'claude-code-use-key',
+            targetApi: 'responses'
         }
     );
+});
+
+test('normalizeClaudeConfig accepts chat completions target api aliases', () => {
+    assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat/completions' }).targetApi, 'chat_completions');
+    assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat-completions' }).targetApi, 'chat_completions');
 });
 
 test('normalizeClaudeSettingsEnv trims settings env', () => {
