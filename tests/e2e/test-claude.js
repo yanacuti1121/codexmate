@@ -64,9 +64,29 @@ module.exports = async function testClaude(ctx) {
     assert(claudeSettingsAfter.baseUrl === mockProviderUrl, 'get-claude-settings baseUrl not updated');
     assert(claudeSettingsAfter.model === 'new-model', 'get-claude-settings model not updated');
 
+    const applyClaudeChatCompletions = await api('apply-claude-config', {
+        config: { name: 'claude-chat-direct', baseUrl: mockProviderUrl, apiKey: 'sk-new', model: 'new-model', targetApi: 'chat_completions' }
+    });
+    assert(applyClaudeChatCompletions.success === true, 'apply-claude-config chat_completions failed');
+    assert(applyClaudeChatCompletions.mode === 'claude-proxy', 'apply-claude-config chat_completions should use claude proxy mode');
+    assert(applyClaudeChatCompletions.proxy && applyClaudeChatCompletions.proxy.mode === 'anthropic-to-chat-completions', 'apply-claude-config chat_completions proxy mode mismatch');
+
+    const claudeChatSettings = await api('get-claude-settings');
+    assert(claudeChatSettings.apiKey === 'codexmate', 'chat_completions should point Claude Code at local proxy token');
+    assert(/http:\/\/127\.0\.0\.1:\d+$/.test(claudeChatSettings.baseUrl), 'chat_completions should point Claude Code at local proxy base url');
+    assert(claudeChatSettings.model === 'new-model', 'chat_completions should preserve Claude model');
+
+    const claudeProxyStatus = await api('claude-proxy-status');
+    assert(claudeProxyStatus.running === true, 'chat_completions apply should start Claude proxy');
+    assert(claudeProxyStatus.runtime && claudeProxyStatus.runtime.mode === 'anthropic-to-chat-completions', 'Claude proxy runtime mode mismatch after chat_completions apply');
+    assert(claudeProxyStatus.runtime.upstreamProvider === 'claude-chat-direct', 'Claude proxy should use the applied Claude config as direct upstream');
+    assert(claudeProxyStatus.runtime.upstreamBaseUrl === mockProviderUrl, 'Claude proxy direct upstream base url mismatch');
+
     // ========== Restore Original Settings ==========
     const restoreClaude = await api('apply-claude-config', {
         config: { baseUrl: mockProviderUrl, apiKey: 'sk-claude', model: claudeModel }
     });
     assert(restoreClaude.success === true, 'restore-claude-config failed');
+    const claudeProxyStatusAfterRestore = await api('claude-proxy-status');
+    assert(claudeProxyStatusAfterRestore.running === false, 'responses apply should stop Claude proxy runtime');
 };

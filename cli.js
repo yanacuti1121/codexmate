@@ -9151,8 +9151,15 @@ function maskKey(key) {
     return key.substring(0, 4) + '...' + key.substring(key.length - 4);
 }
 
+function normalizeClaudeTargetApi(value) {
+    const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return raw === 'chat_completions' || raw === 'chat-completions' || raw === 'chat/completions'
+        ? 'chat_completions'
+        : 'responses';
+}
+
 // 应用到 Claude Code settings.json（跨平台）
-function applyToClaudeSettings(config = {}) {
+async function applyToClaudeSettings(config = {}) {
     try {
         const apiKey = (config.apiKey || '').trim();
         if (!apiKey) {
@@ -9161,6 +9168,46 @@ function applyToClaudeSettings(config = {}) {
 
         const baseUrl = (config.baseUrl || 'https://open.bigmodel.cn/api/anthropic').trim();
         const model = (config.model || DEFAULT_CLAUDE_MODEL).trim();
+        const targetApi = normalizeClaudeTargetApi(config.targetApi);
+        let settingsBaseUrl = baseUrl;
+        let settingsApiKey = apiKey;
+        let proxyResult = null;
+
+        if (targetApi === 'chat_completions') {
+            await stopBuiltinClaudeProxyRuntime();
+            proxyResult = await startBuiltinClaudeProxyRuntime({
+                enabled: true,
+                provider: typeof config.name === 'string' ? config.name.trim() : '',
+                authSource: 'provider',
+                targetApi,
+                timeoutMs: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.timeoutMs,
+                upstreamProviderName: typeof config.name === 'string' ? config.name.trim() : '',
+                upstreamBaseUrl: baseUrl,
+                upstreamApiKey: apiKey
+            });
+            if (!proxyResult || proxyResult.error || proxyResult.success === false || !proxyResult.listenUrl) {
+                return {
+                    success: false,
+                    mode: 'claude-proxy',
+                    error: (proxyResult && proxyResult.error) || '启动 Claude 兼容代理失败'
+                };
+            }
+            settingsBaseUrl = proxyResult.listenUrl;
+            settingsApiKey = 'codexmate';
+        } else {
+            await stopBuiltinClaudeProxyRuntime();
+            const proxySettingsResult = readJsonObjectFromFile(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS);
+            const proxySettings = proxySettingsResult.ok && proxySettingsResult.data && typeof proxySettingsResult.data === 'object' && !Array.isArray(proxySettingsResult.data)
+                ? proxySettingsResult.data
+                : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS;
+            writeJsonAtomic(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, {
+                ...DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS,
+                ...proxySettings,
+                enabled: false,
+                targetApi: 'responses'
+            });
+        }
+
         const readResult = readJsonObjectFromFile(CLAUDE_SETTINGS_FILE, {});
         if (!readResult.ok) {
             return { success: false, mode: 'settings-file', error: readResult.error };
@@ -9173,8 +9220,8 @@ function applyToClaudeSettings(config = {}) {
 
         const nextEnv = {
             ...currentEnv,
-            ANTHROPIC_API_KEY: apiKey,
-            ANTHROPIC_BASE_URL: baseUrl,
+            ANTHROPIC_API_KEY: settingsApiKey,
+            ANTHROPIC_BASE_URL: settingsBaseUrl,
             ANTHROPIC_MODEL: model
         };
         delete nextEnv.ANTHROPIC_AUTH_TOKEN;
@@ -9191,7 +9238,8 @@ function applyToClaudeSettings(config = {}) {
 
         const result = {
             success: true,
-            mode: 'settings-file',
+            mode: targetApi === 'chat_completions' ? 'claude-proxy' : 'settings-file',
+            targetApi,
             targetPath: CLAUDE_SETTINGS_FILE,
             updatedKeys: [
                 'env.ANTHROPIC_API_KEY',
@@ -9199,6 +9247,14 @@ function applyToClaudeSettings(config = {}) {
                 'env.ANTHROPIC_MODEL'
             ]
         };
+        if (proxyResult) {
+            result.proxy = {
+                running: true,
+                listenUrl: proxyResult.listenUrl,
+                upstreamProvider: proxyResult.upstreamProvider || '',
+                mode: proxyResult.mode || 'anthropic-to-chat-completions'
+            };
+        }
         if (backupPath) {
             result.backupPath = backupPath;
         }
@@ -9340,7 +9396,7 @@ async function cmdClaude(args = []) {
         throw new Error('BaseURL 和 API 密钥必填');
     }
 
-    const result = applyToClaudeSettings({
+    const result = await applyToClaudeSettings({
         baseUrl: normalizedBaseUrl,
         apiKey: normalizedKey,
         model: normalizedModel
@@ -10949,7 +11005,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = applyClaudeSettingsRaw(params || {});
                             break;
                         case 'apply-claude-config':
-                            result = applyToClaudeSettings(params.config);
+                            result = await applyToClaudeSettings(params.config);
                             if (result && !result.error) {
                                 const cfgName = (params && params.config && typeof params.config.name === 'string') ? params.config.name : '';
                                 const cfgFrom = (params && typeof params.previousName === 'string') ? params.previousName : '';
@@ -15497,7 +15553,9 @@ function createMcpTools(options = {}) {
             properties: {
                 apiKey: { type: 'string' },
                 baseUrl: { type: 'string' },
-                model: { type: 'string' }
+                model: { type: 'string' },
+                name: { type: 'string' },
+                targetApi: { type: 'string' }
             },
             required: ['apiKey'],
             additionalProperties: false

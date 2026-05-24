@@ -813,6 +813,32 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         };
     }
 
+    function resolveBuiltinClaudeProxyDirectUpstream(settings, payload = {}) {
+        const targetApi = settings.targetApi === 'chat_completions' ? 'chat_completions' : 'responses';
+        const baseUrl = typeof payload.upstreamBaseUrl === 'string' ? payload.upstreamBaseUrl.trim() : '';
+        if (!baseUrl) {
+            return null;
+        }
+        if (!isValidHttpUrl(baseUrl)) {
+            return { error: 'Claude 兼容代理上游 base_url 无效' };
+        }
+        const token = typeof payload.upstreamApiKey === 'string' ? payload.upstreamApiKey.trim() : '';
+        let authHeader = '';
+        if (token) {
+            authHeader = /^bearer\s+/i.test(token) ? token : `Bearer ${token}`;
+        }
+        const providerName = typeof payload.upstreamProviderName === 'string' && payload.upstreamProviderName.trim()
+            ? payload.upstreamProviderName.trim()
+            : 'claude-config';
+        return {
+            providerName,
+            baseUrl: normalizeBaseUrl(baseUrl),
+            authHeader,
+            extraHeaders: {},
+            targetApi
+        };
+    }
+
     function buildBuiltinClaudeProxyRequestAuthHeader(req, settings, upstream) {
         if (settings && settings.authSource === 'request') {
             const apiKey = typeof req.headers['x-api-key'] === 'string'
@@ -1183,7 +1209,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             return { error: saveResult.error };
         }
         const settings = saveResult.settings;
-        const upstream = resolveBuiltinClaudeProxyUpstream(settings);
+        const upstream = resolveBuiltinClaudeProxyDirectUpstream(settings, payload) || resolveBuiltinClaudeProxyUpstream(settings);
         if (upstream.error) {
             return { error: upstream.error };
         }

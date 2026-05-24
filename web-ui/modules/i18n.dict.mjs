@@ -1048,6 +1048,11 @@ const DICT = Object.freeze({
         'claude.localBridge.noProviders': '暂无可用提供商，请先添加直连提供商',
         'claude.localBridge.disabled': '未启用',
         'claude.localBridge.enabled': '已启用',
+        'claude.targetApi.label': '目标 API',
+        'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
+        'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
+        'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',
+        'claude.targetApi.hint': '选择 Chat Completions 时由 Claude 兼容代理内建转换，不修改 Codex provider 的 wire_api。',
 
         // OpenClaw config panel
         'openclaw.applyHint': '写入 ~/.openclaw/openclaw.json，支持 JSON5。',
@@ -2104,6 +2109,11 @@ const DICT = Object.freeze({
         'claude.localBridge.noProviders': '利用可能なプロバイダがありません。まずプロバイダを追加してください。',
         'claude.localBridge.disabled': '無効',
         'claude.localBridge.enabled': '有効',
+        'claude.targetApi.label': 'ターゲット API',
+        'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
+        'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
+        'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',
+        'claude.targetApi.hint': 'Chat Completions を選ぶと Claude 互換プロキシが内蔵変換します。Codex provider の wire_api は変更しません。',
 
         // OpenClaw config panel
         'openclaw.applyHint': '~/.openclaw/openclaw.json に書き込みます。JSON5 対応。',
@@ -3170,6 +3180,11 @@ const DICT = Object.freeze({
         'claude.localBridge.noProviders': 'No providers available. Add a provider first.',
         'claude.localBridge.disabled': 'Disabled',
         'claude.localBridge.enabled': 'Enabled',
+        'claude.targetApi.label': 'Target API',
+        'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
+        'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
+        'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',
+        'claude.targetApi.hint': 'When Chat Completions is selected, the Claude-compatible proxy performs the built-in conversion without changing the Codex provider wire_api.',
 
         // OpenClaw config panel
         'openclaw.applyHint': 'Writes to ~/.openclaw/openclaw.json (JSON5 supported).',

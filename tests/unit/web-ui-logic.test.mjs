@@ -82,6 +82,7 @@ test('normalizeClaudeConfig infers external credential type from authToken and u
 });
 
 test('normalizeClaudeConfig accepts chat completions target api aliases', () => {
+    assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat_completions' }).targetApi, 'chat_completions');
     assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat/completions' }).targetApi, 'chat_completions');
     assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat-completions' }).targetApi, 'chat_completions');
 });

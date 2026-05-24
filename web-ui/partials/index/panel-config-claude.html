@@ -129,7 +129,7 @@
                             <div class="card-content">
                                 <div class="card-title">{{ name }}</div>
                                 <div class="card-subtitle card-subtitle-model">{{ config.model || t('claude.model.unset') }}</div>
-                                <div class="card-subtitle" v-if="config.targetApi === 'chat_completions'">OpenAI Chat Completions</div>
+                                <div class="card-subtitle" v-if="config.targetApi === 'chat_completions'">{{ t('claude.targetApi.chatCompletionsBadge') }}</div>
                                 <div class="card-subtitle card-subtitle-url" v-if="config.baseUrl">{{ config.baseUrl }}</div>
                             </div>
                         </div>

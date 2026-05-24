@@ -109,7 +109,7 @@ export function createClaudeConfigMethods(options = {}) {
 
             const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
-                const res = await api('apply-claude-config', { config });
+                const res = await api('apply-claude-config', { config: { ...config, name } });
                 if (res.error || res.success === false) {
                     this.showMessage(res.error || '应用配置失败', 'error');
                 } else {
@@ -185,7 +185,7 @@ export function createClaudeConfigMethods(options = {}) {
 
             const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
-                const res = await api('apply-claude-config', { config });
+                const res = await api('apply-claude-config', { config: { ...config, name } });
                 if (res.error || res.success === false) {
                     this.showMessage(res.error || '应用配置失败', 'error');
                 } else {

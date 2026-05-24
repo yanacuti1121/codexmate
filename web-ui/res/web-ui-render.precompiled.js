@@ -1891,7 +1891,7 @@ return function render(_ctx, _cache) {
                               ? (_openBlock(), _createElementBlock("div", {
                                   key: 0,
                                   class: "card-subtitle"
-                                }, "OpenAI Chat Completions"))
+                                }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletionsBadge')), 1 /* TEXT */))
                               : _createCommentVNode("v-if", true),
                             (config.baseUrl)
                               ? (_openBlock(), _createElementBlock("div", {
@@ -5558,17 +5558,17 @@ return function render(_ctx, _cache) {
               ])
             ]),
             _createElementVNode("div", { class: "form-group" }, [
-              _createElementVNode("label", { class: "form-label" }, "目标 API"),
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('claude.targetApi.label')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("select", {
                 "onUpdate:modelValue": $event => ((_ctx.newClaudeConfig.targetApi) = $event),
                 class: "form-input"
               }, [
-                _createElementVNode("option", { value: "responses" }, "Anthropic / OpenAI Responses"),
-                _createElementVNode("option", { value: "chat_completions" }, "OpenAI Chat Completions (/v1/chat/completions)")
+                _createElementVNode("option", { value: "responses" }, _toDisplayString(_ctx.t('claude.targetApi.responses')), 1 /* TEXT */),
+                _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */)
               ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
                 [_vModelSelect, _ctx.newClaudeConfig.targetApi]
               ]),
-              _createElementVNode("div", { class: "form-hint" }, "选择 Chat Completions 时由 Claude 兼容代理内建转换，不修改 Codex provider 的 wire_api。")
+              _createElementVNode("div", { class: "form-hint" }, _toDisplayString(_ctx.t('claude.targetApi.hint')), 1 /* TEXT */)
             ]),
             _createElementVNode("div", { class: "btn-group" }, [
               _createElementVNode("button", {
@@ -5672,17 +5672,17 @@ return function render(_ctx, _cache) {
               ])
             ]),
             _createElementVNode("div", { class: "form-group" }, [
-              _createElementVNode("label", { class: "form-label" }, "目标 API"),
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('claude.targetApi.label')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("select", {
                 "onUpdate:modelValue": $event => ((_ctx.editingConfig.targetApi) = $event),
                 class: "form-input"
               }, [
-                _createElementVNode("option", { value: "responses" }, "Anthropic / OpenAI Responses"),
-                _createElementVNode("option", { value: "chat_completions" }, "OpenAI Chat Completions (/v1/chat/completions)")
+                _createElementVNode("option", { value: "responses" }, _toDisplayString(_ctx.t('claude.targetApi.responses')), 1 /* TEXT */),
+                _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */)
               ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
                 [_vModelSelect, _ctx.editingConfig.targetApi]
               ]),
-              _createElementVNode("div", { class: "form-hint" }, "选择 Chat Completions 时由 Claude 兼容代理内建转换，不修改 Codex provider 的 wire_api。")
+              _createElementVNode("div", { class: "form-hint" }, _toDisplayString(_ctx.t('claude.targetApi.hint')), 1 /* TEXT */)
             ]),
             _createElementVNode("div", { class: "btn-group" }, [
               _createElementVNode("button", {
