@@ -9158,8 +9158,22 @@ function normalizeClaudeTargetApi(value) {
         : 'responses';
 }
 
+function resetBuiltinClaudeProxySavedSettingsToResponses() {
+    const proxySettingsResult = readJsonObjectFromFile(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS);
+    const proxySettings = proxySettingsResult.ok && proxySettingsResult.data && typeof proxySettingsResult.data === 'object' && !Array.isArray(proxySettingsResult.data)
+        ? proxySettingsResult.data
+        : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS;
+    writeJsonAtomic(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, {
+        ...DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS,
+        ...proxySettings,
+        enabled: false,
+        targetApi: 'responses'
+    });
+}
+
 // 应用到 Claude Code settings.json（跨平台）
 async function applyToClaudeSettings(config = {}) {
+    let proxyStarted = false;
     try {
         const apiKey = (config.apiKey || '').trim();
         if (!apiKey) {
@@ -9175,8 +9189,10 @@ async function applyToClaudeSettings(config = {}) {
 
         if (targetApi === 'chat_completions') {
             await stopBuiltinClaudeProxyRuntime();
+            const proxyToken = crypto.randomBytes(24).toString('hex');
             proxyResult = await startBuiltinClaudeProxyRuntime({
                 enabled: true,
+                host: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.host,
                 provider: typeof config.name === 'string' ? config.name.trim() : '',
                 authSource: 'provider',
                 targetApi,
@@ -9186,30 +9202,28 @@ async function applyToClaudeSettings(config = {}) {
                 upstreamApiKey: apiKey
             });
             if (!proxyResult || proxyResult.error || proxyResult.success === false || !proxyResult.listenUrl) {
+                await stopBuiltinClaudeProxyRuntime();
+                resetBuiltinClaudeProxySavedSettingsToResponses();
                 return {
                     success: false,
                     mode: 'claude-proxy',
                     error: (proxyResult && proxyResult.error) || '启动 Claude 兼容代理失败'
                 };
             }
+            proxyStarted = true;
             settingsBaseUrl = proxyResult.listenUrl;
-            settingsApiKey = 'codexmate';
+            settingsApiKey = proxyToken;
         } else {
             await stopBuiltinClaudeProxyRuntime();
-            const proxySettingsResult = readJsonObjectFromFile(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS);
-            const proxySettings = proxySettingsResult.ok && proxySettingsResult.data && typeof proxySettingsResult.data === 'object' && !Array.isArray(proxySettingsResult.data)
-                ? proxySettingsResult.data
-                : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS;
-            writeJsonAtomic(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, {
-                ...DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS,
-                ...proxySettings,
-                enabled: false,
-                targetApi: 'responses'
-            });
+            resetBuiltinClaudeProxySavedSettingsToResponses();
         }
 
         const readResult = readJsonObjectFromFile(CLAUDE_SETTINGS_FILE, {});
         if (!readResult.ok) {
+            if (proxyStarted) {
+                await stopBuiltinClaudeProxyRuntime();
+                resetBuiltinClaudeProxySavedSettingsToResponses();
+            }
             return { success: false, mode: 'settings-file', error: readResult.error };
         }
 
@@ -9260,6 +9274,10 @@ async function applyToClaudeSettings(config = {}) {
         }
         return result;
     } catch (e) {
+        if (proxyStarted) {
+            try { await stopBuiltinClaudeProxyRuntime(); } catch (_) {}
+            try { resetBuiltinClaudeProxySavedSettingsToResponses(); } catch (_) {}
+        }
         return {
             success: false,
             mode: 'settings-file',

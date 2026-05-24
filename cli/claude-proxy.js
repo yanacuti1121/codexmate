@@ -767,8 +767,8 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             && typeof resolveOpenaiBridgeUpstream === 'function'
             && OPENAI_BRIDGE_SETTINGS_FILE) {
             const bridgeUpstream = resolveOpenaiBridgeUpstream(OPENAI_BRIDGE_SETTINGS_FILE, providerName);
-            if (bridgeUpstream && bridgeUpstream.error) {
-                return { error: bridgeUpstream.error };
+            if (!bridgeUpstream || bridgeUpstream.error) {
+                return { error: bridgeUpstream && bridgeUpstream.error ? bridgeUpstream.error : `OpenAI bridge 配置未找到: ${providerName}` };
             }
             const bridgeBaseUrl = typeof bridgeUpstream.baseUrl === 'string' ? bridgeUpstream.baseUrl.trim() : '';
             if (!bridgeBaseUrl || !isValidHttpUrl(bridgeBaseUrl)) {

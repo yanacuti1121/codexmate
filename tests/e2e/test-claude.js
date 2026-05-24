@@ -72,7 +72,8 @@ module.exports = async function testClaude(ctx) {
     assert(applyClaudeChatCompletions.proxy && applyClaudeChatCompletions.proxy.mode === 'anthropic-to-chat-completions', 'apply-claude-config chat_completions proxy mode mismatch');
 
     const claudeChatSettings = await api('get-claude-settings');
-    assert(claudeChatSettings.apiKey === 'codexmate', 'chat_completions should point Claude Code at local proxy token');
+    assert(/^[a-f0-9]{48}$/.test(claudeChatSettings.apiKey), 'chat_completions should point Claude Code at a random local proxy token');
+    assert(claudeChatSettings.apiKey !== 'sk-new', 'chat_completions should not write the upstream API key into Claude Code settings');
     assert(/http:\/\/127\.0\.0\.1:\d+$/.test(claudeChatSettings.baseUrl), 'chat_completions should point Claude Code at local proxy base url');
     assert(claudeChatSettings.model === 'new-model', 'chat_completions should preserve Claude model');
 
