@@ -1,5 +1,5 @@
 /* ============================================
-   Usage Tab — Refined Design System
+   Usage Tab — 时光之河设计
    ============================================ */
 
 /* ---- Toolbar ---- */
@@ -9,21 +9,21 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 }
 
 .usage-toolbar-title {
-    font-size: var(--font-size-title);
-    font-weight: var(--font-weight-title);
+    font-size: 18px;
+    font-weight: 600;
     color: var(--color-text-primary);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
 }
 
 .usage-range-group {
     display: flex;
-    gap: 4px;
-    padding: 3px;
-    border-radius: var(--radius-md);
+    gap: 3px;
+    padding: 4px;
+    border-radius: 10px;
     background: var(--color-surface-alt);
     border: 1px solid var(--color-border-soft);
 }
@@ -32,14 +32,14 @@
     border: none;
     background: transparent;
     color: var(--color-text-tertiary);
-    padding: 5px 11px;
-    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    border-radius: 7px;
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 500;
     font-family: var(--font-family);
     white-space: nowrap;
-    transition: all 120ms var(--ease-spring);
+    transition: all 150ms var(--ease-spring);
     outline: none;
     -webkit-tap-highlight-color: transparent;
 }
@@ -50,13 +50,13 @@
 }
 
 .usage-range-btn:active:not(:disabled) {
-    transform: scale(0.97);
+    transform: scale(0.96);
 }
 
 .usage-range-btn.active {
     color: #fff;
     background: var(--color-brand);
-    box-shadow: 0 1px 3px rgba(200, 121, 99, 0.35);
+    box-shadow: 0 2px 8px rgba(200, 121, 99, 0.3);
 }
 
 .usage-range-btn:disabled {
@@ -65,34 +65,75 @@
 }
 
 .usage-range-btn-icon {
-    padding: 5px 8px;
+    padding: 6px 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 
 .usage-range-btn-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
 }
 
-/* ---- Current session bar ---- */
-.usage-current-session-bar {
+/* ---- Empty State (插画风格) ---- */
+.usage-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 20px;
+    text-align: center;
+}
+
+.usage-empty-illustration {
+    width: 64px;
+    height: 64px;
+    color: var(--color-text-muted);
+    opacity: 0.6;
+    margin-bottom: 16px;
+    animation: usage-empty-breathe 3s ease-in-out infinite;
+}
+
+@keyframes usage-empty-breathe {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.7; }
+}
+
+.usage-empty-text {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    max-width: 280px;
+}
+
+/* ---- Hero 区域 ---- */
+.usage-hero {
+    padding: 24px;
+    margin-bottom: 20px;
+    border-radius: 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-soft);
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+}
+
+.usage-hero-active {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
-    margin-bottom: 16px;
-    border-radius: var(--radius-md);
+    gap: 8px 12px;
+    padding: 10px 16px;
+    border-radius: 10px;
     background: var(--color-surface-alt);
     font-size: 12px;
-    color: var(--color-text-secondary);
 }
 
-.usage-current-session-dot {
-    width: 7px;
-    height: 7px;
+.usage-hero-active-dot {
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--color-success);
     flex-shrink: 0;
@@ -100,258 +141,136 @@
 }
 
 @keyframes usage-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.9); }
 }
 
-.usage-current-session-label {
-    font-weight: 700;
+.usage-hero-active-label {
+    font-weight: 600;
     color: var(--color-text-primary);
 }
 
-.usage-current-session-stat {
+.usage-hero-active-stat {
     color: var(--color-text-tertiary);
 }
 
-.usage-current-session-stat::before {
+.usage-hero-active-stat::before {
     content: '·';
     margin-right: 10px;
     color: var(--color-border-strong);
 }
 
-/* ---- Summary cards ---- */
-.usage-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 10px;
-    margin-bottom: 18px;
+.usage-hero-metrics {
+    text-align: center;
 }
 
-.usage-summary-card {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 14px 16px;
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-soft);
-    transition: all 120ms var(--ease-spring);
-    min-height: 72px;
-}
-
-.usage-summary-card-value {
-    font-size: 26px;
+.usage-hero-main {
+    font-size: 42px;
     font-weight: 700;
     color: var(--color-text-primary);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+    line-height: 1;
+    letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
+    animation: usage-hero-count 0.8s ease-out;
 }
 
-.usage-summary-card-label {
-    font-size: 11px;
-    font-weight: 500;
+@keyframes usage-hero-count {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.usage-hero-sub {
+    margin-top: 8px;
+    font-size: 13px;
     color: var(--color-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.usage-copyable {
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.usage-copyable:hover {
-    border-color: var(--color-brand);
-    background: var(--color-surface-alt);
-}
-
-.usage-copyable:active {
-    transform: scale(0.98);
-}
-
-.usage-copyable:focus-visible {
-    outline: 2px solid var(--color-brand-light);
-    outline-offset: 2px;
-}
-
-/* ---- Content area ---- */
-.usage-content {
-    position: relative;
-}
-
-.usage-content-loading {
-    opacity: 0.7;
-    pointer-events: none;
-}
-
-.usage-content-overlay {
-    position: absolute;
-    inset: 0;
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding: 12px;
-    z-index: 1;
-}
-
-.usage-spinner {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid var(--color-border-soft);
-    border-top-color: var(--color-brand);
-    animation: usage-spin 0.8s linear infinite;
-}
-
-@keyframes usage-spin {
-    to { transform: rotate(360deg); }
-}
-
-/* ---- Cards ---- */
-.usage-card {
-    padding: 18px;
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-soft);
-    margin-bottom: 12px;
-}
-
-.usage-card-head {
-    margin-bottom: 14px;
-}
-
-.usage-card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: 2px;
-}
-
-.usage-card-subtitle {
-    font-size: 11px;
-    color: var(--color-text-muted);
-}
-
-/* ---- Chart grid ---- */
-.usage-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-}
-
-.usage-card-wide {
-    grid-column: 1 / -1;
-}
-
-/* ---- Daily chart ---- */
-.usage-daily-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 4px;
-    height: 140px;
-    padding: 0 2px;
-}
-
-.usage-daily-bar-group {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    min-width: 0;
-    -webkit-tap-highlight-color: transparent;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.usage-daily-bar-stack {
-    width: 100%;
-    max-width: 32px;
-    height: 100px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    position: relative;
-    border-radius: 4px 4px 0 0;
+.usage-hero-delta {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.usage-hero-delta.delta-up {
+    color: var(--color-delta-up);
+    background: rgba(76, 175, 80, 0.12);
+}
+
+.usage-hero-delta.delta-down {
+    color: var(--color-delta-down);
+    background: rgba(244, 67, 54, 0.12);
+}
+
+/* ---- 波浪图 ---- */
+.usage-wave-section {
     overflow: hidden;
-    background: var(--color-surface-alt);
 }
 
-.usage-daily-bar-fill {
+.usage-wave-container {
+    margin-top: 12px;
+    position: relative;
+}
+
+.usage-wave-chart {
     width: 100%;
-    border-radius: 4px 4px 0 0;
-    background: var(--color-brand);
-    transition: height 200ms var(--ease-spring);
-    min-height: 2px;
+    height: 140px;
+    display: block;
 }
 
-.usage-daily-bar-prev {
-    width: 100%;
-    background: var(--color-text-muted);
-    opacity: 0.35;
-    border-radius: 4px 4px 0 0;
+.usage-wave-area {
+    transition: d 0.4s var(--ease-spring);
 }
 
-.usage-daily-bar-group.active .usage-daily-bar-fill {
-    background: var(--color-brand-dark);
-    box-shadow: 0 0 8px rgba(200, 121, 99, 0.3);
+.usage-wave-line {
+    transition: d 0.4s var(--ease-spring);
 }
 
-.usage-daily-bar-group:hover .usage-daily-bar-fill {
-    filter: brightness(1.1);
+.usage-wave-hover-line {
+    transition: x1 0.2s, x2 0.2s, y1 0.2s, y2 0.2s;
 }
 
-.usage-daily-bar-label {
+.usage-wave-hover-point {
+    transition: cx 0.2s, cy 0.2s;
+}
+
+.usage-wave-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding: 0 4px;
+}
+
+.usage-wave-label {
     font-size: 10px;
     color: var(--color-text-muted);
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease-out;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.usage-daily-bar-group.active .usage-daily-bar-label {
-    color: var(--color-brand-dark);
-    font-weight: 700;
+.usage-wave-label:hover {
+    color: var(--color-text-secondary);
+    background: var(--color-surface-alt);
 }
 
-/* ---- Daily legend ---- */
-.usage-daily-legend {
-    display: flex;
-    gap: 16px;
-    margin-top: 10px;
-    font-size: 11px;
-    color: var(--color-text-muted);
+.usage-wave-label.active {
+    color: var(--color-brand);
+    font-weight: 600;
 }
 
-.usage-daily-legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.usage-daily-legend-swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-}
-
-.usage-daily-legend-swatch.current {
-    background: var(--color-brand);
-}
-
-.usage-daily-legend-swatch.prev {
-    background: var(--color-text-muted);
-    opacity: 0.35;
-}
-
-/* ---- Day detail ---- */
+/* ---- 日期详情 ---- */
 .usage-daydetail {
-    margin-top: 12px;
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
     background: var(--color-surface-alt);
 }
 
@@ -364,7 +283,7 @@
 }
 
 .usage-daydetail-date {
-    font-weight: 700;
+    font-weight: 600;
     font-size: 13px;
     color: var(--color-text-primary);
 }
@@ -380,82 +299,7 @@
     color: var(--color-text-muted);
 }
 
-/* ---- Lists ---- */
-.usage-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.usage-list-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 8px 12px;
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-alt);
-    transition: background 120ms var(--ease-spring);
-}
-
-.usage-list-row:hover {
-    background: var(--color-surface-elevated);
-}
-
-.usage-list-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.usage-list-path {
-    font-size: 12px;
-    color: var(--color-text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--font-family-mono);
-    font-size: 11px;
-}
-
-.usage-list-stat {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-}
-
-.usage-list-meta {
-    grid-column: 1 / -1;
-    font-size: 11px;
-    color: var(--color-text-muted);
-}
-
-.usage-list-value {
-    font-size: 12px;
-    color: var(--color-text-secondary);
-    padding: 8px 0;
-}
-
-.usage-progress {
-    height: 3px;
-    border-radius: 2px;
-    background: var(--color-surface-alt);
-    overflow: hidden;
-}
-
-.usage-progress-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: var(--color-brand);
-    transition: width 300ms var(--ease-spring);
-}
-
-/* ---- Hourly heatmap ---- */
+/* ---- 热力图 ---- */
 .usage-card-hourly-heatmap {
     overflow-x: auto;
 }
@@ -506,8 +350,9 @@
 .hourly-heatmap-cell {
     flex: 1;
     min-width: 0;
-    aspect-ratio: 1;
+    height: 6px;
     border-radius: 3px;
+    transition: background 0.15s ease-out;
 }
 
 .hourly-heatmap-cell.level-0 { background: var(--color-surface-alt); }
@@ -521,7 +366,7 @@
     align-items: center;
     gap: 3px;
     justify-content: flex-end;
-    margin-top: 8px;
+    margin-top: 10px;
     font-size: 10px;
     color: var(--color-text-muted);
 }
@@ -529,32 +374,199 @@
 .hourly-heatmap-legend .hourly-heatmap-cell {
     width: 11px;
     height: 11px;
-    aspect-ratio: auto;
 }
 
 .hourly-heatmap-legend-label {
     margin: 0 2px;
 }
 
-/* ---- Empty state ---- */
-.usage-empty {
-    padding: 32px 16px;
-    border-radius: var(--radius-md);
-    background: var(--color-surface-alt);
-    border: 1px dashed var(--color-border);
-    color: var(--color-text-secondary);
-    text-align: center;
-    font-size: 13px;
+/* ---- 列表样式 ---- */
+.usage-list-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-/* ---- Responsive ---- */
+.usage-list-compact-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease-out;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.usage-list-compact-item:hover {
+    background: var(--color-surface-elevated);
+}
+
+.usage-list-compact-item:active {
+    transform: scale(0.98);
+}
+
+.usage-list-bullet {
+    color: var(--color-brand);
+    font-size: 14px;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.usage-list-compact-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.usage-list-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.usage-list-meta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+}
+
+.usage-list-value {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    padding: 8px 0;
+}
+
+/* ---- Path 列表 ---- */
+.usage-paths-section {
+    grid-column: 1 / -1;
+}
+
+.usage-list-paths {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.usage-list-path-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    transition: background 0.15s ease-out;
+}
+
+.usage-list-path-row:hover {
+    background: var(--color-surface-alt);
+}
+
+.usage-list-path-rank {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-brand);
+    background: var(--color-surface-alt);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.usage-list-path-content {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.usage-list-path {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.usage-list-path-stat {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+/* ---- 卡片 ---- */
+.usage-card {
+    padding: 20px;
+    border-radius: 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-soft);
+    margin-bottom: 0;
+}
+
+.usage-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+}
+
+/* ---- 图表网格 ---- */
+.usage-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+/* ---- 内容区域 ---- */
+.usage-content {
+    position: relative;
+}
+
+.usage-content-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.usage-content-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 12px;
+    z-index: 1;
+}
+
+.usage-spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border-soft);
+    border-top-color: var(--color-brand);
+    animation: usage-spin 0.8s linear infinite;
+}
+
+@keyframes usage-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---- 响应式 ---- */
 @media (max-width: 960px) {
     .usage-chart-grid {
         grid-template-columns: 1fr;
     }
 
-    .usage-summary-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .usage-hero-main {
+        font-size: 36px;
     }
 }
 
@@ -569,20 +581,25 @@
         flex-wrap: wrap;
     }
 
-    .usage-summary-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .usage-hero {
+        padding: 20px;
+        min-height: 120px;
     }
 
-    .usage-summary-card-value {
-        font-size: 22px;
+    .usage-hero-main {
+        font-size: 32px;
     }
 
-    .usage-daily-chart {
+    .usage-wave-chart {
         height: 100px;
     }
 
-    .usage-daily-bar-stack {
-        max-width: 24px;
-        height: 70px;
+    .usage-wave-labels {
+        font-size: 9px;
+    }
+
+    .hourly-heatmap-wrapper {
+        min-width: 100%;
+        overflow-x: auto;
     }
 }

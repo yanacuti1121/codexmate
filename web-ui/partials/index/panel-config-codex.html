@@ -120,7 +120,7 @@
                 </template>
 
                 <div v-if="!loading && !initError" class="card-list">
-                    <div v-for="provider in displayProvidersList" :key="provider.name" :class="['card', { active: displayCurrentProvider === provider.name }]" @click="switchProvider(provider.name)" @keydown.enter.self.prevent="switchProvider(provider.name)" @keydown.space.self.prevent="switchProvider(provider.name)" tabindex="0" role="button" :aria-current="displayCurrentProvider === provider.name ? 'true' : null">
+                    <div v-for="provider in displayProvidersList" :key="provider.name" :class="['card', { active: displayCurrentProvider === provider.name, disabled: provider.name === 'local' && isLocalProviderDisabled }]" @click="(provider.name === 'local' && isLocalProviderDisabled) ? null : switchProvider(provider.name)" @keydown.enter.self.prevent="(provider.name === 'local' && isLocalProviderDisabled) ? null : switchProvider(provider.name)" @keydown.space.self.prevent="(provider.name === 'local' && isLocalProviderDisabled) ? null : switchProvider(provider.name)" :tabindex="provider.name === 'local' && isLocalProviderDisabled ? -1 : 0" role="button" :aria-current="displayCurrentProvider === provider.name ? 'true' : null">
                         <div class="card-leading">
                             <div class="card-icon">{{ provider.name.charAt(0).toUpperCase() }}<span v-if="isTransformProvider(provider)" class="card-icon-dot" title="通过内建转换适配"></span></div>
                             <div class="card-content">

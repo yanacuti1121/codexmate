@@ -444,6 +444,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'promptComposerVarValuesRaw',
         'sessionConverting',
         'sessionImportingNative',
+        'preserveSessionRenderOnTabLeave',
         'sessionSortMode',
         'sessionsUsageCompareEnabled',
         'sessionsUsageSelectedDayKey',
@@ -515,6 +516,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'selectSessionsUsageDay',
         'clearSessionsUsageDay',
         'setSessionTrashEnabled',
+        'onSettingsTabKeydown',
         'setShareCommandPrefix',
         'setSessionListRef',
         'hasRenderableSessionTimeline',
@@ -611,7 +613,10 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'setSessionSource',
         'highlightQueryText',
         'pasteConfigTemplateContent',
-        'pasteAgentsContent'
+        'pasteAgentsContent',
+        'importSingleSkill',
+        'openSkillsMenu',
+        'isClaudeLocalBridgeDisabled'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',
@@ -698,6 +703,12 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionUsageHourlyHeatmap',
         'sessionUsageDailyTableRows',
         'sessionsUsageSelectedDaySummary',
+        'sessionsUsageSelectedDay',
+        'sessionUsageWave',
+        'usageHeroDelta',
+        'usageHeroDeltaClass',
+        'usageHeroMainValue',
+        'usageHeroSubLabel',
         'usageCurrentSessionStats',
         'taskOrchestrationSelectedRun',
         'taskOrchestrationSelectedRunNodes',
@@ -713,7 +724,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'codexProviderTemplates',
         'providersHealthSummary',
         'providersHealthTone',
-        'sessionContextUtilization'
+        'sessionContextUtilization',
+        'isLocalProviderDisabled'
     ];
     const allowedMissingCurrentComputedKeys = [
         'hasLocalAndProxy',

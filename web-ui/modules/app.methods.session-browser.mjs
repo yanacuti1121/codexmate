@@ -264,6 +264,13 @@ export function createSessionBrowserMethods(options = {}) {
                 });
             if (urlState) {
                 applySessionsFilterUrlState(this, urlState);
+                // 清理 URL，保持静态
+                try {
+                    const url = new URL(window.location.href);
+                    url.search = '';
+                    url.hash = '';
+                    window.history.replaceState(null, '', url.toString());
+                } catch (_) {}
                 try {
                     const sortCache = localStorage.getItem('codexmateSessionSortMode');
                     this.sessionSortMode = normalizeSortMode(sortCache);
