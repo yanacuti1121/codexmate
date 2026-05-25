@@ -109,11 +109,17 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
 
 fn stop_backend(window: &tauri::Window) {
   let state = window.state::<BackendState>();
-  if let Ok(mut guard) = state.0.lock() {
-    if let Some(mut child) = guard.take() {
-      let _ = child.kill();
-      let _ = child.wait();
-    }
+  let child = {
+    let mut guard = match state.0.lock() {
+      Ok(value) => value,
+      Err(_) => return,
+    };
+    guard.take()
+  };
+
+  if let Some(mut child) = child {
+    let _ = child.kill();
+    let _ = child.wait();
   }
 }
 
