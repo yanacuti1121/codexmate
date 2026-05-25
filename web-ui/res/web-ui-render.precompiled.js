@@ -1,5 +1,5 @@
 window.__CODEXMATE_WEB_UI_RENDER__ = (() => {
-const { toDisplayString: _toDisplayString, normalizeClass: _normalizeClass, createElementVNode: _createElementVNode, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode, createTextVNode: _createTextVNode, Fragment: _Fragment, renderList: _renderList, vShow: _vShow, withDirectives: _withDirectives, vModelSelect: _vModelSelect, vModelText: _vModelText, withKeys: _withKeys, withModifiers: _withModifiers, isMemoSame: _isMemoSame, withMemo: _withMemo, normalizeStyle: _normalizeStyle, vModelCheckbox: _vModelCheckbox, vModelDynamic: _vModelDynamic } = Vue
+const { toDisplayString: _toDisplayString, normalizeClass: _normalizeClass, createElementVNode: _createElementVNode, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode, Transition: _Transition, withCtx: _withCtx, createVNode: _createVNode, createTextVNode: _createTextVNode, Fragment: _Fragment, renderList: _renderList, vShow: _vShow, withDirectives: _withDirectives, vModelSelect: _vModelSelect, vModelText: _vModelText, withKeys: _withKeys, withModifiers: _withModifiers, isMemoSame: _isMemoSame, withMemo: _withMemo, normalizeStyle: _normalizeStyle, vModelCheckbox: _vModelCheckbox, vModelDynamic: _vModelDynamic } = Vue
 
 return function render(_ctx, _cache) {
   return (_openBlock(), _createElementBlock(_Fragment, null, [
@@ -165,7 +165,11 @@ return function render(_ctx, _cache) {
             key: 0,
             class: "side-rail"
           }, [
-            _createElementVNode("div", { class: "brand-block" }, [
+            _createElementVNode("div", {
+              class: "brand-block",
+              onMouseenter: $event => (_ctx.brandHovered = true),
+              onMouseleave: $event => (_ctx.brandHovered = false)
+            }, [
               _createElementVNode("div", { class: "brand-head" }, [
                 _createElementVNode("img", {
                   class: "brand-logo",
@@ -174,18 +178,22 @@ return function render(_ctx, _cache) {
                 }),
                 _createElementVNode("div", { class: "brand-copy" }, [
                   _createElementVNode("div", { class: "brand-kicker" }, [
-                    _createTextVNode("Codex Mate "),
-                    (_ctx.appVersion)
-                      ? (_openBlock(), _createElementBlock("span", {
-                          key: 0,
-                          class: "brand-version"
-                        }, "v" + _toDisplayString(_ctx.appVersion), 1 /* TEXT */))
-                      : _createCommentVNode("v-if", true)
+                    _createTextVNode("Codex Mate"),
+                    _createVNode(_Transition, { name: "brand-version-fade" }, {
+                      default: _withCtx(() => [
+                        (_ctx.appVersion && _ctx.brandHovered)
+                          ? (_openBlock(), _createElementBlock("span", {
+                              key: 0,
+                              class: "brand-version"
+                            }, " v" + _toDisplayString(_ctx.appVersion), 1 /* TEXT */))
+                          : _createCommentVNode("v-if", true)
+                      ]),
+                      _: 1 /* STABLE */
+                    })
                   ])
                 ])
-              ]),
-              _createElementVNode("div", { class: "brand-subtitle" }, _toDisplayString(_ctx.t('brand.subtitle.localConfigSessionsWorkspace')), 1 /* TEXT */)
-            ]),
+              ])
+            ], 40 /* PROPS, NEED_HYDRATION */, ["onMouseenter", "onMouseleave"]),
             _createElementVNode("div", { class: "side-rail-nav" }, [
               _createElementVNode("div", {
                 class: "side-section",
