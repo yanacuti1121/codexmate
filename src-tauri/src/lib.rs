@@ -7,6 +7,9 @@ use std::{
   time::{Duration, Instant},
 };
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use tauri::{Manager, WindowEvent};
 
 struct BackendState(Mutex<Option<Child>>);
@@ -51,6 +54,15 @@ fn wait_for_backend(timeout: Duration) -> bool {
   false
 }
 
+#[cfg(windows)]
+fn configure_backend_process(command: &mut Command) {
+  const CREATE_NO_WINDOW: u32 = 0x08000000;
+  command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn configure_backend_process(_command: &mut Command) {}
+
 fn find_cli_path(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>> {
   let mut candidates = Vec::new();
 
@@ -84,7 +96,8 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
     .ok_or_else(|| "unable to resolve codexmate cli directory")?;
   let node_bin = std::env::var("CODEXMATE_NODE").unwrap_or_else(|_| "node".to_string());
 
-  let child = Command::new(node_bin)
+  let mut command = Command::new(node_bin);
+  command
     .arg(&cli_path)
     .arg("run")
     .arg("--host")
@@ -96,7 +109,11 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
     .env("CODEXMATE_PORT", "3737")
     .stdin(Stdio::null())
     .stdout(Stdio::null())
-    .stderr(Stdio::null())
+    .stderr(Stdio::null());
+
+  configure_backend_process(&mut command);
+
+  let child = command
     .spawn()
     .map_err(|err| format!("unable to start codexmate backend with Node.js: {err}"))?;
 
