@@ -1,7 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const { assert } = require('./helpers');
 
 module.exports = async function testClaude(ctx) {
-    const { api, mockProviderUrl, claudeModel } = ctx;
+    const { api, mockProviderUrl, claudeModel, tmpHome } = ctx;
 
     // ========== Get Claude Settings Tests ==========
     const claudeSettingsInfo = await api('get-claude-settings');
@@ -79,6 +81,7 @@ module.exports = async function testClaude(ctx) {
 
     const claudeProxyStatus = await api('claude-proxy-status');
     assert(claudeProxyStatus.running === true, 'chat_completions apply should start Claude proxy');
+    assert(claudeProxyStatus.settings && claudeProxyStatus.settings.host === '127.0.0.1', 'chat_completions apply should bind Claude proxy to loopback');
     assert(claudeProxyStatus.runtime && claudeProxyStatus.runtime.mode === 'anthropic-to-chat-completions', 'Claude proxy runtime mode mismatch after chat_completions apply');
     assert(claudeProxyStatus.runtime.upstreamProvider === 'claude-chat-direct', 'Claude proxy should use the applied Claude config as direct upstream');
     assert(claudeProxyStatus.runtime.upstreamBaseUrl === mockProviderUrl, 'Claude proxy direct upstream base url mismatch');
@@ -90,4 +93,18 @@ module.exports = async function testClaude(ctx) {
     assert(restoreClaude.success === true, 'restore-claude-config failed');
     const claudeProxyStatusAfterRestore = await api('claude-proxy-status');
     assert(claudeProxyStatusAfterRestore.running === false, 'responses apply should stop Claude proxy runtime');
+    assert(claudeProxyStatusAfterRestore.settings && claudeProxyStatusAfterRestore.settings.targetApi === 'responses', 'responses apply should reset saved Claude proxy targetApi');
+
+    // ========== Chat Completions Apply Rollback Tests ==========
+    const claudeSettingsPath = path.join(tmpHome, '.claude', 'settings.json');
+    const validClaudeSettings = fs.readFileSync(claudeSettingsPath, 'utf-8');
+    fs.writeFileSync(claudeSettingsPath, '{ invalid json', 'utf-8');
+    const failedChatApply = await api('apply-claude-config', {
+        config: { name: 'claude-chat-direct', baseUrl: mockProviderUrl, apiKey: 'sk-new', model: 'new-model', targetApi: 'chat_completions' }
+    });
+    assert(failedChatApply.success === false || failedChatApply.error, 'apply-claude-config should fail when Claude settings cannot be read');
+    const claudeProxyStatusAfterFailedApply = await api('claude-proxy-status');
+    assert(claudeProxyStatusAfterFailedApply.running === false, 'failed chat_completions apply should roll back the Claude proxy runtime');
+    assert(claudeProxyStatusAfterFailedApply.settings && claudeProxyStatusAfterFailedApply.settings.targetApi === 'responses', 'failed chat_completions apply should reset saved Claude proxy targetApi');
+    fs.writeFileSync(claudeSettingsPath, validClaudeSettings, 'utf-8');
 };

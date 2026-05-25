@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const { assert, closeServer } = require('./helpers');
 
@@ -158,7 +160,7 @@ function startClaudeProxyUpstreamServer() {
 }
 
 module.exports = async function testClaudeProxy(ctx) {
-    const { api } = ctx;
+    const { api, tmpHome } = ctx;
     const upstream = await startClaudeProxyUpstreamServer();
     const proxyPort = 19000 + Math.floor(Math.random() * 1000);
     try {
@@ -350,6 +352,22 @@ module.exports = async function testClaudeProxy(ctx) {
             useTransform: true
         });
         assert(addBridgeProvider.success === true, 'add-provider(claude-proxy-openai-bridge-e2e) failed');
+
+        const bridgeSettingsPath = path.join(tmpHome, '.codex', 'codexmate-openai-bridge.json');
+        const savedBridgeSettings = fs.readFileSync(bridgeSettingsPath, 'utf-8');
+        fs.writeFileSync(bridgeSettingsPath, JSON.stringify({ providers: {} }, null, 2), 'utf-8');
+        const missingBridgeStartResult = await api('claude-proxy-start', {
+            host: '127.0.0.1',
+            port: proxyPort,
+            provider: 'claude-proxy-openai-bridge-e2e',
+            authSource: 'provider',
+            targetApi: 'chat_completions',
+            timeoutMs: 5000
+        });
+        assert(missingBridgeStartResult.error && missingBridgeStartResult.error.includes('OpenAI 转换未配置'), 'claude proxy should return an explicit error when OpenAI bridge upstream is missing');
+        const missingBridgeStatus = await api('claude-proxy-status');
+        assert(missingBridgeStatus.running === false, 'failed OpenAI bridge resolution must not start Claude proxy runtime');
+        fs.writeFileSync(bridgeSettingsPath, savedBridgeSettings, 'utf-8');
 
         const bridgeStartResult = await api('claude-proxy-start', {
             host: '127.0.0.1',
