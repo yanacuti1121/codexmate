@@ -118,14 +118,13 @@
 
         <div :class="['app-shell', { standalone: sessionStandalone }]">
             <aside class="side-rail" v-if="!sessionStandalone">
-                <div class="brand-block">
+                <div class="brand-block" @mouseenter="brandHovered = true" @mouseleave="brandHovered = false">
                     <div class="brand-head">
                         <img class="brand-logo" src="/res/logo-pack.webp" alt="Codex Mate logo">
                         <div class="brand-copy">
-                            <div class="brand-kicker">Codex Mate <span v-if="appVersion" class="brand-version">v{{ appVersion }}</span></div>
+                            <div class="brand-kicker">Codex Mate<transition name="brand-version-fade"><span v-if="appVersion && brandHovered" class="brand-version"> v{{ appVersion }}</span></transition></div>
                         </div>
                     </div>
-                    <div class="brand-subtitle">{{ t('brand.subtitle.localConfigSessionsWorkspace') }}</div>
                 </div>
 
                 <div class="side-rail-nav">

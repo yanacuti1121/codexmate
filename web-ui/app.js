@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const appOptions = {
         data() {
             return {
+                brandHovered: false,
                 lang: 'zh',
                 appVersion: '',
                 mainTab: 'dashboard',
