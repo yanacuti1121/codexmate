@@ -455,7 +455,7 @@ function buildUsageBuckets(normalizedSessions, options = {}) {
     return { range, buckets };
 }
 
-export function buildUsageChartGroups(sessions = [], options = {}) {
+export function buildUsageChartGroups(sessions = [], options = {}, t = null) {
     const list = Array.isArray(sessions) ? sessions : [];
     const normalizedSessions = [];
     for (const [sessionIndex, session] of list.entries()) {

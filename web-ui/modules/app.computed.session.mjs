@@ -274,7 +274,7 @@ export function createSessionComputed() {
         sessionUsageCharts() {
             return buildUsageChartGroups(this.sessionsUsageList, {
                 range: this.sessionsUsageTimeRange
-            });
+            }, this.t);
         },
         sessionUsageHeatmap() {
             const sessions = this.sessionUsageCharts && Array.isArray(this.sessionUsageCharts.filteredSessions)
