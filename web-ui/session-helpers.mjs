@@ -269,7 +269,11 @@ export async function loadSessions(api, options = {}) {
             const t = typeof this.t === 'function' ? this.t : null;
             if (typeof t === 'function') {
                 for (const session of this.sessionsList) {
-                    session.updatedAtLabel = formatSessionTimelineTimestamp(session.updatedAt || '', t);
+                    try {
+                        session.updatedAtLabel = formatSessionTimelineTimestamp(session.updatedAt || '', t);
+                    } catch (e) {
+                        session.updatedAtLabel = session.updatedAt || '';
+                    }
                 }
             }
             emitSessionLoadDebug(this, 'loadSessions:response', `sessions=${this.sessionsList.length}`);
