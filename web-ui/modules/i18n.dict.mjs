@@ -532,6 +532,7 @@ const DICT = Object.freeze({
         'sessions.loadingList': '会话加载中...',
         'sessions.empty': '暂无可用会话记录',
         'sessions.unknownTime': '未知时间',
+
         'sessions.query.placeholder.enabled': '关键词检索（支持 Codex/Claude/Gemini/CodeBuddy，例：claude code）',
         'sessions.query.placeholder.disabled': '当前来源暂不支持关键词检索',
         'sessions.pin': '置顶',
@@ -1602,6 +1603,8 @@ const DICT = Object.freeze({
         'sessions.loadingList': 'セッション一覧を読み込み中...',
         'sessions.empty': 'セッションがありません',
         'sessions.unknownTime': '不明な時間',
+
+
         'sessions.query.placeholder.enabled': 'セッションを検索...',
         'sessions.query.placeholder.disabled': '現在のソースでは検索は利用できません',
         'sessions.pin': 'ピン留め',
@@ -2658,6 +2661,8 @@ const DICT = Object.freeze({
         'sessions.loadingList': 'Loading sessions...',
         'sessions.empty': 'No sessions found',
         'sessions.unknownTime': 'unknown time',
+
+
         'sessions.query.placeholder.enabled': 'Search keywords (Codex/Claude/Gemini/CodeBuddy, e.g. claude code)',
         'sessions.query.placeholder.disabled': 'Keyword search is not available for this source',
         'sessions.pin': 'Pin',

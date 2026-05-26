@@ -1,4 +1,4 @@
-﻿import { buildSessionListParams } from './logic.mjs';
+﻿import { buildSessionListParams, formatSessionTimelineTimestamp } from './logic.mjs';
 
 function clearSessionTimelineRefs(vm) {
     if (typeof vm.clearSessionTimelineRefs === 'function') {
@@ -265,7 +265,12 @@ export async function loadSessions(api, options = {}) {
             clearSessionTimelineRefs(this);
         } else {
             loadSucceeded = true;
-            this.sessionsList = Array.isArray(res.sessions) ? res.sessions : [];
+            const rawSessions = Array.isArray(res.sessions) ? res.sessions : [];
+            this.sessionsList = rawSessions.filter(s => s && typeof s === 'object');
+            for (const session of this.sessionsList) {
+                const rawUpdatedAt = typeof session.updatedAt === 'string' ? session.updatedAt : '';
+                session.updatedAtLabel = formatSessionTimelineTimestamp(rawUpdatedAt);
+            }
             emitSessionLoadDebug(this, 'loadSessions:response', `sessions=${this.sessionsList.length}`);
             if (typeof this.primeSessionListRender === 'function') {
                 this.primeSessionListRender();

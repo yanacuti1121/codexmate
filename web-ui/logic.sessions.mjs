@@ -180,12 +180,9 @@ export function formatSessionTimelineTimestamp(timestamp) {
     if (!value) return '';
 
     const matched = value.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
-    if (matched) {
-        const second = matched[6] || '00';
-        return `${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}:${second}`;
-    }
+    if (!matched) return value;
 
-    return value;
+    return `${matched[1]}-${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}`;
 }
 
 function normalizeUsageRange(range) {

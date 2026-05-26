@@ -4879,27 +4879,29 @@ function listClaudeSessions(limit, options = {}) {
         }
     }
 
-    if (sessions.length === 0) {
-        const fallbackFiles = collectRecentJsonlFiles(claudeProjectsDir, {
-            returnCount: scanCount,
-            maxFilesScanned,
-            ignoreSubPath: `${path.sep}subagents${path.sep}`
+    // 补充扫描未索引的 .jsonl 文件（包括 sessions-index.json 中遗漏的会话）
+    const seenFilePaths = new Set(sessions.map((item) => item.filePath).filter(Boolean));
+    const fallbackFiles = collectRecentJsonlFiles(claudeProjectsDir, {
+        returnCount: scanCount,
+        maxFilesScanned,
+        ignoreSubPath: `${path.sep}subagents${path.sep}`
+    });
+    for (const filePath of fallbackFiles) {
+        if (seenFilePaths.has(filePath)) continue;
+        const summary = parseClaudeSessionSummary(filePath, {
+            summaryReadBytes,
+            titleReadBytes
         });
-        for (const filePath of fallbackFiles) {
-            const summary = parseClaudeSessionSummary(filePath, {
-                summaryReadBytes,
-                titleReadBytes
-            });
-            if (summary) {
-                sessions.push(attachSessionNativeStatus({
-                    ...summary,
-                    derived: isDerivedSessionFile(filePath)
-                }));
-            }
+        if (summary) {
+            sessions.push(attachSessionNativeStatus({
+                ...summary,
+                derived: isDerivedSessionFile(filePath)
+            }));
+            seenFilePaths.add(filePath);
+        }
 
-            if (sessions.length >= targetCount) {
-                break;
-            }
+        if (sessions.length >= targetCount) {
+            break;
         }
     }
 
