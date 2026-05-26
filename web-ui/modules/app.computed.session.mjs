@@ -241,7 +241,7 @@ export function createSessionComputed() {
             }
             return buildSessionTimelineNodes(this.activeSessionVisibleMessages, {
                 getKey: (message, index) => this.getRecordRenderKey(message, index)
-            }, this.t);
+            });
         },
         sessionTimelineNodeKeyMap() {
             const nodes = Array.isArray(this.sessionTimelineNodes) ? this.sessionTimelineNodes : [];
@@ -274,13 +274,13 @@ export function createSessionComputed() {
         sessionUsageCharts() {
             return buildUsageChartGroups(this.sessionsUsageList, {
                 range: this.sessionsUsageTimeRange
-            }, this.t);
+            });
         },
         sessionUsageHeatmap() {
             const sessions = this.sessionUsageCharts && Array.isArray(this.sessionUsageCharts.filteredSessions)
                 ? this.sessionUsageCharts.filteredSessions
                 : this.sessionsUsageList;
-            const heatmap = buildUsageHeatmap(sessions, { range: this.sessionsUsageTimeRange }, this.t);
+            const heatmap = buildUsageHeatmap(sessions, { range: this.sessionsUsageTimeRange });
             const t = typeof this.t === 'function' ? this.t : null;
             const lang = typeof this.lang === 'string' ? this.lang.trim().toLowerCase() : '';
             const weekdayAxis = lang === 'en'

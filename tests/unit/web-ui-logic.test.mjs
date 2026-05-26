@@ -957,8 +957,8 @@ test('activeSessionVisibleMessages falls back to the initial preview batch befor
 });
 
 test('formatSessionTimelineTimestamp normalizes ISO-like strings for timeline labels', () => {
-    assert.strictEqual(formatSessionTimelineTimestamp('2026-03-23T09:10:11.000Z'), '03-23 09:10:11');
-    assert.strictEqual(formatSessionTimelineTimestamp('2026-03-23 19:20:00'), '03-23 19:20:00');
+    assert.strictEqual(formatSessionTimelineTimestamp('2026-03-23T09:10:11.000Z'), '2026-03-23 09:10');
+    assert.strictEqual(formatSessionTimelineTimestamp('2026-03-23 19:20:00'), '2026-03-23 19:20');
     assert.strictEqual(formatSessionTimelineTimestamp('not-a-time'), 'not-a-time');
     assert.strictEqual(formatSessionTimelineTimestamp(''), '');
 });
@@ -978,8 +978,8 @@ test('buildSessionTimelineNodes builds per-message node metadata', () => {
     assert.strictEqual(nodes[0].key, 'user-0');
     assert.strictEqual(nodes[0].role, 'user');
     assert.strictEqual(nodes[0].roleShort, 'U');
-    assert.strictEqual(nodes[0].displayTime, '03-23 09:00:00');
-    assert.strictEqual(nodes[0].title, '#1 · User · 03-23 09:00:00');
+    assert.strictEqual(nodes[0].displayTime, '2026-03-23 09:00');
+    assert.strictEqual(nodes[0].title, '#1 · User · 2026-03-23 09:00');
     assert.strictEqual(nodes[0].percent, 0);
     assert.strictEqual(nodes[0].safePercent, 6);
 

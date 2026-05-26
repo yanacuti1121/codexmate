@@ -266,15 +266,8 @@ export async function loadSessions(api, options = {}) {
         } else {
             loadSucceeded = true;
             this.sessionsList = Array.isArray(res.sessions) ? res.sessions : [];
-            const t = typeof this.t === 'function' ? this.t : null;
-            if (typeof t === 'function') {
-                for (const session of this.sessionsList) {
-                    try {
-                        session.updatedAtLabel = formatSessionTimelineTimestamp(session.updatedAt || '', t);
-                    } catch (e) {
-                        session.updatedAtLabel = session.updatedAt || '';
-                    }
-                }
+            for (const session of this.sessionsList) {
+                session.updatedAtLabel = formatSessionTimelineTimestamp(session.updatedAt || '');
             }
             emitSessionLoadDebug(this, 'loadSessions:response', `sessions=${this.sessionsList.length}`);
             if (typeof this.primeSessionListRender === 'function') {
