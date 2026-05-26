@@ -193,7 +193,7 @@
                             </div>
                             <div class="session-item-meta">
                                 <span class="session-source" :data-source="session.source">{{ session.sourceLabel }}</span>
-                                <span class="session-item-time">{{ session.updatedAt || t('sessions.unknownTime') }}</span>
+                                <span class="session-item-time">{{ session.updatedAtLabel || session.updatedAt || t('sessions.unknownTime') }}</span>
                                 <span v-if="getSessionHotLabel(session)" class="session-item-hot">{{ getSessionHotLabel(session) }}</span>
                                 <span v-if="session.cwd" class="session-item-cwd session-item-sub">{{ session.cwd }}</span>
                                 <div v-if="session.match && session.match.snippets && session.match.snippets.length" class="session-match-snippets">
@@ -212,7 +212,7 @@
                                         <div class="session-preview-title">{{ activeSession.title || activeSession.sessionId }}</div>
                                         <div class="session-preview-meta">
                                             <span class="session-preview-meta-item session-source" :data-source="activeSession.source">{{ activeSession.sourceLabel }}</span>
-                                            <span class="session-preview-meta-item">{{ activeSession.updatedAt || t('sessions.unknownTime') }}</span>
+                                            <span class="session-preview-meta-item">{{ activeSession.updatedAtLabel || activeSession.updatedAt || t('sessions.unknownTime') }}</span>
                                         </div>
                                         <div class="session-preview-meta" v-if="activeSession.cwd">
                                             <span class="session-preview-meta-item">{{ activeSession.cwd }}</span>

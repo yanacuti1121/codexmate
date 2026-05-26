@@ -175,17 +175,73 @@ function clampTimelinePercent(percent) {
     return Math.max(6, Math.min(94, percent));
 }
 
-export function formatSessionTimelineTimestamp(timestamp) {
+export function formatSessionTimelineTimestamp(timestamp, t = null, lang = 'zh') {
     const value = typeof timestamp === 'string' ? timestamp.trim() : '';
     if (!value) return '';
 
     const matched = value.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
-    if (matched) {
+    if (!matched) return value;
+
+    // 无i18n时使用原格式
+    if (typeof t !== 'function') {
         const second = matched[6] || '00';
         return `${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}:${second}`;
     }
 
-    return value;
+    // 相对时间格式
+    const year = Number(matched[1]);
+    const month = Number(matched[2]);
+    const day = Number(matched[3]);
+    const hour = Number(matched[4]);
+    const minute = Number(matched[5]);
+
+    const now = new Date();
+    const nowYear = now.getFullYear();
+    const nowMonth = now.getMonth() + 1;
+    const nowDay = now.getDate();
+    const nowHour = now.getHours();
+    const nowMinute = now.getMinutes();
+
+    const targetDate = new Date(value);
+    const diffMs = now - targetDate;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    const dateStr = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const fullDateStr = `${matched[1]}-${dateStr}`;
+
+    // < 1分钟
+    if (diffMinutes < 1) {
+        return t('time.relative.justNow');
+    }
+    // 1-59分钟
+    if (diffMinutes < 60) {
+        return t('time.relative.minutesAgo', { n: diffMinutes });
+    }
+    // 1-23小时
+    if (diffHours < 24) {
+        return t('time.relative.hoursAgo', { n: diffHours });
+    }
+
+    // 判断是否今天/昨天
+    const targetMs = targetDate.getTime();
+    const nowMs = now.getTime();
+    const todayStart = new Date(nowYear, nowMonth - 1, nowDay).getTime();
+    const yesterdayStart = todayStart - 86400000;
+
+    if (targetMs >= todayStart) {
+        return t('time.relative.today', { time: timeStr });
+    }
+    if (targetMs >= yesterdayStart) {
+        return t('time.relative.yesterday', { time: timeStr });
+    }
+
+    // 今年或跨年
+    if (year === nowYear) {
+        return t('time.relative.thisYear', { date: dateStr, time: timeStr });
+    }
+    return t('time.relative.crossYear', { date: fullDateStr, time: timeStr });
 }
 
 function normalizeUsageRange(range) {
@@ -206,7 +262,7 @@ function formatUtcDayKey(value) {
     return `${stamp.getUTCFullYear()}-${String(stamp.getUTCMonth() + 1).padStart(2, '0')}-${String(stamp.getUTCDate()).padStart(2, '0')}`;
 }
 
-export function buildUsageHeatmap(sessions = [], options = {}) {
+export function buildUsageHeatmap(sessions = [], options = {}, t = null) {
     const list = Array.isArray(sessions) ? sessions : [];
     const normalized = [];
     for (const session of list) {
@@ -560,7 +616,7 @@ export function buildUsageChartGroups(sessions = [], options = {}) {
             contextWindow: sessionContextWindow,
             updatedAt: session.updatedAt || '',
             updatedAtMs,
-            updatedAtLabel: formatSessionTimelineTimestamp(session.updatedAt || ''),
+            updatedAtLabel: formatSessionTimelineTimestamp(session.updatedAt || '', t),
             hasExactMessageCount: session.__messageCountExact === true
         };
         recentSessions.push(sessionEntry);
@@ -586,7 +642,7 @@ export function buildUsageChartGroups(sessions = [], options = {}) {
             path: pathValue,
             count: meta.count,
             messageTotal: meta.messageTotal,
-            updatedAtLabel: meta.updatedAtMs ? formatSessionTimelineTimestamp(new Date(meta.updatedAtMs).toISOString()) : ''
+            updatedAtLabel: meta.updatedAtMs ? formatSessionTimelineTimestamp(new Date(meta.updatedAtMs).toISOString(), t) : ''
         }));
 
     const usedModels = [...modelMap.entries()]
@@ -698,7 +754,7 @@ export function buildUsageChartGroups(sessions = [], options = {}) {
     };
 }
 
-export function buildSessionTimelineNodes(messages = [], options = {}) {
+export function buildSessionTimelineNodes(messages = [], options = {}, t = null) {
     const list = Array.isArray(messages) ? messages : [];
     const getKey = typeof options.getKey === 'function'
         ? options.getKey
@@ -713,7 +769,7 @@ export function buildSessionTimelineNodes(messages = [], options = {}) {
         const role = normalizeSessionMessageRole(message && (message.normalizedRole || message.role));
         const roleMeta = toRoleMeta(role);
         const key = String(getKey(message, index) || `msg-${index}`);
-        const displayTime = formatSessionTimelineTimestamp(message && message.timestamp ? message.timestamp : '');
+        const displayTime = formatSessionTimelineTimestamp(message && message.timestamp ? message.timestamp : '', t);
         const title = displayTime
             ? `#${index + 1} · ${roleMeta.roleLabel} · ${displayTime}`
             : `#${index + 1} · ${roleMeta.roleLabel}`;
@@ -757,8 +813,8 @@ export function buildSessionTimelineNodes(messages = [], options = {}) {
         }
         const roleValue = roleSet.size === 1 ? Array.from(roleSet)[0] : 'mixed';
         const roleMeta = toRoleMeta(roleValue);
-        const firstTime = formatSessionTimelineTimestamp(list[start] && list[start].timestamp ? list[start].timestamp : '');
-        const lastTime = formatSessionTimelineTimestamp(list[end] && list[end].timestamp ? list[end].timestamp : '');
+        const firstTime = formatSessionTimelineTimestamp(list[start] && list[start].timestamp ? list[start].timestamp : '', t);
+        const lastTime = formatSessionTimelineTimestamp(list[end] && list[end].timestamp ? list[end].timestamp : '', t);
         let displayTime = '';
         if (firstTime && lastTime) {
             displayTime = firstTime === lastTime ? firstTime : `${firstTime} ~ ${lastTime}`;

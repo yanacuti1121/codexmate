@@ -2455,7 +2455,7 @@ return function render(_ctx, _cache) {
                                         class: "session-source",
                                         "data-source": session.source
                                       }, _toDisplayString(session.sourceLabel), 9 /* TEXT, PROPS */, ["data-source"]),
-                                      _createElementVNode("span", { class: "session-item-time" }, _toDisplayString(session.updatedAt || _ctx.t('sessions.unknownTime')), 1 /* TEXT */),
+                                      _createElementVNode("span", { class: "session-item-time" }, _toDisplayString(session.updatedAtLabel || session.updatedAt || _ctx.t('sessions.unknownTime')), 1 /* TEXT */),
                                       (_ctx.getSessionHotLabel(session))
                                         ? (_openBlock(), _createElementBlock("span", {
                                             key: 0,
@@ -2513,7 +2513,7 @@ return function render(_ctx, _cache) {
                                             class: "session-preview-meta-item session-source",
                                             "data-source": _ctx.activeSession.source
                                           }, _toDisplayString(_ctx.activeSession.sourceLabel), 9 /* TEXT, PROPS */, ["data-source"]),
-                                          _createElementVNode("span", { class: "session-preview-meta-item" }, _toDisplayString(_ctx.activeSession.updatedAt || _ctx.t('sessions.unknownTime')), 1 /* TEXT */)
+                                          _createElementVNode("span", { class: "session-preview-meta-item" }, _toDisplayString(_ctx.activeSession.updatedAtLabel || _ctx.activeSession.updatedAt || _ctx.t('sessions.unknownTime')), 1 /* TEXT */)
                                         ]),
                                         (_ctx.activeSession.cwd)
                                           ? (_openBlock(), _createElementBlock("div", {
