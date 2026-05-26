@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Codex Mate",
-  "version": "0.0.33",
+  "version": "0.0.36",
   "identifier": "ai.codexmate.desktop",
   "build": {
     "frontendDist": "../web-ui",
     "devUrl": "http://127.0.0.1:3737",
-    "beforeDevCommand": "npm run desktop:prepare && node cli.js run --host 127.0.0.1 --no-browser",
-    "beforeBuildCommand": "npm run desktop:prepare"
+    "beforeDevCommand": "npm run desktop:stage && node cli.js run --host 127.0.0.1 --no-browser",
+    "beforeBuildCommand": "npm run desktop:stage"
   },
   "app": {
     "windows": [
@@ -41,15 +41,7 @@
       "debugApplicationIdSuffix": ".debug"
     },
     "resources": {
-      "../cli.js": "codexmate/cli.js",
-      "../package.json": "codexmate/package.json",
-      "../package-lock.json": "codexmate/package-lock.json",
-      "../cli": "codexmate/cli",
-      "../lib": "codexmate/lib",
-      "../plugins": "codexmate/plugins",
-      "../web-ui": "codexmate/web-ui",
-      "../web-ui.html": "codexmate/web-ui.html",
-      "../node_modules": "codexmate/node_modules"
+      "../dist/desktop/codexmate": "codexmate"
     }
   }
 }

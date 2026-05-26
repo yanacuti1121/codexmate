@@ -1,6 +1,6 @@
 [package]
 name = "codexmate-desktop"
-version = "0.0.33"
+version = "0.0.36"
 description = "Codex Mate desktop shell"
 authors = ["ymkiux"]
 license = "Apache-2.0"

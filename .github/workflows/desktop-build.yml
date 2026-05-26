@@ -46,8 +46,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Prepare desktop config
-        run: npm run desktop:prepare
+      - name: Verify npm package payload
+        run: npm pack --dry-run --json
+
+      - name: Stage desktop runtime resources
+        run: npm run desktop:stage
 
       - name: Build desktop app
         run: npm run desktop:build
