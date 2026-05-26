@@ -2357,7 +2357,7 @@ return function render(_ctx, _cache) {
                               }, [
                                 (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.visibleSessionsList, (session, __, ___, _cached) => {
                                   const _memo = ([_ctx.activeSessionExportKey === _ctx.getSessionExportKey(session), session.messageCount, session.updatedAt, session.title, session.sourceLabel, session.cwd, _ctx.isSessionPinned(session), _ctx.sessionsLoading, session.match && session.match.count])
-                                  if (_cached && _cached.key === session.source + '-' + session.sessionId + '-' + session.filePath && _isMemoSame(_cached, _memo)) return _cached
+                                  if (_cached && _cached.el && _cached.key === session.source + '-' + session.sessionId + '-' + session.filePath && _isMemoSame(_cached, _memo)) return _cached
                                   const _item = (_openBlock(), _createElementBlock("div", {
                                     key: session.source + '-' + session.sessionId + '-' + session.filePath,
                                     class: _normalizeClass([
@@ -2598,7 +2598,7 @@ return function render(_ctx, _cache) {
                                                       : _createCommentVNode("v-if", true),
                                                     (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.activeSessionMessages, (msg, idx, ___, _cached) => {
                                                       const _memo = ([msg.text, msg.timestamp, msg.roleLabel, msg.normalizedRole])
-                                                      if (_cached && _cached.key === _ctx.getRecordRenderKey(msg, idx) && _isMemoSame(_cached, _memo)) return _cached
+                                                      if (_cached && _cached.el && _cached.key === _ctx.getRecordRenderKey(msg, idx) && _isMemoSame(_cached, _memo)) return _cached
                                                       const _item = (_openBlock(), _createElementBlock("div", {
                                                         key: _ctx.getRecordRenderKey(msg, idx),
                                                         "data-message-key": _ctx.getRecordRenderKey(msg, idx),
@@ -2632,7 +2632,7 @@ return function render(_ctx, _cache) {
                                         _createElementVNode("div", { class: "session-timeline-track" }),
                                         (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionTimelineNodes, (node, __, ___, _cached) => {
                                           const _memo = ([_ctx.sessionTimelineActiveKey === node.key, node.safePercent, node.title])
-                                          if (_cached && _cached.key === 'timeline-' + node.key && _isMemoSame(_cached, _memo)) return _cached
+                                          if (_cached && _cached.el && _cached.key === 'timeline-' + node.key && _isMemoSame(_cached, _memo)) return _cached
                                           const _item = (_openBlock(), _createElementBlock("button", {
                                             key: 'timeline-' + node.key,
                                             type: "button",
@@ -2668,7 +2668,7 @@ return function render(_ctx, _cache) {
           ], 512 /* NEED_PATCH */), [
             [_vShow, _ctx.mainTab === 'sessions']
           ]),
-          _createCommentVNode(" Usage 统计 - 时光之河设计 "),
+          _createCommentVNode(" Usage 统计 - 流光设计 "),
           _withDirectives(_createElementVNode("div", {
             class: "mode-content",
             id: "panel-usage",
@@ -2848,11 +2848,11 @@ return function render(_ctx, _cache) {
                           ])
                         ])
                       ]),
-                      _createCommentVNode(" 波浪图：替换柱状图 "),
+                      _createCommentVNode(" 波浪图 "),
                       (_ctx.sessionUsageWave.points && _ctx.sessionUsageWave.points.length)
                         ? (_openBlock(), _createElementBlock("section", {
                             key: 1,
-                            class: "usage-card usage-wave-section"
+                            class: "usage-wave-section"
                           }, [
                             _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.daily.title')), 1 /* TEXT */),
                             _createElementVNode("div", { class: "usage-wave-container" }, [
@@ -2872,7 +2872,7 @@ return function render(_ctx, _cache) {
                                     _createElementVNode("stop", {
                                       offset: "0%",
                                       "stop-color": 'var(--color-brand)',
-                                      "stop-opacity": "0.3"
+                                      "stop-opacity": "0.35"
                                     }),
                                     _createElementVNode("stop", {
                                       offset: "100%",
@@ -2881,13 +2881,11 @@ return function render(_ctx, _cache) {
                                     })
                                   ], 8 /* PROPS */, ["id"])
                                 ]),
-                                _createCommentVNode(" 填充区域 "),
                                 _createElementVNode("path", {
                                   d: _ctx.sessionUsageWave.areaPath,
                                   fill: 'url(#wave-gradient-' + _ctx.sessionsUsageTimeRange + ')',
                                   class: "usage-wave-area"
                                 }, null, 8 /* PROPS */, ["d", "fill"]),
-                                _createCommentVNode(" 曲线 "),
                                 _createElementVNode("path", {
                                   d: _ctx.sessionUsageWave.linePath,
                                   fill: "none",
@@ -2897,7 +2895,6 @@ return function render(_ctx, _cache) {
                                   "stroke-linejoin": "round",
                                   class: "usage-wave-line"
                                 }, null, 8 /* PROPS */, ["d"]),
-                                _createCommentVNode(" 悬停指示线 "),
                                 (_ctx.sessionsUsageSelectedDay)
                                   ? (_openBlock(), _createElementBlock("line", {
                                       key: 0,
@@ -2908,11 +2905,10 @@ return function render(_ctx, _cache) {
                                       stroke: "currentColor",
                                       "stroke-width": "1",
                                       "stroke-dasharray": "4 4",
-                                      opacity: "0.4",
+                                      opacity: "0.5",
                                       class: "usage-wave-hover-line"
                                     }, null, 8 /* PROPS */, ["x2", "y1", "y2"]))
                                   : _createCommentVNode("v-if", true),
-                                _createCommentVNode(" 悬停点 "),
                                 (_ctx.sessionsUsageSelectedDay)
                                   ? (_openBlock(), _createElementBlock("circle", {
                                       key: 1,
@@ -2956,8 +2952,8 @@ return function render(_ctx, _cache) {
                           ]))
                         : _createCommentVNode("v-if", true),
                       _createElementVNode("div", { class: "usage-chart-grid" }, [
-                        _createCommentVNode(" 热力图：垂直活动条 "),
-                        _createElementVNode("section", { class: "usage-card usage-hourly-heatmap" }, [
+                        _createCommentVNode(" 热力图 "),
+                        _createElementVNode("section", { class: "usage-card-hourly-heatmap" }, [
                           _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.hourlyHeatmap.title')), 1 /* TEXT */),
                           _createElementVNode("div", { class: "hourly-heatmap-wrapper" }, [
                             _createElementVNode("div", { class: "hourly-heatmap-header" }, [
@@ -3050,7 +3046,7 @@ return function render(_ctx, _cache) {
                               ]))
                         ]),
                         _createCommentVNode(" Top Paths "),
-                        _createElementVNode("section", { class: "usage-card usage-paths-section" }, [
+                        _createElementVNode("section", { class: "usage-paths-section" }, [
                           _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.paths.title')), 1 /* TEXT */),
                           (!_ctx.sessionUsageCharts.topPaths.length)
                             ? (_openBlock(), _createElementBlock("div", {

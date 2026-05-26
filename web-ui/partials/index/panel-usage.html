@@ -1,4 +1,4 @@
-                <!-- Usage 统计 - 时光之河设计 -->
+                <!-- Usage 统计 - 流光设计 -->
                 <div
                     v-show="mainTab === 'usage'"
                     class="mode-content"
@@ -71,24 +71,20 @@
                                 </div>
                             </div>
 
-                            <!-- 波浪图：替换柱状图 -->
-                            <section v-if="sessionUsageWave.points && sessionUsageWave.points.length" class="usage-card usage-wave-section">
+                            <!-- 波浪图 -->
+                            <section v-if="sessionUsageWave.points && sessionUsageWave.points.length" class="usage-wave-section">
                                 <div class="usage-card-title">{{ t('usage.daily.title') }}</div>
                                 <div class="usage-wave-container">
                                     <svg class="usage-wave-chart" viewBox="0 0 800 140" preserveAspectRatio="none">
                                         <defs>
                                             <linearGradient :id="'wave-gradient-' + sessionsUsageTimeRange" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" :stop-color="'var(--color-brand)'" stop-opacity="0.3"/>
+                                                <stop offset="0%" :stop-color="'var(--color-brand)'" stop-opacity="0.35"/>
                                                 <stop offset="100%" :stop-color="'var(--color-brand)'" stop-opacity="0"/>
                                             </linearGradient>
                                         </defs>
-                                        <!-- 填充区域 -->
                                         <path :d="sessionUsageWave.areaPath" :fill="'url(#wave-gradient-' + sessionsUsageTimeRange + ')'" class="usage-wave-area"/>
-                                        <!-- 曲线 -->
                                         <path :d="sessionUsageWave.linePath" fill="none" :stroke="'var(--color-brand)'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="usage-wave-line"/>
-                                        <!-- 悬停指示线 -->
-                                        <line v-if="sessionsUsageSelectedDay" x1="0" :x2="sessionUsageWave.width" :y1="sessionUsageWave.hoverY" :y2="sessionUsageWave.hoverY" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity="0.4" class="usage-wave-hover-line"/>
-                                        <!-- 悬停点 -->
+                                        <line v-if="sessionsUsageSelectedDay" x1="0" :x2="sessionUsageWave.width" :y1="sessionUsageWave.hoverY" :y2="sessionUsageWave.hoverY" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" class="usage-wave-hover-line"/>
                                         <circle v-if="sessionsUsageSelectedDay" :cx="sessionUsageWave.hoverX" :cy="sessionUsageWave.hoverY" r="5" :fill="'var(--color-surface)'" :stroke="'var(--color-brand)'" stroke-width="2.5" class="usage-wave-hover-point"/>
                                     </svg>
                                     <div class="usage-wave-labels">
@@ -112,8 +108,8 @@
                             </section>
 
                             <div class="usage-chart-grid">
-                                <!-- 热力图：垂直活动条 -->
-                                <section class="usage-card usage-hourly-heatmap">
+                                <!-- 热力图 -->
+                                <section class="usage-card-hourly-heatmap">
                                     <div class="usage-card-title">{{ t('usage.hourlyHeatmap.title') }}</div>
                                     <div class="hourly-heatmap-wrapper">
                                         <div class="hourly-heatmap-header">
@@ -166,7 +162,7 @@
                                 </section>
 
                                 <!-- Top Paths -->
-                                <section class="usage-card usage-paths-section">
+                                <section class="usage-paths-section">
                                     <div class="usage-card-title">{{ t('usage.paths.title') }}</div>
                                     <div v-if="!sessionUsageCharts.topPaths.length" class="usage-list-value">{{ t('usage.paths.empty') }}</div>
                                     <div v-else class="usage-list-paths">
