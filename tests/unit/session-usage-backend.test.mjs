@@ -272,7 +272,7 @@ test('exportSessionUsageCore exports filtered usage rows as csv and json', async
     assert.deepStrictEqual(csv.rows, [
         { date: '2026-05-01', model: 'gpt-5.3-codex', tokens: 150, sessions: 2 }
     ]);
-    assert.strictEqual(csv.content, 'date,model,tokens,sessions\n2026-05-01,gpt-5.3-codex,150,2\n');
+    assert.strictEqual(csv.content, 'date,model,tokens,sessions\r\n2026-05-01,gpt-5.3-codex,150,2\r\n');
 
     const json = await usageCore.exportSessionUsageCore({
         sessions,
@@ -292,7 +292,7 @@ test('exportSessionUsageCore exports filtered usage rows as csv and json', async
 
 test('exportSessionUsageCore handles empty data gracefully', async () => {
     const csv = await usageCore.exportSessionUsageCore({ sessions: [], format: 'csv' });
-    assert.strictEqual(csv.content, 'date,model,tokens,sessions\n');
+    assert.strictEqual(csv.content, 'date,model,tokens,sessions\r\n');
     assert.deepStrictEqual(csv.rows, []);
 
     const json = await usageCore.exportSessionUsageCore({ sessions: [], format: 'json' });

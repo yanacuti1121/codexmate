@@ -163,6 +163,7 @@ const {
     extractSessionDetailPreviewFromFileFast
 } = require('./lib/cli-sessions');
 const { listSessionUsageCore, exportSessionUsageCore } = require('./cli/session-usage');
+const { parseAnalyticsExportArgs } = require('./cli/analytics-export-args');
 const {
     readBundledWebUiCss,
     readBundledWebUiHtml,
@@ -9804,73 +9805,8 @@ async function cmdExportSession(args = []) {
 
 function printAnalyticsUsage() {
     console.log('\n用法:');
-    console.log('  codexmate analytics export [--format csv|json] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--model <MODEL>] [--source <codex|claude|gemini|codebuddy|all>] [--output <PATH|-]');
+    console.log('  codexmate analytics export [--format csv|json] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--model <MODEL>] [--source <codex|claude|gemini|codebuddy|all>] [--output <PATH|->] [-o <PATH|->]');
     console.log('');
-}
-
-function parseAnalyticsExportArgs(args = []) {
-    const options = {
-        format: 'csv',
-        source: 'all',
-        output: ''
-    };
-    const errors = [];
-    for (let index = 0; index < args.length; index += 1) {
-        const token = String(args[index] || '');
-        const readValue = (flag) => {
-            if (token.startsWith(`${flag}=`)) {
-                return token.slice(flag.length + 1);
-            }
-            const value = args[index + 1];
-            index += 1;
-            return value;
-        };
-        if (token === '--format' || token.startsWith('--format=')) {
-            options.format = String(readValue('--format') || '').trim().toLowerCase();
-            continue;
-        }
-        if (token === '--from' || token.startsWith('--from=')) {
-            options.from = String(readValue('--from') || '').trim();
-            continue;
-        }
-        if (token === '--to' || token.startsWith('--to=')) {
-            options.to = String(readValue('--to') || '').trim();
-            continue;
-        }
-        if (token === '--model' || token.startsWith('--model=')) {
-            options.model = String(readValue('--model') || '').trim();
-            continue;
-        }
-        if (token === '--source' || token.startsWith('--source=')) {
-            options.source = String(readValue('--source') || '').trim().toLowerCase();
-            continue;
-        }
-        if (token === '--output' || token === '-o' || token.startsWith('--output=')) {
-            options.output = String(readValue(token === '-o' ? '-o' : '--output') || '').trim();
-            continue;
-        }
-        if (token === '--force-refresh') {
-            options.forceRefresh = true;
-            continue;
-        }
-        if (token === '--help' || token === '-h') {
-            options.help = true;
-            continue;
-        }
-        if (token) {
-            errors.push(`未知参数 ${token}`);
-        }
-    }
-    if (options.format !== 'csv' && options.format !== 'json') {
-        errors.push('--format 必须是 csv 或 json');
-    }
-    if (options.source && !['codex', 'claude', 'gemini', 'codebuddy', 'all'].includes(options.source)) {
-        errors.push('--source 必须是 codex、claude、gemini、codebuddy 或 all');
-    }
-    return {
-        options,
-        error: errors.join('；')
-    };
 }
 
 async function cmdAnalytics(args = []) {
@@ -16086,7 +16022,7 @@ function printMainHelp() {
     console.log('  codexmate delete-model <模型> 删除模型');
     console.log('  codexmate workflow <list|get|validate|run|runs>  MCP 工作流中心');
     console.log('  codexmate task <plan|run|runs|queue|retry|cancel|logs>  本地任务编排');
-    console.log('  codexmate analytics export [--format csv|json] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--model <MODEL>] [--output <PATH|->]  导出 Usage 数据');
+    console.log('  codexmate analytics export [--format csv|json] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--model <MODEL>] [--output <PATH|->] [-o <PATH|->]  导出 Usage 数据');
     console.log('  codexmate run [--host <HOST>] [--no-browser]    启动 Web 界面');
     console.log('  codexmate update [--check] 检查并快速更新工具');
     console.log('  codexmate codex [参数...] [--follow-up <文本>|--queued-follow-up <文本> 可重复]  等同于 codex --yolo');
