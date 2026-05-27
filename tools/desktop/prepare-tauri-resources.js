@@ -13,6 +13,7 @@ const cargoTomlPath = path.join(rootDir, 'src-tauri', 'Cargo.toml');
 const stageRelativePath = path.join('dist', 'desktop', 'codexmate');
 const stageDir = path.join(rootDir, stageRelativePath);
 const stageNodeModulesDir = path.join(stageDir, 'node_modules');
+const TAURI_CSP = "default-src 'self' http://127.0.0.1:3737; connect-src 'self' http://127.0.0.1:3737; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'";
 
 const runtimeEntries = [
   'cli.js',
@@ -197,7 +198,7 @@ function updateTauriConfig(pkg) {
     ],
     security: {
       ...(config.app && config.app.security ? config.app.security : {}),
-      csp: null
+      csp: TAURI_CSP
     }
   };
 

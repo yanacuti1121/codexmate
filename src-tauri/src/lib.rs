@@ -40,7 +40,9 @@ fn health_check_ready() -> bool {
   if stream.read_to_string(&mut response).is_err() {
     return false;
   }
-  response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200")
+  let status_ok = response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200");
+  let identity_ok = response.contains("\"ok\":true");
+  status_ok && identity_ok
 }
 
 fn wait_for_backend(timeout: Duration) -> bool {
@@ -113,11 +115,13 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
 
   configure_backend_process(&mut command);
 
-  let child = command
+  let mut child = command
     .spawn()
     .map_err(|err| format!("unable to start codexmate backend with Node.js: {err}"))?;
 
   if !wait_for_backend(Duration::from_secs(15)) {
+    let _ = child.kill();
+    let _ = child.wait();
     return Err("codexmate backend did not become ready on 127.0.0.1:3737".into());
   }
 

@@ -51,7 +51,7 @@ test('desktop staging creates validated runtime resource layout', () => {
     }
 
     const tauriConfig = readJson(path.join(projectRoot, 'src-tauri', 'tauri.conf.json'));
-    assert.deepStrictEqual(tauriConfig.bundle.resources, {
-        '../dist/desktop/codexmate': 'codexmate'
-    });
+    assert.strictEqual(tauriConfig.bundle.resources['../dist/desktop/codexmate'], 'codexmate');
+    assert.match(tauriConfig.app.security.csp, /default-src 'self'/);
+    assert.match(tauriConfig.app.security.csp, /http:\/\/127\.0\.0\.1:3737/);
 });
