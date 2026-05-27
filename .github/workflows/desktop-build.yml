@@ -32,7 +32,7 @@ jobs:
             os: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bb5bfa8cfe5dfc19f1acec4b1441d73
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
