@@ -162,7 +162,7 @@ const {
     extractSessionDetailPreviewFromTailText,
     extractSessionDetailPreviewFromFileFast
 } = require('./lib/cli-sessions');
-const { listSessionUsageCore } = require('./cli/session-usage');
+const { listSessionUsageCore, exportSessionUsageCore } = require('./cli/session-usage');
 const {
     readBundledWebUiCss,
     readBundledWebUiHtml,
@@ -5204,6 +5204,12 @@ async function listSessionUsage(params = {}) {
     });
 }
 
+async function exportSessionUsage(params = {}) {
+    return exportSessionUsageCore(params, {
+        listSessionUsage
+    });
+}
+
 function listSessionPaths(params = {}) {
     const source = typeof params.source === 'string' ? params.source.trim().toLowerCase() : '';
     if (source && source !== 'codex' && source !== 'claude' && source !== 'gemini' && source !== 'codebuddy' && source !== 'all') {
@@ -9796,6 +9802,112 @@ async function cmdExportSession(args = []) {
     console.log();
 }
 
+function printAnalyticsUsage() {
+    console.log('\n用法:');
+    console.log('  codexmate analytics export [--format csv|json] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--model <MODEL>] [--source <codex|claude|gemini|codebuddy|all>] [--output <PATH|-]');
+    console.log('');
+}
+
+function parseAnalyticsExportArgs(args = []) {
+    const options = {
+        format: 'csv',
+        source: 'all',
+        output: ''
+    };
+    const errors = [];
+    for (let index = 0; index < args.length; index += 1) {
+        const token = String(args[index] || '');
+        const readValue = (flag) => {
+            if (token.startsWith(`${flag}=`)) {
+                return token.slice(flag.length + 1);
+            }
+            const value = args[index + 1];
+            index += 1;
+            return value;
+        };
+        if (token === '--format' || token.startsWith('--format=')) {
+            options.format = String(readValue('--format') || '').trim().toLowerCase();
+            continue;
+        }
+        if (token === '--from' || token.startsWith('--from=')) {
+            options.from = String(readValue('--from') || '').trim();
+            continue;
+        }
+        if (token === '--to' || token.startsWith('--to=')) {
+            options.to = String(readValue('--to') || '').trim();
+            continue;
+        }
+        if (token === '--model' || token.startsWith('--model=')) {
+            options.model = String(readValue('--model') || '').trim();
+            continue;
+        }
+        if (token === '--source' || token.startsWith('--source=')) {
+            options.source = String(readValue('--source') || '').trim().toLowerCase();
+            continue;
+        }
+        if (token === '--output' || token === '-o' || token.startsWith('--output=')) {
+            options.output = String(readValue(token === '-o' ? '-o' : '--output') || '').trim();
+            continue;
+        }
+        if (token === '--force-refresh') {
+            options.forceRefresh = true;
+            continue;
+        }
+        if (token === '--help' || token === '-h') {
+            options.help = true;
+            continue;
+        }
+        if (token) {
+            errors.push(`未知参数 ${token}`);
+        }
+    }
+    if (options.format !== 'csv' && options.format !== 'json') {
+        errors.push('--format 必须是 csv 或 json');
+    }
+    if (options.source && !['codex', 'claude', 'gemini', 'codebuddy', 'all'].includes(options.source)) {
+        errors.push('--source 必须是 codex、claude、gemini、codebuddy 或 all');
+    }
+    return {
+        options,
+        error: errors.join('；')
+    };
+}
+
+async function cmdAnalytics(args = []) {
+    const subcommand = args[0];
+    if (subcommand !== 'export') {
+        printAnalyticsUsage();
+        process.exit(subcommand ? 1 : 0);
+    }
+    const parsed = parseAnalyticsExportArgs(args.slice(1));
+    if (parsed.options.help) {
+        printAnalyticsUsage();
+        process.exit(0);
+    }
+    if (parsed.error) {
+        console.error('错误:', parsed.error);
+        printAnalyticsUsage();
+        process.exit(1);
+    }
+
+    const result = await exportSessionUsage(parsed.options);
+    if (result && result.error) {
+        console.error('导出失败:', result.error);
+        process.exit(1);
+    }
+    const output = parsed.options.output || (result && result.fileName) || `usage-export.${parsed.options.format}`;
+    if (output === '-') {
+        process.stdout.write(result && result.content ? result.content : '');
+        return;
+    }
+    const outputPath = path.resolve(process.cwd(), output);
+    ensureDir(path.dirname(outputPath));
+    fs.writeFileSync(outputPath, result && result.content ? result.content : '', 'utf-8');
+    console.log(`\n✓ Usage 已导出: ${outputPath}`);
+    console.log(`  格式: ${result.format}; rows: ${Array.isArray(result.rows) ? result.rows.length : 0}`);
+    console.log();
+}
+
 function parseStartOptions(args = []) {
     const options = { host: '', noBrowser: false };
     if (!Array.isArray(args)) {
@@ -11074,6 +11186,20 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                                         }),
                                         source: source || 'all'
                                     };
+                                }
+                            }
+                            break;
+                        case 'export-sessions-usage':
+                            {
+                                const usageParams = isPlainObject(params) ? params : {};
+                                const source = typeof usageParams.source === 'string' ? usageParams.source.trim().toLowerCase() : '';
+                                if (source && source !== 'codex' && source !== 'claude' && source !== 'gemini' && source !== 'codebuddy' && source !== 'all') {
+                                    result = { error: 'Invalid source. Must be codex, claude, gemini, codebuddy, or all' };
+                                } else {
+                                    result = await exportSessionUsage({
+                                        ...usageParams,
+                                        source: source || 'all'
+                                    });
                                 }
                             }
                             break;
@@ -15960,6 +16086,7 @@ function printMainHelp() {
     console.log('  codexmate delete-model <模型> 删除模型');
     console.log('  codexmate workflow <list|get|validate|run|runs>  MCP 工作流中心');
     console.log('  codexmate task <plan|run|runs|queue|retry|cancel|logs>  本地任务编排');
+    console.log('  codexmate analytics export [--format csv|json] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--model <MODEL>] [--output <PATH|->]  导出 Usage 数据');
     console.log('  codexmate run [--host <HOST>] [--no-browser]    启动 Web 界面');
     console.log('  codexmate update [--check] 检查并快速更新工具');
     console.log('  codexmate codex [参数...] [--follow-up <文本>|--queued-follow-up <文本> 可重复]  等同于 codex --yolo');
@@ -16052,6 +16179,7 @@ async function main() {
         case 'proxy': await cmdProxy(args.slice(1)); break;
         case 'workflow': await cmdWorkflow(args.slice(1)); break;
         case 'task': await cmdTask(args.slice(1)); break;
+        case 'analytics': await cmdAnalytics(args.slice(1)); break;
         case 'run': cmdStart(parseStartOptions(args.slice(1))); break;
         case 'update': await cmdToolUpdate(args.slice(1)); break;
         case 'start':
