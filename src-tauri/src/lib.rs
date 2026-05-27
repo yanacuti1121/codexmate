@@ -73,6 +73,7 @@ fn find_cli_path(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>
     candidates.push(resource_dir.join("cli.js"));
   }
 
+  #[cfg(debug_assertions)]
   if let Ok(current_dir) = std::env::current_dir() {
     candidates.push(current_dir.join("cli.js"));
   }
