@@ -251,6 +251,54 @@ test('listSessionUsage normalizes source and default limit for lightweight usage
     ]);
 });
 
+test('exportSessionUsageCore exports filtered usage rows as csv and json', async () => {
+    const sessions = [
+        { model: 'gpt-5.3-codex', models: ['gpt-5.3-codex'], updatedAt: '2026-05-01T10:00:00.000Z', totalTokens: 120 },
+        { model: 'gpt-5.3-codex', models: ['gpt-5.3-codex'], updatedAt: '2026-05-01T12:00:00.000Z', totalTokens: 30 },
+        { model: 'claude-sonnet', models: ['claude-sonnet'], updatedAt: '2026-05-02T09:00:00.000Z', totalTokens: 400 },
+        { model: 'gpt-5.2-codex', models: ['gpt-5.2-codex'], updatedAt: '2026-05-07T09:00:00.000Z', totalTokens: 999 }
+    ];
+
+    const csv = await usageCore.exportSessionUsageCore({
+        sessions,
+        format: 'csv',
+        from: '2026-05-01',
+        to: '2026-05-06',
+        model: 'gpt-5.3'
+    });
+
+    assert.strictEqual(csv.format, 'csv');
+    assert.strictEqual(csv.mimeType, 'text/csv');
+    assert.deepStrictEqual(csv.rows, [
+        { date: '2026-05-01', model: 'gpt-5.3-codex', tokens: 150, sessions: 2 }
+    ]);
+    assert.strictEqual(csv.content, 'date,model,tokens,sessions\n2026-05-01,gpt-5.3-codex,150,2\n');
+
+    const json = await usageCore.exportSessionUsageCore({
+        sessions,
+        format: 'json',
+        from: '2026-05-01',
+        to: '2026-05-06'
+    });
+
+    assert.strictEqual(json.format, 'json');
+    assert.deepStrictEqual(JSON.parse(json.content), {
+        rows: [
+            { date: '2026-05-01', model: 'gpt-5.3-codex', tokens: 150, sessions: 2 },
+            { date: '2026-05-02', model: 'claude-sonnet', tokens: 400, sessions: 1 }
+        ]
+    });
+});
+
+test('exportSessionUsageCore handles empty data gracefully', async () => {
+    const csv = await usageCore.exportSessionUsageCore({ sessions: [], format: 'csv' });
+    assert.strictEqual(csv.content, 'date,model,tokens,sessions\n');
+    assert.deepStrictEqual(csv.rows, []);
+
+    const json = await usageCore.exportSessionUsageCore({ sessions: [], format: 'json' });
+    assert.deepStrictEqual(JSON.parse(json.content), { rows: [] });
+});
+
 test('listSessionUsage backfills missing model metadata from parsed session summaries', async () => {
     const codexParses = [];
     const claudeParses = [];
