@@ -178,6 +178,8 @@ function normalizeUsageExportModelFilters(params = {}) {
     };
     push(params.model);
     push(params.models);
+    // API-facing alias: callers may pass modelType when they reuse usage filters
+    // outside the CLI flag surface.
     push(params.modelType);
     return [...new Set(raw)];
 }
@@ -207,7 +209,7 @@ function serializeUsageExportRowsToCsv(rows) {
     for (const row of rows) {
         lines.push(columns.map(column => escapeUsageCsvCell(row[column])).join(','));
     }
-    return lines.join('\n') + '\n';
+    return lines.join('\r\n') + '\r\n';
 }
 
 function buildUsageExportRows(sessions = [], params = {}) {

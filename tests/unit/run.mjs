@@ -27,6 +27,7 @@ await import(pathToFileURL(path.join(__dirname, 'web-ui-source-bundle.test.mjs')
 await import(pathToFileURL(path.join(__dirname, 'startup-claude-star-prompt.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'install-methods.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'cli-help.test.mjs')));
+await import(pathToFileURL(path.join(__dirname, 'analytics-export-args.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'cli-network-utils.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'config-health-module.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'openclaw-core.test.mjs')));
