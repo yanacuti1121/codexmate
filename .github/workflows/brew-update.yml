@@ -1,0 +1,104 @@
+name: brew-update
+run-name: "Update Homebrew formula for ${{ github.event.release.tag_name }}"
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version
+        id: ver
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Download standalone tarball
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          asset="codexmate-${VERSION}-standalone.tar.gz"
+
+          for attempt in 1 2 3; do
+            assets=$(gh release view "${TAG}" --json assets --jq '.assets[].name')
+            if printf '%s\n' "${assets}" | grep -Fxq "${asset}"; then
+              gh release download "${TAG}" \
+                --pattern "${asset}" \
+                --dir ./assets
+              exit 0
+            fi
+
+            echo "Asset ${asset} not found for ${TAG} (attempt ${attempt}/3)."
+            echo "Available assets:"
+            printf '%s\n' "${assets}"
+            sleep $((attempt * 10))
+          done
+
+          echo "::error::Missing release asset ${asset} for ${TAG}."
+          exit 1
+
+      - name: Compute SHA256
+        id: sha
+        run: |
+          sha=$(sha256sum "./assets/codexmate-${{ steps.ver.outputs.version }}-standalone.tar.gz" | awk '{print $1}')
+          echo "sha256=${sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: SakuraByteCore/homebrew-codexmate
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          ref: main
+
+      - name: Update formula
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          formula="Formula/codexmate.rb"
+
+          url="https://github.com/SakuraByteCore/codexmate/releases/download/v${VERSION}/codexmate-${VERSION}-standalone.tar.gz"
+
+          sed -i "s|^  url \".*\"|  url \"${url}\"|" "$formula"
+          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA256}\"|" "$formula"
+
+          if ! grep -Fq "${url}" "$formula"; then
+            echo "::error::Formula URL was not updated to ${url}."
+            exit 1
+          fi
+
+          if ! grep -Fq "${SHA256}" "$formula"; then
+            echo "::error::Formula SHA256 was not updated to ${SHA256}."
+            exit 1
+          fi
+
+          echo "### Formula updated" >> "$GITHUB_STEP_SUMMARY"
+          echo "- version: \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- sha256: \`${SHA256}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- url: \`${url}\`" >> "$GITHUB_STEP_SUMMARY"
+
+          cat "$formula" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/codexmate.rb
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "bump codexmate to v${VERSION}"
+          git push origin main
