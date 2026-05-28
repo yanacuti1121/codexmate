@@ -1,5 +1,5 @@
 /* ============================================
-   Usage Tab — 时光之河设计
+   Usage Tab — 流光设计 (Flow of Light)
    ============================================ */
 
 /* ---- Toolbar ---- */
@@ -7,73 +7,80 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 .usage-toolbar-title {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     color: var(--color-text-primary);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
 }
 
 .usage-range-group {
     display: flex;
-    gap: 3px;
-    padding: 4px;
-    border-radius: 10px;
-    background: var(--color-surface-alt);
-    border: 1px solid var(--color-border-soft);
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(247,239,232,0.7));
+    border: 1px solid rgba(137, 111, 94, 0.08);
+    box-shadow: 0 2px 12px rgba(92, 68, 52, 0.06);
+    backdrop-filter: blur(8px);
 }
 
 .usage-range-btn {
     border: none;
     background: transparent;
     color: var(--color-text-tertiary);
-    padding: 6px 14px;
-    border-radius: 7px;
+    padding: 8px 16px;
+    border-radius: 9px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
     font-family: var(--font-family);
     white-space: nowrap;
-    transition: all 150ms var(--ease-spring);
+    transition: all 180ms var(--ease-spring);
     outline: none;
     -webkit-tap-highlight-color: transparent;
 }
 
 .usage-range-btn:hover:not(:disabled) {
     color: var(--color-text-secondary);
-    background: var(--color-surface);
+    background: rgba(200, 121, 99, 0.08);
 }
 
 .usage-range-btn:active:not(:disabled) {
-    transform: scale(0.96);
+    transform: scale(0.95);
 }
 
 .usage-range-btn.active {
     color: #fff;
-    background: var(--color-brand);
-    box-shadow: 0 2px 8px rgba(200, 121, 99, 0.3);
+    background: linear-gradient(135deg, var(--color-brand), var(--color-brand-dark));
+    box-shadow: 0 4px 16px rgba(200, 121, 99, 0.35), 0 0 0 1px rgba(255,255,255,0.1) inset;
 }
 
 .usage-range-btn:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: not-allowed;
 }
 
 .usage-range-btn-icon {
-    padding: 6px 10px;
+    padding: 8px 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 
 .usage-range-btn-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
+}
+
+.usage-range-btn-icon:active {
+    transform: rotate(180deg);
+    transition: transform 400ms var(--ease-spring);
 }
 
 /* ---- Empty State (插画风格) ---- */
@@ -82,67 +89,87 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 48px 20px;
+    padding: 64px 20px;
     text-align: center;
 }
 
 .usage-empty-illustration {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
     color: var(--color-text-muted);
-    opacity: 0.6;
-    margin-bottom: 16px;
-    animation: usage-empty-breathe 3s ease-in-out infinite;
+    opacity: 0.5;
+    margin-bottom: 20px;
+    animation: usage-empty-breathe 4s ease-in-out infinite;
 }
 
 @keyframes usage-empty-breathe {
-    0%, 100% { transform: scale(1); opacity: 0.5; }
-    50% { transform: scale(1.05); opacity: 0.7; }
+    0%, 100% { transform: scale(1) translateY(0); opacity: 0.5; }
+    50% { transform: scale(1.08) translateY(-4px); opacity: 0.7; }
 }
 
 .usage-empty-text {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--color-text-secondary);
-    max-width: 280px;
+    max-width: 300px;
+    line-height: 1.6;
 }
 
-/* ---- Hero 区域 ---- */
+/* ---- Hero 区域 (全宽沉浸式) ---- */
 .usage-hero {
-    padding: 24px;
-    margin-bottom: 20px;
-    border-radius: 14px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-soft);
-    min-height: 140px;
+    padding: 32px 28px;
+    margin-bottom: 24px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(252,248,241,0.9));
+    border: 1px solid rgba(137, 111, 94, 0.08);
+    min-height: 160px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 16px;
+    gap: 20px;
+    box-shadow: 0 8px 32px rgba(92, 68, 52, 0.08), 0 0 0 1px rgba(255,255,255,0.5) inset;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.usage-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(200, 121, 99, 0.06) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .usage-hero-active {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 12px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    background: var(--color-surface-alt);
+    gap: 10px 16px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(200, 121, 99, 0.08), rgba(200, 121, 99, 0.04));
+    border: 1px solid rgba(200, 121, 99, 0.12);
     font-size: 12px;
+    position: relative;
+    z-index: 1;
 }
 
 .usage-hero-active-dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--color-success);
     flex-shrink: 0;
-    animation: usage-pulse 2s ease-in-out infinite;
+    animation: usage-pulse 2.2s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(75, 139, 106, 0.4);
 }
 
 @keyframes usage-pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.9); }
+    50% { opacity: 0.5; transform: scale(0.85); }
 }
 
 .usage-hero-active-label {
@@ -156,122 +183,162 @@
 
 .usage-hero-active-stat::before {
     content: '·';
-    margin-right: 10px;
+    margin-right: 12px;
     color: var(--color-border-strong);
 }
 
 .usage-hero-metrics {
     text-align: center;
+    position: relative;
+    z-index: 1;
 }
 
 .usage-hero-main {
-    font-size: 42px;
+    font-size: 52px;
     font-weight: 700;
     color: var(--color-text-primary);
     line-height: 1;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.04em;
     font-variant-numeric: tabular-nums;
-    animation: usage-hero-count 0.8s ease-out;
+    animation: usage-hero-count 1s var(--ease-out-expo);
+    background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-brand) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 @keyframes usage-hero-count {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(16px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .usage-hero-sub {
-    margin-top: 8px;
-    font-size: 13px;
+    margin-top: 10px;
+    font-size: 14px;
     color: var(--color-text-tertiary);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 14px;
     flex-wrap: wrap;
 }
 
 .usage-hero-delta {
     font-size: 12px;
     font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 12px;
+    padding: 3px 10px;
+    border-radius: 16px;
 }
 
 .usage-hero-delta.delta-up {
-    color: var(--color-delta-up);
-    background: rgba(76, 175, 80, 0.12);
+    color: var(--color-success);
+    background: linear-gradient(135deg, rgba(75, 139, 106, 0.15), rgba(75, 139, 106, 0.08));
 }
 
 .usage-hero-delta.delta-down {
-    color: var(--color-delta-down);
-    background: rgba(244, 67, 54, 0.12);
+    color: var(--color-error);
+    background: linear-gradient(135deg, rgba(196, 69, 54, 0.15), rgba(196, 69, 54, 0.08));
 }
 
-/* ---- 波浪图 ---- */
+/* ---- 波浪图 (流体动画) ---- */
 .usage-wave-section {
     overflow: hidden;
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin-bottom: 24px;
 }
 
 .usage-wave-container {
-    margin-top: 12px;
+    margin-top: 16px;
     position: relative;
+    padding: 20px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(252,248,241,0.6));
+    border: 1px solid rgba(137, 111, 94, 0.06);
+    box-shadow: 0 4px 20px rgba(92, 68, 52, 0.05);
+    backdrop-filter: blur(8px);
 }
 
 .usage-wave-chart {
     width: 100%;
-    height: 140px;
+    height: 150px;
     display: block;
 }
 
 .usage-wave-area {
-    transition: d 0.4s var(--ease-spring);
+    transition: d 600ms var(--ease-spring);
+    animation: usage-wave-pulse 4s ease-in-out infinite;
+}
+
+@keyframes usage-wave-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
 }
 
 .usage-wave-line {
-    transition: d 0.4s var(--ease-spring);
+    transition: d 600ms var(--ease-spring);
+    filter: drop-shadow(0 4px 12px rgba(200, 121, 99, 0.25));
 }
 
 .usage-wave-hover-line {
-    transition: x1 0.2s, x2 0.2s, y1 0.2s, y2 0.2s;
+    transition: x1 200ms var(--ease-spring), x2 200ms var(--ease-spring),
+                 y1 200ms var(--ease-spring), y2 200ms var(--ease-spring);
+    stroke-dasharray: 4 4;
+    animation: usage-hover-dash 20s linear infinite;
+}
+
+@keyframes usage-hover-dash {
+    to { stroke-dashoffset: -100; }
 }
 
 .usage-wave-hover-point {
-    transition: cx 0.2s, cy 0.2s;
+    transition: cx 200ms var(--ease-spring), cy 200ms var(--ease-spring);
+    filter: drop-shadow(0 0 8px rgba(200, 121, 99, 0.4));
+    animation: usage-point-pulse 2s ease-in-out infinite;
+}
+
+@keyframes usage-point-pulse {
+    0%, 100% { r: 5; }
+    50% { r: 6.5; }
 }
 
 .usage-wave-labels {
     display: flex;
     justify-content: space-between;
-    margin-top: 8px;
-    padding: 0 4px;
+    margin-top: 12px;
+    padding: 0 8px;
 }
 
 .usage-wave-label {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--color-text-muted);
     cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: all 0.15s ease-out;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 180ms var(--ease-spring);
     -webkit-tap-highlight-color: transparent;
+    font-weight: 500;
 }
 
 .usage-wave-label:hover {
     color: var(--color-text-secondary);
-    background: var(--color-surface-alt);
+    background: rgba(200, 121, 99, 0.08);
 }
 
 .usage-wave-label.active {
     color: var(--color-brand);
     font-weight: 600;
+    background: linear-gradient(135deg, rgba(200, 121, 99, 0.12), rgba(200, 121, 99, 0.06));
 }
 
 /* ---- 日期详情 ---- */
 .usage-daydetail {
     margin-top: 16px;
-    padding: 12px 16px;
-    border-radius: 10px;
-    background: var(--color-surface-alt);
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(247, 239, 232, 0.8), rgba(247, 239, 232, 0.4));
+    border: 1px solid rgba(137, 111, 94, 0.06);
 }
 
 .usage-daydetail-header {
@@ -284,7 +351,7 @@
 
 .usage-daydetail-date {
     font-weight: 600;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--color-text-primary);
 }
 
@@ -294,32 +361,41 @@
 }
 
 .usage-daydetail-compare {
-    margin-top: 4px;
+    margin-top: 6px;
     font-size: 11px;
     color: var(--color-text-muted);
 }
 
-/* ---- 热力图 ---- */
+/* ---- 热力图 (动态呼吸) ---- */
 .usage-card-hourly-heatmap {
     overflow-x: auto;
+    border: none;
+    background: transparent;
+    padding: 0;
 }
 
 .hourly-heatmap-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-top: 10px;
-    min-width: 480px;
+    gap: 3px;
+    margin-top: 14px;
+    min-width: 500px;
+    padding: 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(252,248,241,0.6));
+    border: 1px solid rgba(137, 111, 94, 0.06);
+    box-shadow: 0 4px 20px rgba(92, 68, 52, 0.05);
+    backdrop-filter: blur(8px);
 }
 
 .hourly-heatmap-header {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     align-items: flex-end;
 }
 
 .hourly-heatmap-corner {
-    width: 32px;
+    width: 36px;
     flex-shrink: 0;
 }
 
@@ -334,83 +410,130 @@
 
 .hourly-heatmap-row {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     align-items: center;
 }
 
 .hourly-heatmap-weekday-label {
-    width: 32px;
+    width: 36px;
     flex-shrink: 0;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--color-text-secondary);
     text-align: right;
-    padding-right: 4px;
+    padding-right: 6px;
+    font-weight: 500;
 }
 
 .hourly-heatmap-cell {
     flex: 1;
     min-width: 0;
-    height: 6px;
-    border-radius: 3px;
-    transition: background 0.15s ease-out;
+    height: 7px;
+    border-radius: 4px;
+    transition: all 200ms var(--ease-spring);
+    cursor: crosshair;
 }
 
-.hourly-heatmap-cell.level-0 { background: var(--color-surface-alt); }
-.hourly-heatmap-cell.level-1 { background: var(--color-heatmap-1); }
-.hourly-heatmap-cell.level-2 { background: var(--color-heatmap-2); }
-.hourly-heatmap-cell.level-3 { background: var(--color-heatmap-3); }
-.hourly-heatmap-cell.level-4 { background: var(--color-heatmap-4); }
+.hourly-heatmap-cell:hover {
+    transform: scaleY(1.4);
+    filter: brightness(1.1);
+}
+
+.hourly-heatmap-cell.level-0 {
+    background: var(--color-surface-alt);
+}
+.hourly-heatmap-cell.level-1 {
+    background: var(--color-heatmap-1);
+    animation: heatmap-breath-1 3s ease-in-out infinite;
+}
+.hourly-heatmap-cell.level-2 {
+    background: var(--color-heatmap-2);
+    animation: heatmap-breath-2 3s ease-in-out infinite;
+}
+.hourly-heatmap-cell.level-3 {
+    background: var(--color-heatmap-3);
+    animation: heatmap-breath-3 3s ease-in-out infinite;
+}
+.hourly-heatmap-cell.level-4 {
+    background: var(--color-heatmap-4);
+    animation: heatmap-breath-4 3s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(200, 121, 99, 0.3);
+}
+
+@keyframes heatmap-breath-1 {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+@keyframes heatmap-breath-2 {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.9; }
+}
+@keyframes heatmap-breath-3 {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.95; }
+}
+@keyframes heatmap-breath-4 {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(200, 121, 99, 0.3); }
+    50% { opacity: 0.9; box-shadow: 0 0 14px rgba(200, 121, 99, 0.5); }
+}
 
 .hourly-heatmap-legend {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     justify-content: flex-end;
-    margin-top: 10px;
+    margin-top: 12px;
     font-size: 10px;
     color: var(--color-text-muted);
 }
 
 .hourly-heatmap-legend .hourly-heatmap-cell {
-    width: 11px;
-    height: 11px;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
 }
 
 .hourly-heatmap-legend-label {
-    margin: 0 2px;
+    margin: 0 4px;
 }
 
-/* ---- 列表样式 ---- */
+/* ---- 列表样式 (加大间距) ---- */
 .usage-list-compact {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .usage-list-compact-item {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 8px 10px;
-    border-radius: 8px;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: all 0.15s ease-out;
+    transition: all 180ms var(--ease-spring);
     -webkit-tap-highlight-color: transparent;
 }
 
 .usage-list-compact-item:hover {
-    background: var(--color-surface-elevated);
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(252,248,241,0.7));
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(92, 68, 52, 0.06);
 }
 
 .usage-list-compact-item:active {
-    transform: scale(0.98);
+    transform: translateX(2px) scale(0.98);
 }
 
 .usage-list-bullet {
     color: var(--color-brand);
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.4;
     flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.usage-list-compact-item:hover .usage-list-bullet {
+    opacity: 1;
 }
 
 .usage-list-compact-content {
@@ -419,7 +542,7 @@
 }
 
 .usage-list-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--color-text-primary);
     overflow: hidden;
@@ -430,50 +553,60 @@
 .usage-list-meta {
     font-size: 11px;
     color: var(--color-text-muted);
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
 .usage-list-value {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--color-text-secondary);
-    padding: 8px 0;
+    padding: 10px 0;
 }
 
 /* ---- Path 列表 ---- */
 .usage-paths-section {
     grid-column: 1 / -1;
+    border: none;
+    background: transparent;
+    padding: 0;
 }
 
 .usage-list-paths {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    padding: 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(252,248,241,0.6));
+    border: 1px solid rgba(137, 111, 94, 0.06);
+    box-shadow: 0 4px 20px rgba(92, 68, 52, 0.05);
+    backdrop-filter: blur(8px);
 }
 
 .usage-list-path-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    transition: background 0.15s ease-out;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    transition: all 180ms var(--ease-spring);
 }
 
 .usage-list-path-row:hover {
-    background: var(--color-surface-alt);
+    background: rgba(255, 255, 255, 0.7);
+    transform: translateX(4px);
 }
 
 .usage-list-path-rank {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--color-brand);
-    background: var(--color-surface-alt);
-    border-radius: 4px;
+    background: linear-gradient(135deg, rgba(200, 121, 99, 0.12), rgba(200, 121, 99, 0.06));
+    border-radius: 6px;
     flex-shrink: 0;
 }
 
@@ -482,7 +615,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 
@@ -496,34 +629,45 @@
 }
 
 .usage-list-path-stat {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--color-text-primary);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
 }
 
-/* ---- 卡片 ---- */
+/* ---- 卡片 (无边框浮动式) ---- */
 .usage-card {
-    padding: 20px;
-    border-radius: 14px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-soft);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
     margin-bottom: 0;
 }
 
 .usage-card-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--color-text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 0;
+    letter-spacing: -0.02em;
 }
 
-/* ---- 图表网格 ---- */
+/* ---- 图表网格 (加大间距) ---- */
 .usage-chart-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 20px;
+}
+
+/* 为非 paths 卡片添加容器 */
+.usage-chart-grid > .usage-card:not(.usage-paths-section):not(.usage-wave-section):not(.usage-card-hourly-heatmap) {
+    padding: 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(252,248,241,0.6));
+    border: 1px solid rgba(137, 111, 94, 0.06);
+    box-shadow: 0 4px 20px rgba(92, 68, 52, 0.05);
+    backdrop-filter: blur(8px);
 }
 
 /* ---- 内容区域 ---- */
@@ -532,7 +676,7 @@
 }
 
 .usage-content-loading {
-    opacity: 0.7;
+    opacity: 0.6;
     pointer-events: none;
 }
 
@@ -542,15 +686,15 @@
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding: 12px;
-    z-index: 1;
+    padding: 16px;
+    z-index: 10;
 }
 
 .usage-spinner {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    border: 2px solid var(--color-border-soft);
+    border: 2px solid rgba(137, 111, 94, 0.15);
     border-top-color: var(--color-brand);
     animation: usage-spin 0.8s linear infinite;
 }
@@ -566,7 +710,7 @@
     }
 
     .usage-hero-main {
-        font-size: 36px;
+        font-size: 44px;
     }
 }
 
@@ -582,24 +726,28 @@
     }
 
     .usage-hero {
-        padding: 20px;
-        min-height: 120px;
+        padding: 24px 20px;
+        min-height: 140px;
     }
 
     .usage-hero-main {
-        font-size: 32px;
+        font-size: 38px;
     }
 
     .usage-wave-chart {
-        height: 100px;
+        height: 110px;
     }
 
     .usage-wave-labels {
-        font-size: 9px;
+        font-size: 10px;
     }
 
     .hourly-heatmap-wrapper {
         min-width: 100%;
         overflow-x: auto;
+    }
+
+    .usage-chart-grid {
+        gap: 16px;
     }
 }

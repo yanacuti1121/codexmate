@@ -1,5 +1,5 @@
 window.__CODEXMATE_WEB_UI_RENDER__ = (() => {
-const { toDisplayString: _toDisplayString, normalizeClass: _normalizeClass, createElementVNode: _createElementVNode, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode, Transition: _Transition, withCtx: _withCtx, createVNode: _createVNode, createTextVNode: _createTextVNode, Fragment: _Fragment, renderList: _renderList, vShow: _vShow, withDirectives: _withDirectives, vModelSelect: _vModelSelect, vModelText: _vModelText, withKeys: _withKeys, withModifiers: _withModifiers, isMemoSame: _isMemoSame, withMemo: _withMemo, normalizeStyle: _normalizeStyle, vModelCheckbox: _vModelCheckbox, vModelDynamic: _vModelDynamic } = Vue
+const { toDisplayString: _toDisplayString, normalizeClass: _normalizeClass, createElementVNode: _createElementVNode, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode, createTextVNode: _createTextVNode, Fragment: _Fragment, renderList: _renderList, vShow: _vShow, withDirectives: _withDirectives, vModelSelect: _vModelSelect, vModelText: _vModelText, withKeys: _withKeys, withModifiers: _withModifiers, isMemoSame: _isMemoSame, withMemo: _withMemo, normalizeStyle: _normalizeStyle, vModelCheckbox: _vModelCheckbox, vModelDynamic: _vModelDynamic } = Vue
 
 return function render(_ctx, _cache) {
   return (_openBlock(), _createElementBlock(_Fragment, null, [
@@ -165,14 +165,7 @@ return function render(_ctx, _cache) {
             key: 0,
             class: "side-rail"
           }, [
-            _createElementVNode("div", {
-              class: "brand-block",
-              tabindex: "0",
-              onMouseenter: $event => (_ctx.brandHovered = true),
-              onMouseleave: $event => (_ctx.brandHovered = false),
-              onFocus: $event => (_ctx.brandHovered = true),
-              onBlur: $event => (_ctx.brandHovered = false)
-            }, [
+            _createElementVNode("div", { class: "brand-block" }, [
               _createElementVNode("div", { class: "brand-head" }, [
                 _createElementVNode("img", {
                   class: "brand-logo",
@@ -182,21 +175,16 @@ return function render(_ctx, _cache) {
                 _createElementVNode("div", { class: "brand-copy" }, [
                   _createElementVNode("div", { class: "brand-kicker" }, [
                     _createTextVNode("Codex Mate"),
-                    _createVNode(_Transition, { name: "brand-version-fade" }, {
-                      default: _withCtx(() => [
-                        (_ctx.appVersion && _ctx.brandHovered)
-                          ? (_openBlock(), _createElementBlock("span", {
-                              key: 0,
-                              class: "brand-version"
-                            }, " v" + _toDisplayString(_ctx.appVersion), 1 /* TEXT */))
-                          : _createCommentVNode("v-if", true)
-                      ]),
-                      _: 1 /* STABLE */
-                    })
+                    (_ctx.appVersion)
+                      ? (_openBlock(), _createElementBlock("span", {
+                          key: 0,
+                          class: "brand-version"
+                        }, " v" + _toDisplayString(_ctx.appVersion), 1 /* TEXT */))
+                      : _createCommentVNode("v-if", true)
                   ])
                 ])
               ])
-            ], 40 /* PROPS, NEED_HYDRATION */, ["onMouseenter", "onMouseleave", "onFocus", "onBlur"]),
+            ]),
             _createElementVNode("div", { class: "side-rail-nav" }, [
               _createElementVNode("div", {
                 class: "side-section",
@@ -437,7 +425,18 @@ return function render(_ctx, _cache) {
                       : _createCommentVNode("v-if", true)
                   ])
                 ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"])
-              ], 8 /* PROPS */, ["aria-label"])
+              ], 8 /* PROPS */, ["aria-label"]),
+              _createElementVNode("div", {
+                id: "side-tab-new",
+                class: "side-item side-item-ghost",
+                tabindex: "-1",
+                "aria-hidden": "true"
+              }, [
+                _createElementVNode("div", { class: "side-item-title" }, "New Tab"),
+                _createElementVNode("div", { class: "side-item-meta" }, [
+                  _createElementVNode("span", null, " ")
+                ])
+              ])
             ]),
             _createElementVNode("div", {
               class: "side-rail-lang",
@@ -2668,7 +2667,7 @@ return function render(_ctx, _cache) {
           ], 512 /* NEED_PATCH */), [
             [_vShow, _ctx.mainTab === 'sessions']
           ]),
-          _createCommentVNode(" Usage 统计 - 时光之河设计 "),
+          _createCommentVNode(" Usage 统计 - 流光设计 "),
           _withDirectives(_createElementVNode("div", {
             class: "mode-content",
             id: "panel-usage",
@@ -2848,11 +2847,11 @@ return function render(_ctx, _cache) {
                           ])
                         ])
                       ]),
-                      _createCommentVNode(" 波浪图：替换柱状图 "),
+                      _createCommentVNode(" 波浪图 "),
                       (_ctx.sessionUsageWave.points && _ctx.sessionUsageWave.points.length)
                         ? (_openBlock(), _createElementBlock("section", {
                             key: 1,
-                            class: "usage-card usage-wave-section"
+                            class: "usage-wave-section"
                           }, [
                             _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.daily.title')), 1 /* TEXT */),
                             _createElementVNode("div", { class: "usage-wave-container" }, [
@@ -2872,7 +2871,7 @@ return function render(_ctx, _cache) {
                                     _createElementVNode("stop", {
                                       offset: "0%",
                                       "stop-color": 'var(--color-brand)',
-                                      "stop-opacity": "0.3"
+                                      "stop-opacity": "0.35"
                                     }),
                                     _createElementVNode("stop", {
                                       offset: "100%",
@@ -2881,13 +2880,11 @@ return function render(_ctx, _cache) {
                                     })
                                   ], 8 /* PROPS */, ["id"])
                                 ]),
-                                _createCommentVNode(" 填充区域 "),
                                 _createElementVNode("path", {
                                   d: _ctx.sessionUsageWave.areaPath,
                                   fill: 'url(#wave-gradient-' + _ctx.sessionsUsageTimeRange + ')',
                                   class: "usage-wave-area"
                                 }, null, 8 /* PROPS */, ["d", "fill"]),
-                                _createCommentVNode(" 曲线 "),
                                 _createElementVNode("path", {
                                   d: _ctx.sessionUsageWave.linePath,
                                   fill: "none",
@@ -2897,7 +2894,6 @@ return function render(_ctx, _cache) {
                                   "stroke-linejoin": "round",
                                   class: "usage-wave-line"
                                 }, null, 8 /* PROPS */, ["d"]),
-                                _createCommentVNode(" 悬停指示线 "),
                                 (_ctx.sessionsUsageSelectedDay)
                                   ? (_openBlock(), _createElementBlock("line", {
                                       key: 0,
@@ -2908,11 +2904,10 @@ return function render(_ctx, _cache) {
                                       stroke: "currentColor",
                                       "stroke-width": "1",
                                       "stroke-dasharray": "4 4",
-                                      opacity: "0.4",
+                                      opacity: "0.5",
                                       class: "usage-wave-hover-line"
                                     }, null, 8 /* PROPS */, ["x2", "y1", "y2"]))
                                   : _createCommentVNode("v-if", true),
-                                _createCommentVNode(" 悬停点 "),
                                 (_ctx.sessionsUsageSelectedDay)
                                   ? (_openBlock(), _createElementBlock("circle", {
                                       key: 1,
@@ -2956,8 +2951,8 @@ return function render(_ctx, _cache) {
                           ]))
                         : _createCommentVNode("v-if", true),
                       _createElementVNode("div", { class: "usage-chart-grid" }, [
-                        _createCommentVNode(" 热力图：垂直活动条 "),
-                        _createElementVNode("section", { class: "usage-card usage-hourly-heatmap" }, [
+                        _createCommentVNode(" 热力图 "),
+                        _createElementVNode("section", { class: "usage-card-hourly-heatmap" }, [
                           _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.hourlyHeatmap.title')), 1 /* TEXT */),
                           _createElementVNode("div", { class: "hourly-heatmap-wrapper" }, [
                             _createElementVNode("div", { class: "hourly-heatmap-header" }, [
@@ -3050,7 +3045,7 @@ return function render(_ctx, _cache) {
                               ]))
                         ]),
                         _createCommentVNode(" Top Paths "),
-                        _createElementVNode("section", { class: "usage-card usage-paths-section" }, [
+                        _createElementVNode("section", { class: "usage-paths-section" }, [
                           _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.paths.title')), 1 /* TEXT */),
                           (!_ctx.sessionUsageCharts.topPaths.length)
                             ? (_openBlock(), _createElementBlock("div", {
