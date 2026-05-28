@@ -37,6 +37,42 @@ mod windows_console {
   }
 }
 
+#[cfg(windows)]
+mod windows_dialog {
+  use std::{ffi::c_void, os::windows::ffi::OsStrExt, ptr};
+
+  #[link(name = "user32")]
+  extern "system" {
+    fn MessageBoxW(hwnd: *mut c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
+  }
+
+  const MB_OK: u32 = 0x00000000;
+  const MB_ICONERROR: u32 = 0x00000010;
+  const MB_TOPMOST: u32 = 0x00040000;
+
+  fn wide(value: &str) -> Vec<u16> {
+    std::ffi::OsStr::new(value)
+      .encode_wide()
+      .chain(std::iter::once(0))
+      .collect()
+  }
+
+  pub fn show_error(caption: &str, message: &str) {
+    let caption = wide(caption);
+    let message = wide(message);
+    // SAFETY: MessageBoxW is called with null owner and valid null-terminated
+    // UTF-16 buffers that outlive the call.
+    unsafe {
+      MessageBoxW(
+        ptr::null_mut(),
+        message.as_ptr(),
+        caption.as_ptr(),
+        MB_OK | MB_ICONERROR | MB_TOPMOST,
+      );
+    }
+  }
+}
+
 fn desktop_debug_requested() -> bool {
   let env_enabled = std::env::var("CODEXMATE_DESKTOP_LOG")
     .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on" | "trace" | "debug"))
@@ -102,6 +138,18 @@ fn desktop_log(message: impl AsRef<str>) {
 
   append_log_line(desktop_log_file_path(), &line);
   append_log_line(backend_startup_log_file_path(), &line);
+}
+
+fn show_startup_error(message: &str) {
+  desktop_log(format!("startup error shown to user: {message}"));
+  #[cfg(windows)]
+  windows_dialog::show_error("Codex Mate 启动失败", message);
+}
+
+fn startup_error<T>(message: impl Into<String>) -> Result<T, Box<dyn std::error::Error>> {
+  let message = message.into();
+  show_startup_error(&message);
+  Err(message.into())
 }
 
 fn append_log_line(log_path: PathBuf, line: &str) {
@@ -417,7 +465,7 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
   if backend_port_occupied() {
     let message = backend_port_occupied_message();
     desktop_log(format!("backend port remains occupied after cleanup; {message}"));
-    return Err(message.into());
+    return startup_error(message);
   }
 
   let cli_path = find_cli_path(app)?;
@@ -467,7 +515,7 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
     let _ = child.kill();
     let _ = child.wait();
     desktop_log("backend killed after readiness timeout");
-    return Err("codexmate backend did not become ready on 127.0.0.1:3737".into());
+    return startup_error("Codex Mate 后端启动后没有及时就绪。请关闭旧的 Codex Mate / codexmate run 实例后重试；如果问题持续，请查看 startup.log。详情：codexmate backend did not become ready on 127.0.0.1:3737");
   }
 
   Ok(Some(child))

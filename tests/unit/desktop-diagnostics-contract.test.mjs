@@ -60,11 +60,29 @@ test('desktop startup force-cleans local backend port listeners before spawning'
 test('desktop startup surfaces occupied backend port guidance instead of waiting for readiness timeout', () => {
     const libSource = readSource('src-tauri/src/lib.rs');
 
+    assert.match(libSource, /fn MessageBoxW/);
+    assert.match(libSource, /MB_ICONERROR/);
+    assert.match(libSource, /MB_TOPMOST/);
+    assert.match(libSource, /fn show_startup_error\(message: &str\)/);
+    assert.match(libSource, /Codex Mate 启动失败/);
     assert.match(libSource, /fn backend_port_occupied\(\) -> bool/);
     assert.match(libSource, /fn backend_port_occupied_message\(\) -> String/);
     assert.match(libSource, /端口 3737 已被其他进程占用/);
     assert.match(libSource, /以管理员身份运行 Codex Mate/);
     assert.match(libSource, /详情见 startup\.log/);
-    assert.match(libSource, /if backend_port_occupied\(\)[\s\S]*return Err\(message\.into\(\)\)/);
+    assert.match(libSource, /if backend_port_occupied\(\)[\s\S]*return startup_error\(message\)/);
     assert.match(libSource, /backend port remains occupied after cleanup/);
+});
+
+test('desktop windows installer supports overwrite-style reinstall flow', () => {
+    const configSource = readSource('src-tauri/tauri.conf.json');
+    const hookSource = readSource('src-tauri/windows/installer-hooks.nsh');
+
+    assert.match(configSource, /"windows"\s*:/);
+    assert.match(configSource, /"allowDowngrades"\s*:\s*true/);
+    assert.match(configSource, /"upgradeCode"\s*:\s*"e84da745-7b0b-5548-85ed-a4a0be7b55ae"/);
+    assert.match(configSource, /"installMode"\s*:\s*"both"/);
+    assert.match(configSource, /"installerHooks"\s*:\s*"windows\/installer-hooks\.nsh"/);
+    assert.match(hookSource, /NSIS_HOOK_PREINSTALL/);
+    assert.match(hookSource, /taskkill \/IM "codexmate-desktop\.exe" \/F/);
 });
