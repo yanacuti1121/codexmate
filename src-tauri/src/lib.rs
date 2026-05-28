@@ -204,6 +204,190 @@ fn wait_for_backend(timeout: Duration) -> bool {
   false
 }
 
+fn managed_backend_command_line(command_line: &str) -> bool {
+  let normalized = format!(
+    " {} ",
+    command_line
+      .replace('\\', "/")
+      .split_whitespace()
+      .collect::<Vec<_>>()
+      .join(" ")
+      .to_ascii_lowercase()
+  );
+  normalized.contains(" codexmate run ")
+    || normalized.contains("/codexmate run ")
+    || normalized.contains(" codexmate.exe run ")
+    || normalized.contains("/codexmate.exe run ")
+    || normalized.contains(" cli.js run ")
+    || normalized.contains("/cli.js run ")
+}
+
+#[cfg(windows)]
+fn command_output(mut command: Command) -> std::io::Result<std::process::Output> {
+  configure_backend_process(&mut command);
+  command.output()
+}
+
+#[cfg(not(windows))]
+fn command_output(mut command: Command) -> std::io::Result<std::process::Output> {
+  command.output()
+}
+
+#[cfg(windows)]
+fn windows_command_line_for_pid(pid: u32) -> Option<String> {
+  let output = command_output({
+    let mut command = Command::new("powershell");
+    let script = format!(
+      "$p = Get-CimInstance Win32_Process -Filter \"ProcessId = {}\"; if ($p) {{ $p.CommandLine }}",
+      pid
+    );
+    command.arg("-NoProfile").arg("-Command").arg(script);
+    command
+  })
+  .ok()?;
+  if !output.status.success() {
+    return None;
+  }
+  let command_line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+  if command_line.is_empty() {
+    None
+  } else {
+    Some(command_line)
+  }
+}
+
+#[cfg(windows)]
+fn release_stale_backend_port() -> usize {
+  let output = match command_output({
+    let mut command = Command::new("netstat");
+    command.args(["-ano", "-p", "tcp"]);
+    command
+  }) {
+    Ok(value) => value,
+    Err(err) => {
+      desktop_log(format!("backend port cleanup skipped; netstat failed: {err}"));
+      return 0;
+    }
+  };
+
+  let mut released = 0usize;
+  let text = String::from_utf8_lossy(&output.stdout);
+  for line in text.lines() {
+    let parts = line.split_whitespace().collect::<Vec<_>>();
+    if parts.len() < 5 || parts[3] != "LISTENING" || !parts[1].ends_with(":3737") {
+      continue;
+    }
+    let local_address = parts[1];
+    if !(local_address.starts_with("127.0.0.1:") || local_address.starts_with("[::1]:")) {
+      desktop_log(format!(
+        "backend port cleanup skipped pid={}; non-local listener={}",
+        parts[4], local_address
+      ));
+      continue;
+    }
+    let Ok(pid) = parts[4].parse::<u32>() else {
+      continue;
+    };
+    let Some(command_line) = windows_command_line_for_pid(pid) else {
+      desktop_log(format!("backend port cleanup skipped pid={pid}; command line unavailable"));
+      continue;
+    };
+    if !managed_backend_command_line(&command_line) {
+      desktop_log(format!(
+        "backend port cleanup skipped pid={pid}; unmanaged listener on 127.0.0.1:3737"
+      ));
+      continue;
+    }
+    desktop_log(format!("backend port cleanup killing stale codexmate process pid={pid}"));
+    if command_output({
+      let mut command = Command::new("taskkill");
+      command.arg("/PID").arg(pid.to_string()).arg("/F");
+      command
+    })
+    .map(|output| output.status.success())
+    .unwrap_or(false)
+    {
+      released += 1;
+    } else {
+      desktop_log(format!("backend port cleanup failed to kill pid={pid}"));
+    }
+  }
+  if released > 0 {
+    desktop_log(format!("backend port cleanup released {released} stale listener(s)"));
+    std::thread::sleep(Duration::from_millis(500));
+  }
+  released
+}
+
+#[cfg(not(windows))]
+fn process_command_line_for_pid(pid: u32) -> Option<String> {
+  let output = command_output({
+    let mut command = Command::new("ps");
+    command.arg("-p").arg(pid.to_string()).arg("-o").arg("args=");
+    command
+  })
+  .ok()?;
+  if !output.status.success() {
+    return None;
+  }
+  let command_line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+  if command_line.is_empty() {
+    None
+  } else {
+    Some(command_line)
+  }
+}
+
+#[cfg(not(windows))]
+fn release_stale_backend_port() -> usize {
+  let output = match command_output({
+    let mut command = Command::new("lsof");
+    command.args(["-ti", "tcp:3737"]);
+    command
+  }) {
+    Ok(value) => value,
+    Err(err) => {
+      desktop_log(format!("backend port cleanup skipped; lsof failed: {err}"));
+      return 0;
+    }
+  };
+
+  let mut released = 0usize;
+  for token in String::from_utf8_lossy(&output.stdout).split_whitespace() {
+    let Ok(pid) = token.parse::<u32>() else {
+      continue;
+    };
+    let Some(command_line) = process_command_line_for_pid(pid) else {
+      desktop_log(format!("backend port cleanup skipped pid={pid}; command line unavailable"));
+      continue;
+    };
+    if !managed_backend_command_line(&command_line) {
+      desktop_log(format!(
+        "backend port cleanup skipped pid={pid}; unmanaged listener on 127.0.0.1:3737"
+      ));
+      continue;
+    }
+    desktop_log(format!("backend port cleanup killing stale codexmate process pid={pid}"));
+    if command_output({
+      let mut command = Command::new("kill");
+      command.arg("-9").arg(pid.to_string());
+      command
+    })
+    .map(|output| output.status.success())
+    .unwrap_or(false)
+    {
+      released += 1;
+    } else {
+      desktop_log(format!("backend port cleanup failed to kill pid={pid}"));
+    }
+  }
+  if released > 0 {
+    desktop_log(format!("backend port cleanup released {released} stale listener(s)"));
+    std::thread::sleep(Duration::from_millis(500));
+  }
+  released
+}
+
 #[cfg(windows)]
 fn configure_backend_process(command: &mut Command) {
   if DESKTOP_CONSOLE_LOGGING.load(Ordering::Relaxed) {
@@ -240,6 +424,8 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
     desktop_log("backend spawn skipped by CODEXMATE_DESKTOP_SKIP_BACKEND=1");
     return Ok(None);
   }
+
+  release_stale_backend_port();
 
   if health_check_ready() {
     desktop_log("existing backend already ready on 127.0.0.1:3737");
