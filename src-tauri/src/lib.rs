@@ -61,13 +61,20 @@ fn desktop_log_file_path() -> PathBuf {
     }
   }
 
+  desktop_default_logs_dir().join("desktop.log")
+}
+
+fn desktop_default_logs_dir() -> PathBuf {
   let base_dir = std::env::var_os("LOCALAPPDATA")
     .map(PathBuf::from)
     .unwrap_or_else(|| std::env::temp_dir());
   base_dir
     .join("CodexMate")
     .join("logs")
-    .join("desktop.log")
+}
+
+fn backend_startup_log_file_path() -> PathBuf {
+  desktop_default_logs_dir().join("startup.log")
 }
 
 fn now_epoch_millis() -> u128 {
@@ -93,7 +100,11 @@ fn desktop_log(message: impl AsRef<str>) {
     write_console_log(&line);
   }
 
-  let log_path = desktop_log_file_path();
+  append_log_line(desktop_log_file_path(), &line);
+  append_log_line(backend_startup_log_file_path(), &line);
+}
+
+fn append_log_line(log_path: PathBuf, line: &str) {
   if let Some(parent) = log_path.parent() {
     let _ = fs::create_dir_all(parent);
   }
@@ -102,8 +113,8 @@ fn desktop_log(message: impl AsRef<str>) {
   }
 }
 
-fn desktop_log_stdio() -> Stdio {
-  let log_path = desktop_log_file_path();
+fn backend_startup_log_stdio() -> Stdio {
+  let log_path = backend_startup_log_file_path();
   if let Some(parent) = log_path.parent() {
     let _ = fs::create_dir_all(parent);
   }
@@ -138,9 +149,10 @@ pub fn init_desktop_diagnostics() {
   }));
 
   desktop_log(format!(
-    "codexmate desktop starting; console_logging={}; log_file={}",
+    "codexmate desktop starting; console_logging={}; log_file={}; startup_log_file={}",
     console_attached,
-    log_path.display()
+    log_path.display(),
+    backend_startup_log_file_path().display()
   ));
   desktop_log(format!(
     "args={}",
@@ -265,7 +277,7 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
   if inherit_backend_stdio {
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
   } else {
-    command.stdout(desktop_log_stdio()).stderr(desktop_log_stdio());
+    command.stdout(backend_startup_log_stdio()).stderr(backend_startup_log_stdio());
   }
 
   configure_backend_process(&mut command);
