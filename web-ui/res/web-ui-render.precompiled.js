@@ -187,17 +187,6 @@ return function render(_ctx, _cache) {
             ]),
             _createElementVNode("div", { class: "side-rail-nav" }, [
               _createElementVNode("div", {
-                id: "side-tab-new",
-                class: "side-item side-item-ghost",
-                tabindex: "-1",
-                "aria-hidden": "true"
-              }, [
-                _createElementVNode("div", { class: "side-item-title" }, "New Tab"),
-                _createElementVNode("div", { class: "side-item-meta" }, [
-                  _createElementVNode("span", null, " ")
-                ])
-              ]),
-              _createElementVNode("div", {
                 class: "side-section",
                 role: "navigation",
                 "aria-label": _ctx.t('side.overview')
@@ -436,7 +425,18 @@ return function render(_ctx, _cache) {
                       : _createCommentVNode("v-if", true)
                   ])
                 ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"])
-              ], 8 /* PROPS */, ["aria-label"])
+              ], 8 /* PROPS */, ["aria-label"]),
+              _createElementVNode("div", {
+                id: "side-tab-new",
+                class: "side-item side-item-ghost",
+                tabindex: "-1",
+                "aria-hidden": "true"
+              }, [
+                _createElementVNode("div", { class: "side-item-title" }, "New Tab"),
+                _createElementVNode("div", { class: "side-item-meta" }, [
+                  _createElementVNode("span", null, " ")
+                ])
+              ])
             ]),
             _createElementVNode("div", {
               class: "side-rail-lang",

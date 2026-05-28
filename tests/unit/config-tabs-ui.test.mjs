@@ -128,6 +128,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.doesNotMatch(sideGhostTab, /data-main-tab=/);
     assert.doesNotMatch(sideGhostTab, /@click=/);
     assert.doesNotMatch(sideGhostTab, /@keydown/);
+    assert.ok(html.indexOf('id="side-tab-trash"') < html.indexOf('id="side-tab-new"'), 'ghost side tab should remain after trash tab to reserve end scroll space');
     assert.match(html, /<div class="brand-kicker">Codex Mate<span v-if="appVersion" class="brand-version"> v\{\{ appVersion \}\}<\/span><\/div>/);
     assert.doesNotMatch(html, /class="brand-block" tabindex="0"/);
     assert.doesNotMatch(html, /appVersion && brandHovered/);

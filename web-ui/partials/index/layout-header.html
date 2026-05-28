@@ -128,10 +128,6 @@
                 </div>
 
                 <div class="side-rail-nav">
-                <div id="side-tab-new" class="side-item side-item-ghost" tabindex="-1" aria-hidden="true">
-                    <div class="side-item-title">New Tab</div>
-                    <div class="side-item-meta"><span>&nbsp;</span></div>
-                </div>
                 <div class="side-section" role="navigation" :aria-label="t('side.overview')">
                     <div class="side-section-title">{{ t('side.overview') }}</div>
                     <button
@@ -318,6 +314,10 @@
                             <span v-if="sessionTrashCount > 0" class="side-item-badge">{{ sessionTrashCount }}</span>
                         </div>
                     </button>
+                </div>
+                <div id="side-tab-new" class="side-item side-item-ghost" tabindex="-1" aria-hidden="true">
+                    <div class="side-item-title">New Tab</div>
+                    <div class="side-item-meta"><span>&nbsp;</span></div>
                 </div>
                 </div>
 
