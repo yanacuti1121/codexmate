@@ -84,7 +84,6 @@ brew install codexmate
 
 ```bash
 npm install -g codexmate
-codexmate setup
 codexmate run
 ```
 
