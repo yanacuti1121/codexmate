@@ -165,10 +165,7 @@ return function render(_ctx, _cache) {
             key: 0,
             class: "side-rail"
           }, [
-            _createElementVNode("div", {
-              class: "brand-block",
-              tabindex: "0"
-            }, [
+            _createElementVNode("div", { class: "brand-block" }, [
               _createElementVNode("div", { class: "brand-head" }, [
                 _createElementVNode("img", {
                   class: "brand-logo",

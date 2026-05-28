@@ -129,6 +129,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.doesNotMatch(sideGhostTab, /@click=/);
     assert.doesNotMatch(sideGhostTab, /@keydown/);
     assert.match(html, /<div class="brand-kicker">Codex Mate<span v-if="appVersion" class="brand-version"> v\{\{ appVersion \}\}<\/span><\/div>/);
+    assert.doesNotMatch(html, /class="brand-block" tabindex="0"/);
     assert.doesNotMatch(html, /appVersion && brandHovered/);
     assert.doesNotMatch(html, /brandHovered = true/);
     for (const styles of [layoutShell, bundledStyles]) {
