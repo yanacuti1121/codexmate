@@ -191,6 +191,18 @@ fn health_check_ready() -> bool {
   status_ok && identity_ok
 }
 
+fn backend_port_occupied() -> bool {
+  let addr: SocketAddr = match "127.0.0.1:3737".parse() {
+    Ok(value) => value,
+    Err(_) => return false,
+  };
+  TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+fn backend_port_occupied_message() -> String {
+  "端口 3737 已被其他进程占用，Codex Mate 无法启动后端。请先关闭旧的 Codex Mate / codexmate run 实例；如果无法关闭，请右键以管理员身份运行 Codex Mate 以清理残留进程，然后重试。详情见 startup.log。".to_string()
+}
+
 fn wait_for_backend(timeout: Duration) -> bool {
   let started = Instant::now();
   while started.elapsed() < timeout {
@@ -400,6 +412,12 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
   if health_check_ready() {
     desktop_log("existing backend already ready on 127.0.0.1:3737");
     return Ok(None);
+  }
+
+  if backend_port_occupied() {
+    let message = backend_port_occupied_message();
+    desktop_log(format!("backend port remains occupied after cleanup; {message}"));
+    return Err(message.into());
   }
 
   let cli_path = find_cli_path(app)?;

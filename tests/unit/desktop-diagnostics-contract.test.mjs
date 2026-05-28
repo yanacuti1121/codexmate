@@ -56,3 +56,15 @@ test('desktop startup force-cleans local backend port listeners before spawning'
     assert.match(libSource, /backend port cleanup killing loopback listener/);
     assert.doesNotMatch(libSource, /unmanaged listener on 127\.0\.0\.1:3737/);
 });
+
+test('desktop startup surfaces occupied backend port guidance instead of waiting for readiness timeout', () => {
+    const libSource = readSource('src-tauri/src/lib.rs');
+
+    assert.match(libSource, /fn backend_port_occupied\(\) -> bool/);
+    assert.match(libSource, /fn backend_port_occupied_message\(\) -> String/);
+    assert.match(libSource, /端口 3737 已被其他进程占用/);
+    assert.match(libSource, /以管理员身份运行 Codex Mate/);
+    assert.match(libSource, /详情见 startup\.log/);
+    assert.match(libSource, /if backend_port_occupied\(\)[\s\S]*return Err\(message\.into\(\)\)/);
+    assert.match(libSource, /backend port remains occupied after cleanup/);
+});
