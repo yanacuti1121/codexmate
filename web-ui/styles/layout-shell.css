@@ -415,6 +415,14 @@ body::after {
     word-break: break-word;
 }
 
+.side-item-ghost {
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+    cursor: default;
+    flex: 0 0 auto;
+}
+
 @media (min-width: 721px) {
     body:not(.force-compact) #app > .top-tabs {
         display: none;
@@ -484,7 +492,7 @@ body::after {
 }
 
 .brand-kicker {
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.2;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
     color: #1d1d1f;
@@ -502,10 +510,11 @@ body::after {
 }
 
 .brand-version {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 400;
     color: #8e8e93;
     vertical-align: baseline;
+    -webkit-text-fill-color: #8e8e93;
 }
 
 .brand-version-fade-enter-active,
