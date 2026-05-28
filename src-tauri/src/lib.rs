@@ -204,24 +204,6 @@ fn wait_for_backend(timeout: Duration) -> bool {
   false
 }
 
-fn managed_backend_command_line(command_line: &str) -> bool {
-  let normalized = format!(
-    " {} ",
-    command_line
-      .replace('\\', "/")
-      .split_whitespace()
-      .collect::<Vec<_>>()
-      .join(" ")
-      .to_ascii_lowercase()
-  );
-  normalized.contains(" codexmate run ")
-    || normalized.contains("/codexmate run ")
-    || normalized.contains(" codexmate.exe run ")
-    || normalized.contains("/codexmate.exe run ")
-    || normalized.contains(" cli.js run ")
-    || normalized.contains("/cli.js run ")
-}
-
 #[cfg(windows)]
 fn command_output(mut command: Command) -> std::io::Result<std::process::Output> {
   configure_backend_process(&mut command);
@@ -288,17 +270,11 @@ fn release_stale_backend_port() -> usize {
     let Ok(pid) = parts[4].parse::<u32>() else {
       continue;
     };
-    let Some(command_line) = windows_command_line_for_pid(pid) else {
-      desktop_log(format!("backend port cleanup skipped pid={pid}; command line unavailable"));
-      continue;
-    };
-    if !managed_backend_command_line(&command_line) {
-      desktop_log(format!(
-        "backend port cleanup skipped pid={pid}; unmanaged listener on 127.0.0.1:3737"
-      ));
-      continue;
-    }
-    desktop_log(format!("backend port cleanup killing stale codexmate process pid={pid}"));
+    let command_line = windows_command_line_for_pid(pid)
+      .unwrap_or_else(|| "<command line unavailable>".to_string());
+    desktop_log(format!(
+      "backend port cleanup killing loopback listener pid={pid}; command_line={command_line}"
+    ));
     if command_output({
       let mut command = Command::new("taskkill");
       command.arg("/PID").arg(pid.to_string()).arg("/F");
@@ -309,7 +285,7 @@ fn release_stale_backend_port() -> usize {
     {
       released += 1;
     } else {
-      desktop_log(format!("backend port cleanup failed to kill pid={pid}"));
+      desktop_log(format!("backend port cleanup failed to kill loopback listener pid={pid}"));
     }
   }
   if released > 0 {
@@ -357,17 +333,11 @@ fn release_stale_backend_port() -> usize {
     let Ok(pid) = token.parse::<u32>() else {
       continue;
     };
-    let Some(command_line) = process_command_line_for_pid(pid) else {
-      desktop_log(format!("backend port cleanup skipped pid={pid}; command line unavailable"));
-      continue;
-    };
-    if !managed_backend_command_line(&command_line) {
-      desktop_log(format!(
-        "backend port cleanup skipped pid={pid}; unmanaged listener on 127.0.0.1:3737"
-      ));
-      continue;
-    }
-    desktop_log(format!("backend port cleanup killing stale codexmate process pid={pid}"));
+    let command_line = process_command_line_for_pid(pid)
+      .unwrap_or_else(|| "<command line unavailable>".to_string());
+    desktop_log(format!(
+      "backend port cleanup killing loopback listener pid={pid}; command_line={command_line}"
+    ));
     if command_output({
       let mut command = Command::new("kill");
       command.arg("-9").arg(pid.to_string());
@@ -378,7 +348,7 @@ fn release_stale_backend_port() -> usize {
     {
       released += 1;
     } else {
-      desktop_log(format!("backend port cleanup failed to kill pid={pid}"));
+      desktop_log(format!("backend port cleanup failed to kill loopback listener pid={pid}"));
     }
   }
   if released > 0 {

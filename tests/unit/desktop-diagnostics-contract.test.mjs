@@ -42,16 +42,17 @@ test('desktop backend startup diagnostics use fixed startup log for child stdio'
     assert.match(libSource, /if DESKTOP_CONSOLE_LOGGING\.load[\s\S]*return;[\s\S]*CREATE_NO_WINDOW/);
 });
 
-test('desktop startup cleans up only stale managed backend listeners on port 3737', () => {
+test('desktop startup force-cleans local backend port listeners before spawning', () => {
     const libSource = readSource('src-tauri/src/lib.rs');
 
     assert.match(libSource, /fn release_stale_backend_port\(\) -> usize/);
     assert.match(libSource, /release_stale_backend_port\(\);[\s\S]*if health_check_ready\(\)/);
-    assert.match(libSource, /managed_backend_command_line/);
-    assert.match(libSource, /codexmate run/);
-    assert.match(libSource, /cli\.js run/);
+    assert.match(libSource, /local_address\.starts_with\("127\.0\.0\.1:"\)/);
+    assert.match(libSource, /local_address\.starts_with\("\[::1\]:"\)/);
+    assert.match(libSource, /non-local listener/);
+    assert.match(libSource, /command_line=/);
     assert.match(libSource, /taskkill[\s\S]*\/PID[\s\S]*\/F/);
     assert.match(libSource, /kill[\s\S]*-9/);
-    assert.match(libSource, /backend port cleanup killing stale codexmate process/);
-    assert.match(libSource, /backend port cleanup skipped pid=\{pid\}; unmanaged listener/);
+    assert.match(libSource, /backend port cleanup killing loopback listener/);
+    assert.doesNotMatch(libSource, /unmanaged listener on 127\.0\.0\.1:3737/);
 });
