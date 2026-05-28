@@ -49,6 +49,34 @@ npm run desktop:build
 
 当前实现仍通过系统 `node` 启动打包进 resources 的 Codex Mate 后端。后续如果要做完全免 Node 安装的分发，需要把 Node runtime 或预编译 sidecar 纳入打包流程。
 
+## 启动诊断日志
+
+Windows release 包仍使用 GUI subsystem，普通双击不会弹出黑色控制台。需要快速定位启动闪退时，可以从 PowerShell / CMD 显式启用控制台日志：
+
+```powershell
+codexmate-desktop.exe --debug-console
+```
+
+也可以通过环境变量启用：
+
+```powershell
+$env:CODEXMATE_DESKTOP_LOG = "1"
+codexmate-desktop.exe
+```
+
+启用后，桌面壳会尝试附着父控制台，打印 Rust/Tauri 启动日志，并让内置 Node backend 的 stdout/stderr 继承到当前终端。无论是否启用控制台，桌面壳都会写入本地文件日志；未启用控制台时，backend stdout/stderr 也会追加到同一个日志文件：
+
+```text
+%LOCALAPPDATA%\CodexMate\logs\desktop.log
+```
+
+如需指定日志位置：
+
+```powershell
+$env:CODEXMATE_DESKTOP_LOG_FILE = "$env:TEMP\codexmate-desktop.log"
+codexmate-desktop.exe --debug-console
+```
+
 ## CI
 
 `.github/workflows/desktop-build.yml` 会在 GitHub Actions 上：
