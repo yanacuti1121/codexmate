@@ -18,6 +18,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     const baseTheme = readProjectFile('web-ui/styles/base-theme.css');
     const controlsForms = readProjectFile('web-ui/styles/controls-forms.css');
     const taskOrchestrationStyles = readProjectFile('web-ui/styles/task-orchestration.css');
+    const layoutShell = readProjectFile('web-ui/styles/layout-shell.css');
     const bundledStyles = readBundledWebUiCss();
     const sideRail = html.match(/<aside class="side-rail"[\s\S]*?<\/aside>/)?.[0] || '';
     const sideTabModes = [...html.matchAll(/id="side-tab-config-([a-z]+)"/g)]
@@ -119,6 +120,23 @@ test('config template keeps expected config tabs in top and side navigation', ()
         assert.match(styles, /\.task-workbench-tabs\s*\{[\s\S]*display:\s*flex;/);
         assert.match(styles, /\.task-action-row-right\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;/);
         assert.match(styles, /\.task-runtime-item-actions\s*\{[\s\S]*flex-direction:\s*row;[\s\S]*align-items:\s*center;/);
+    }
+    const sideGhostTab = sideRail.match(/<div id="side-tab-new"[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
+    assert.match(sideGhostTab, /class="side-item side-item-ghost"/);
+    assert.match(sideGhostTab, /tabindex="-1"/);
+    assert.match(sideGhostTab, /aria-hidden="true"/);
+    assert.doesNotMatch(sideGhostTab, /data-main-tab=/);
+    assert.doesNotMatch(sideGhostTab, /@click=/);
+    assert.doesNotMatch(sideGhostTab, /@keydown/);
+    assert.ok(html.indexOf('id="side-tab-trash"') < html.indexOf('id="side-tab-new"'), 'ghost side tab should remain after trash tab to reserve end scroll space');
+    assert.match(html, /<div class="brand-kicker">Codex Mate<span v-if="appVersion" class="brand-version"> v\{\{ appVersion \}\}<\/span><\/div>/);
+    assert.doesNotMatch(html, /class="brand-block" tabindex="0"/);
+    assert.doesNotMatch(html, /appVersion && brandHovered/);
+    assert.doesNotMatch(html, /brandHovered = true/);
+    for (const styles of [layoutShell, bundledStyles]) {
+        assert.match(styles, /\.side-item-ghost\s*\{[\s\S]*opacity:\s*0;[\s\S]*pointer-events:\s*none;[\s\S]*user-select:\s*none;/);
+        assert.match(styles, /\.brand-kicker\s*\{[\s\S]*font-size:\s*15px;/);
+        assert.match(styles, /\.brand-version\s*\{[\s\S]*font-size:\s*13px;/);
     }
     assert.match(html, /id="side-tab-market"/);
     assert.match(html, /id="tab-market"/);

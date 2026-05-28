@@ -325,7 +325,6 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
     const missingCurrentKeys = headDataKeys.filter((key) => !currentDataKeys.includes(key)).sort();
     const allowedExtraCurrentKeys = parityAgainstHead ? [
         'appVersion',
-        'brandHovered',
         'sessionListInitialBatchSize',
         'sessionListLoadStep',
         'sessionListVisibleCount',
@@ -355,7 +354,6 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'showEditProviderKey'
     ] : [
         'appVersion',
-        'brandHovered',
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
         'openclawPendingAuthProfileUpdates',
@@ -410,6 +408,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'promptTemplateVarDraftError',
         'promptTemplateVarDraftName',
         'showPromptTemplateVarModal',
+        'brandHovered',
     ];
     allowedExtraCurrentKeys.push(
         'lang',

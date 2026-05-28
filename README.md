@@ -84,7 +84,6 @@ Requires [Node.js](https://nodejs.org/) (`brew install node` if not present).
 
 ```bash
 npm install -g codexmate
-codexmate setup
 codexmate run
 ```
 
