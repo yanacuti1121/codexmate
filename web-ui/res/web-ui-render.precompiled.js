@@ -127,35 +127,15 @@ return function render(_ctx, _cache) {
     (!_ctx.sessionStandalone)
       ? (_openBlock(), _createElementBlock("div", {
           key: 1,
-          class: "lang-fab",
-          role: "group",
-          "aria-label": _ctx.t('lang.label')
+          class: "lang-fab"
         }, [
-          _createElementVNode("div", {
-            class: "lang-choice",
-            role: "group",
-            "aria-label": _ctx.t('lang.label')
-          }, [
-            _createElementVNode("button", {
-              type: "button",
-              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'zh' }]),
-              "aria-pressed": (_ctx.lang || 'zh') === 'zh',
-              onClick: $event => (_ctx.setLang('zh'))
-            }, "ZH", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
-            _createElementVNode("button", {
-              type: "button",
-              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'en' }]),
-              "aria-pressed": (_ctx.lang || 'zh') === 'en',
-              onClick: $event => (_ctx.setLang('en'))
-            }, "EN", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
-            _createElementVNode("button", {
-              type: "button",
-              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'ja' }]),
-              "aria-pressed": (_ctx.lang || 'zh') === 'ja',
-              onClick: $event => (_ctx.setLang('ja'))
-            }, "日本語", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"])
-          ], 8 /* PROPS */, ["aria-label"])
-        ], 8 /* PROPS */, ["aria-label"]))
+          _createElementVNode("button", {
+            type: "button",
+            class: "language-settings-link",
+            "aria-label": _ctx.t('settings.language.open'),
+            onClick: _ctx.openLanguageSettings
+          }, _toDisplayString(_ctx.t('settings.language.sideLabel', { language: _ctx.currentLanguageLabel() })), 9 /* TEXT, PROPS */, ["aria-label", "onClick"])
+        ]))
       : _createCommentVNode("v-if", true),
     _createElementVNode("div", {
       class: _normalizeClass(['app-shell', { standalone: _ctx.sessionStandalone }])
@@ -383,7 +363,7 @@ return function render(_ctx, _cache) {
                   _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('side.plugins.tools')), 1 /* TEXT */),
                   _createElementVNode("div", { class: "side-item-meta" }, [
                     _createElementVNode("span", null, _toDisplayString(_ctx.t('side.plugins.tools.meta')), 1 /* TEXT */),
-                    _createElementVNode("span", null, _toDisplayString(_ctx.promptTemplatesList.length) + " templates", 1 /* TEXT */)
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('side.plugins.templatesCount', { count: _ctx.promptTemplatesList.length })), 1 /* TEXT */)
                   ])
                 ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"])
               ], 8 /* PROPS */, ["aria-label"]),
@@ -414,9 +394,9 @@ return function render(_ctx, _cache) {
                   onPointerdown: $event => (_ctx.onMainTabPointerDown('trash', $event)),
                   onClick: $event => (_ctx.onMainTabClick('trash', $event))
                 }, [
-                  _createElementVNode("div", { class: "side-item-title" }, "回收站"),
+                  _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('settings.trash.title')), 1 /* TEXT */),
                   _createElementVNode("div", { class: "side-item-meta" }, [
-                    _createElementVNode("span", null, "已删除会话"),
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('settings.trash.meta')), 1 /* TEXT */),
                     (_ctx.sessionTrashCount > 0)
                       ? (_openBlock(), _createElementBlock("span", {
                           key: 0,
@@ -432,42 +412,20 @@ return function render(_ctx, _cache) {
                 tabindex: "-1",
                 "aria-hidden": "true"
               }, [
-                _createElementVNode("div", { class: "side-item-title" }, "New Tab"),
+                _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('side.newTab')), 1 /* TEXT */),
                 _createElementVNode("div", { class: "side-item-meta" }, [
                   _createElementVNode("span", null, " ")
                 ])
               ])
             ]),
-            _createElementVNode("div", {
-              class: "side-rail-lang",
-              role: "group",
-              "aria-label": _ctx.t('lang.label')
-            }, [
-              _createElementVNode("div", {
-                class: "lang-choice",
-                role: "group",
-                "aria-label": _ctx.t('lang.label')
-              }, [
-                _createElementVNode("button", {
-                  type: "button",
-                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'zh' }]),
-                  "aria-pressed": (_ctx.lang || 'zh') === 'zh',
-                  onClick: $event => (_ctx.setLang('zh'))
-                }, "ZH", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
-                _createElementVNode("button", {
-                  type: "button",
-                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'en' }]),
-                  "aria-pressed": (_ctx.lang || 'zh') === 'en',
-                  onClick: $event => (_ctx.setLang('en'))
-                }, "EN", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
-                _createElementVNode("button", {
-                  type: "button",
-                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'ja' }]),
-                  "aria-pressed": (_ctx.lang || 'zh') === 'ja',
-                  onClick: $event => (_ctx.setLang('ja'))
-                }, "日本語", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"])
-              ], 8 /* PROPS */, ["aria-label"])
-            ], 8 /* PROPS */, ["aria-label"])
+            _createElementVNode("div", { class: "side-rail-lang" }, [
+              _createElementVNode("button", {
+                type: "button",
+                class: "language-settings-link",
+                "aria-label": _ctx.t('settings.language.open'),
+                onClick: _ctx.openLanguageSettings
+              }, _toDisplayString(_ctx.t('settings.language.sideLabel', { language: _ctx.currentLanguageLabel() })), 9 /* TEXT, PROPS */, ["aria-label", "onClick"])
+            ])
           ]))
         : _createCommentVNode("v-if", true),
       _createElementVNode("main", { class: "main-panel" }, [
@@ -4015,6 +3973,36 @@ return function render(_ctx, _cache) {
             }, [
               _createElementVNode("div", { class: "settings-grid" }, [
                 _createElementVNode("section", {
+                  id: "settings-language",
+                  class: "settings-card",
+                  "aria-label": _ctx.t('settings.language.title')
+                }, [
+                  _createElementVNode("div", { class: "settings-card-main" }, [
+                    _createElementVNode("div", { class: "settings-card-content" }, [
+                      _createElementVNode("div", { class: "settings-card-title" }, _toDisplayString(_ctx.t('settings.language.title')), 1 /* TEXT */),
+                      _createElementVNode("p", { class: "settings-card-desc" }, _toDisplayString(_ctx.t('settings.language.meta')), 1 /* TEXT */),
+                      _createElementVNode("label", {
+                        class: "selector-label",
+                        for: "settings-language-select"
+                      }, _toDisplayString(_ctx.t('settings.language.label')), 1 /* TEXT */),
+                      _createElementVNode("select", {
+                        id: "settings-language-select",
+                        class: "model-select settings-language-select",
+                        value: _ctx.lang,
+                        onChange: $event => (_ctx.setLang($event.target.value))
+                      }, [
+                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.languageOptions(), (option) => {
+                          return (_openBlock(), _createElementBlock("option", {
+                            key: option.code,
+                            value: option.code
+                          }, _toDisplayString(option.nativeName) + " · " + _toDisplayString(option.englishName), 9 /* TEXT, PROPS */, ["value"]))
+                        }), 128 /* KEYED_FRAGMENT */))
+                      ], 40 /* PROPS, NEED_HYDRATION */, ["value", "onChange"]),
+                      _createElementVNode("p", { class: "settings-card-hint" }, _toDisplayString(_ctx.t('settings.language.hint')), 1 /* TEXT */)
+                    ])
+                  ])
+                ], 8 /* PROPS */, ["aria-label"]),
+                _createElementVNode("section", {
                   class: "settings-card",
                   "aria-label": _ctx.t('settings.sharePrefix.title')
                 }, [
@@ -4064,17 +4052,17 @@ return function render(_ctx, _cache) {
                 ], 8 /* PROPS */, ["aria-label"]),
                 _createElementVNode("section", {
                   class: "settings-card",
-                  "aria-label": 'Webhook'
+                  "aria-label": _ctx.t('settings.webhook.title')
                 }, [
                   _createElementVNode("div", { class: "settings-card-main" }, [
                     _createElementVNode("div", { class: "settings-card-content" }, [
-                      _createElementVNode("div", { class: "settings-card-title" }, "Webhook"),
-                      _createElementVNode("p", { class: "settings-card-desc" }, "配置变更时外发通知"),
+                      _createElementVNode("div", { class: "settings-card-title" }, _toDisplayString(_ctx.t('settings.webhook.title')), 1 /* TEXT */),
+                      _createElementVNode("p", { class: "settings-card-desc" }, _toDisplayString(_ctx.t('settings.webhook.meta')), 1 /* TEXT */),
                       _createElementVNode("div", { class: "webhook-status" }, [
                         _createElementVNode("span", {
                           class: _normalizeClass(["webhook-status-dot", { active: _ctx.webhookConfig.enabled }])
                         }, null, 2 /* CLASS */),
-                        _createElementVNode("span", { class: "webhook-status-label" }, _toDisplayString(_ctx.webhookConfig.enabled ? '已启用' : '已禁用'), 1 /* TEXT */),
+                        _createElementVNode("span", { class: "webhook-status-label" }, _toDisplayString(_ctx.webhookConfig.enabled ? _ctx.t('settings.webhook.enabled') : _ctx.t('settings.webhook.disabled')), 1 /* TEXT */),
                         (_ctx.webhookConfig.url)
                           ? (_openBlock(), _createElementBlock("code", {
                               key: 0,
@@ -4089,10 +4077,10 @@ return function render(_ctx, _cache) {
                     onClick: _ctx.openWebhookModal
                   }, [
                     (_ctx.webhookConfig.enabled)
-                      ? (_openBlock(), _createElementBlock("span", { key: 0 }, _toDisplayString(_ctx.webhookConfig.url ? '编辑' : '配置'), 1 /* TEXT */))
-                      : (_openBlock(), _createElementBlock("span", { key: 1 }, "启用"))
+                      ? (_openBlock(), _createElementBlock("span", { key: 0 }, _toDisplayString(_ctx.webhookConfig.url ? _ctx.t('settings.webhook.edit') : _ctx.t('settings.webhook.configure')), 1 /* TEXT */))
+                      : (_openBlock(), _createElementBlock("span", { key: 1 }, _toDisplayString(_ctx.t('settings.webhook.enable')), 1 /* TEXT */))
                   ], 10 /* CLASS, PROPS */, ["onClick"])
-                ])
+                ], 8 /* PROPS */, ["aria-label"])
               ])
             ], 512 /* NEED_PATCH */), [
               [_vShow, _ctx.settingsTab === 'general']
@@ -4174,7 +4162,7 @@ return function render(_ctx, _cache) {
                           onChange: $event => (_ctx.setSessionTrashRetentionDays(Number($event.target.value))),
                           class: "settings-retention-input"
                         }, null, 40 /* PROPS, NEED_HYDRATION */, ["value", "onChange"]),
-                        _createElementVNode("span", null, "天")
+                        _createElementVNode("span", null, _toDisplayString(_ctx.t('settings.trash.retentionUnit')), 1 /* TEXT */)
                       ]),
                       _createElementVNode("p", { class: "settings-card-hint" }, _toDisplayString(_ctx.t('settings.trash.retentionHint')), 1 /* TEXT */)
                     ])
@@ -5858,7 +5846,7 @@ return function render(_ctx, _cache) {
           ])
         ], 8 /* PROPS */, ["onClick"]))
       : _createCommentVNode("v-if", true),
-    _createCommentVNode(" Webhook 配置模态框 "),
+    _createCommentVNode(" Webhook settings modal "),
     (_ctx.showWebhookModal)
       ? (_openBlock(), _createElementBlock("div", {
           key: 10,
@@ -5874,9 +5862,9 @@ return function render(_ctx, _cache) {
             _createElementVNode("div", {
               class: "modal-title",
               id: "webhook-modal-title"
-            }, "Webhook 配置"),
+            }, _toDisplayString(_ctx.t('settings.webhook.modalTitle')), 1 /* TEXT */),
             _createElementVNode("div", { class: "form-group" }, [
-              _createElementVNode("label", { class: "form-label" }, "启用状态"),
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('settings.webhook.enabledLabel')), 1 /* TEXT */),
               _createElementVNode("label", { class: "settings-toggle" }, [
                 _withDirectives(_createElementVNode("input", {
                   type: "checkbox",
@@ -5884,11 +5872,11 @@ return function render(_ctx, _cache) {
                 }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
                   [_vModelCheckbox, _ctx.webhookConfig.enabled]
                 ]),
-                _createElementVNode("span", null, "启用 Webhook")
+                _createElementVNode("span", null, _toDisplayString(_ctx.t('settings.webhook.enableToggle')), 1 /* TEXT */)
               ])
             ]),
             _createElementVNode("div", { class: "form-group" }, [
-              _createElementVNode("label", { class: "form-label" }, "URL"),
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('settings.webhook.urlLabel')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.webhookConfig.url) = $event),
                 class: "form-input",
@@ -5901,7 +5889,7 @@ return function render(_ctx, _cache) {
               ])
             ]),
             _createElementVNode("div", { class: "form-group" }, [
-              _createElementVNode("label", { class: "form-label" }, "事件"),
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('settings.webhook.eventsLabel')), 1 /* TEXT */),
               _createElementVNode("div", { class: "webhook-events-checkbox-list" }, [
                 (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.webhookEventOptions, (ev) => {
                   return (_openBlock(), _createElementBlock("label", {
@@ -5922,12 +5910,12 @@ return function render(_ctx, _cache) {
               _createElementVNode("button", {
                 class: "btn btn-cancel",
                 onClick: _ctx.closeWebhookModal
-              }, "取消", 8 /* PROPS */, ["onClick"]),
+              }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick"]),
               _createElementVNode("button", {
                 class: "btn btn-confirm",
                 onClick: _ctx.saveWebhookSettings,
                 disabled: _ctx.webhookSaving
-              }, _toDisplayString(_ctx.webhookSaving ? '保存中...' : '保存'), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+              }, _toDisplayString(_ctx.webhookSaving ? _ctx.t('common.saving') : _ctx.t('common.save')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
             ])
           ])
         ], 8 /* PROPS */, ["onClick"]))
