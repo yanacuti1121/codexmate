@@ -19,6 +19,7 @@ use tauri::{Manager, WindowEvent};
 struct BackendState(Mutex<Option<Child>>);
 
 static DESKTOP_CONSOLE_LOGGING: AtomicBool = AtomicBool::new(false);
+const ELEVATED_BACKEND_RESTART_ARG: &str = "--codexmate-elevated-backend-restart";
 
 #[cfg(windows)]
 mod windows_console {
@@ -73,6 +74,54 @@ mod windows_dialog {
   }
 }
 
+#[cfg(windows)]
+mod windows_elevation {
+  use std::{ffi::c_void, os::windows::ffi::OsStrExt, path::Path};
+
+  #[link(name = "shell32")]
+  extern "system" {
+    fn ShellExecuteW(
+      hwnd: *mut c_void,
+      operation: *const u16,
+      file: *const u16,
+      parameters: *const u16,
+      directory: *const u16,
+      show_cmd: i32,
+    ) -> isize;
+  }
+
+  const SW_SHOWNORMAL: i32 = 1;
+
+  fn wide(value: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
+    value.as_ref().encode_wide().chain(std::iter::once(0)).collect()
+  }
+
+  pub fn run_as_admin(file: &Path, parameters: &str, directory: Option<&Path>) -> bool {
+    let operation = wide("runas");
+    let file = wide(file.as_os_str());
+    let parameters = wide(parameters);
+    let directory_buf = directory.map(|value| wide(value.as_os_str()));
+    let directory_ptr = directory_buf
+      .as_ref()
+      .map(|value| value.as_ptr())
+      .unwrap_or(std::ptr::null());
+    // SAFETY: ShellExecuteW receives valid null-terminated UTF-16 buffers that
+    // outlive the call. The null hwnd asks Windows to own the UAC prompt.
+    let result = unsafe {
+      ShellExecuteW(
+        std::ptr::null_mut(),
+        operation.as_ptr(),
+        file.as_ptr(),
+        parameters.as_ptr(),
+        directory_ptr,
+        SW_SHOWNORMAL,
+      )
+    };
+    result > 32
+  }
+}
+
+
 fn desktop_debug_requested() -> bool {
   let env_enabled = std::env::var("CODEXMATE_DESKTOP_LOG")
     .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on" | "trace" | "debug"))
@@ -87,6 +136,31 @@ fn desktop_debug_requested() -> bool {
       "--debug-console" | "--console-log" | "--log-to-console" | "--verbose" | "--trace"
     )
   })
+}
+
+fn elevated_backend_restart_requested() -> bool {
+  std::env::args().any(|arg| arg == ELEVATED_BACKEND_RESTART_ARG)
+}
+
+#[cfg(windows)]
+fn quote_windows_arg(arg: &str) -> String {
+  if arg.is_empty() || arg.chars().any(|ch| ch.is_whitespace() || ch == '"') {
+    let escaped = arg.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+  } else {
+    arg.to_string()
+  }
+}
+
+#[cfg(windows)]
+fn elevated_restart_parameters() -> String {
+  std::env::args()
+    .skip(1)
+    .filter(|arg| arg != ELEVATED_BACKEND_RESTART_ARG)
+    .chain(std::iter::once(ELEVATED_BACKEND_RESTART_ARG.to_string()))
+    .map(|arg| quote_windows_arg(&arg))
+    .collect::<Vec<_>>()
+    .join(" ")
 }
 
 fn desktop_log_file_path() -> PathBuf {
@@ -251,6 +325,39 @@ fn backend_port_occupied_message() -> String {
   "端口 3737 已被其他进程占用，Codex Mate 无法启动后端。请先关闭旧的 Codex Mate / codexmate run 实例；如果无法关闭，请右键以管理员身份运行 Codex Mate 以清理残留进程，然后重试。详情见 startup.log。".to_string()
 }
 
+#[derive(Default)]
+struct BackendPortCleanup {
+  released: usize,
+  managed_listeners: usize,
+  failed_managed_kills: usize,
+}
+
+impl BackendPortCleanup {
+  fn needs_admin_restart(&self) -> bool {
+    self.managed_listeners > 0 && self.failed_managed_kills > 0
+  }
+}
+
+fn is_managed_backend_command(command_line: &str) -> bool {
+  let normalized = command_line
+    .replace('\\', "/")
+    .replace('\"', "")
+    .replace('\'', "")
+    .split_whitespace()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_ascii_lowercase();
+  let padded = format!(" {normalized} ");
+  padded.contains(" cli.js run ")
+    || padded.contains("/cli.js run ")
+    || padded.contains(" codexmate run ")
+    || padded.contains("/codexmate run ")
+    || padded.contains(" codexmate.cmd run ")
+    || padded.contains("/codexmate.cmd run ")
+    || padded.contains(" codexmate.exe run ")
+    || padded.contains("/codexmate.exe run ")
+}
+
 fn wait_for_backend(timeout: Duration) -> bool {
   let started = Instant::now();
   while started.elapsed() < timeout {
@@ -299,7 +406,7 @@ fn windows_command_line_for_pid(pid: u32) -> Option<String> {
 }
 
 #[cfg(windows)]
-fn release_stale_backend_port() -> usize {
+fn release_stale_backend_port() -> BackendPortCleanup {
   let output = match command_output({
     let mut command = Command::new("netstat");
     command.args(["-ano", "-p", "tcp"]);
@@ -308,11 +415,11 @@ fn release_stale_backend_port() -> usize {
     Ok(value) => value,
     Err(err) => {
       desktop_log(format!("backend port cleanup skipped; netstat failed: {err}"));
-      return 0;
+      return BackendPortCleanup::default();
     }
   };
 
-  let mut released = 0usize;
+  let mut cleanup = BackendPortCleanup::default();
   let text = String::from_utf8_lossy(&output.stdout);
   for line in text.lines() {
     let parts = line.split_whitespace().collect::<Vec<_>>();
@@ -332,8 +439,22 @@ fn release_stale_backend_port() -> usize {
     };
     let command_line = windows_command_line_for_pid(pid)
       .unwrap_or_else(|| "<command line unavailable>".to_string());
+    if !is_managed_backend_command(&command_line) {
+      desktop_log(format!(
+        "backend port cleanup skipped pid={pid}; unmanaged listener on 127.0.0.1:3737; command_line={command_line}"
+      ));
+      continue;
+    }
+    cleanup.managed_listeners += 1;
+    if !elevated_backend_restart_requested() {
+      cleanup.failed_managed_kills += 1;
+      desktop_log(format!(
+        "backend port cleanup requires administrator restart before killing managed listener pid={pid}; command_line={command_line}"
+      ));
+      continue;
+    }
     desktop_log(format!(
-      "backend port cleanup killing loopback listener pid={pid}; command_line={command_line}"
+      "backend port cleanup killing managed loopback listener pid={pid}; command_line={command_line}"
     ));
     if command_output({
       let mut command = Command::new("taskkill");
@@ -343,16 +464,17 @@ fn release_stale_backend_port() -> usize {
     .map(|output| output.status.success())
     .unwrap_or(false)
     {
-      released += 1;
+      cleanup.released += 1;
     } else {
+      cleanup.failed_managed_kills += 1;
       desktop_log(format!("backend port cleanup failed to kill loopback listener pid={pid}"));
     }
   }
-  if released > 0 {
-    desktop_log(format!("backend port cleanup released {released} stale listener(s)"));
+  if cleanup.released > 0 {
+    desktop_log(format!("backend port cleanup released {} stale listener(s)", cleanup.released));
     std::thread::sleep(Duration::from_millis(500));
   }
-  released
+  cleanup
 }
 
 #[cfg(not(windows))]
@@ -375,28 +497,35 @@ fn process_command_line_for_pid(pid: u32) -> Option<String> {
 }
 
 #[cfg(not(windows))]
-fn release_stale_backend_port() -> usize {
+fn release_stale_backend_port() -> BackendPortCleanup {
   let output = match command_output({
     let mut command = Command::new("lsof");
-    command.args(["-ti", "tcp:3737"]);
+    command.args(["-nP", "-iTCP:3737", "-sTCP:LISTEN", "-t"]);
     command
   }) {
     Ok(value) => value,
     Err(err) => {
       desktop_log(format!("backend port cleanup skipped; lsof failed: {err}"));
-      return 0;
+      return BackendPortCleanup::default();
     }
   };
 
-  let mut released = 0usize;
+  let mut cleanup = BackendPortCleanup::default();
   for token in String::from_utf8_lossy(&output.stdout).split_whitespace() {
     let Ok(pid) = token.parse::<u32>() else {
       continue;
     };
     let command_line = process_command_line_for_pid(pid)
       .unwrap_or_else(|| "<command line unavailable>".to_string());
+    if !is_managed_backend_command(&command_line) {
+      desktop_log(format!(
+        "backend port cleanup skipped pid={pid}; unmanaged listener on 127.0.0.1:3737; command_line={command_line}"
+      ));
+      continue;
+    }
+    cleanup.managed_listeners += 1;
     desktop_log(format!(
-      "backend port cleanup killing loopback listener pid={pid}; command_line={command_line}"
+      "backend port cleanup killing managed loopback listener pid={pid}; command_line={command_line}"
     ));
     if command_output({
       let mut command = Command::new("kill");
@@ -406,16 +535,17 @@ fn release_stale_backend_port() -> usize {
     .map(|output| output.status.success())
     .unwrap_or(false)
     {
-      released += 1;
+      cleanup.released += 1;
     } else {
+      cleanup.failed_managed_kills += 1;
       desktop_log(format!("backend port cleanup failed to kill loopback listener pid={pid}"));
     }
   }
-  if released > 0 {
-    desktop_log(format!("backend port cleanup released {released} stale listener(s)"));
+  if cleanup.released > 0 {
+    desktop_log(format!("backend port cleanup released {} stale listener(s)", cleanup.released));
     std::thread::sleep(Duration::from_millis(500));
   }
-  released
+  cleanup
 }
 
 #[cfg(windows)]
@@ -429,6 +559,30 @@ fn configure_backend_process(command: &mut Command) {
 
 #[cfg(not(windows))]
 fn configure_backend_process(_command: &mut Command) {}
+
+#[cfg(windows)]
+fn relaunch_desktop_as_admin_for_backend_cleanup() -> bool {
+  if elevated_backend_restart_requested() {
+    desktop_log("admin backend cleanup relaunch skipped; elevated restart already requested");
+    return false;
+  }
+
+  let exe_path = match std::env::current_exe() {
+    Ok(value) => value,
+    Err(err) => {
+      desktop_log(format!("admin backend cleanup relaunch skipped; current_exe failed: {err}"));
+      return false;
+    }
+  };
+  let parameters = elevated_restart_parameters();
+  let directory = exe_path.parent();
+  desktop_log(format!(
+    "relaunching desktop as administrator for backend port cleanup; exe={}; args={}",
+    exe_path.display(),
+    parameters
+  ));
+  windows_elevation::run_as_admin(&exe_path, &parameters, directory)
+}
 
 fn find_cli_path(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>> {
   let mut candidates = Vec::new();
@@ -455,14 +609,25 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
     return Ok(None);
   }
 
-  release_stale_backend_port();
-
   if health_check_ready() {
     desktop_log("existing backend already ready on 127.0.0.1:3737");
     return Ok(None);
   }
 
+  let cleanup = release_stale_backend_port();
+
+  if health_check_ready() {
+    desktop_log("backend became ready after stale port cleanup on 127.0.0.1:3737");
+    return Ok(None);
+  }
+
   if backend_port_occupied() {
+    #[cfg(windows)]
+    if cleanup.needs_admin_restart() && relaunch_desktop_as_admin_for_backend_cleanup() {
+      desktop_log("administrator restart launched; exiting current non-elevated instance");
+      std::process::exit(0);
+    }
+
     let message = backend_port_occupied_message();
     desktop_log(format!("backend port remains occupied after cleanup; {message}"));
     return startup_error(message);

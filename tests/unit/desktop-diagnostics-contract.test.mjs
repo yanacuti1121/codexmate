@@ -42,19 +42,28 @@ test('desktop backend startup diagnostics use fixed startup log for child stdio'
     assert.match(libSource, /if DESKTOP_CONSOLE_LOGGING\.load[\s\S]*return;[\s\S]*CREATE_NO_WINDOW/);
 });
 
-test('desktop startup force-cleans local backend port listeners before spawning', () => {
+test('desktop startup reuses a healthy backend before cleaning stale port listeners', () => {
     const libSource = readSource('src-tauri/src/lib.rs');
 
-    assert.match(libSource, /fn release_stale_backend_port\(\) -> usize/);
-    assert.match(libSource, /release_stale_backend_port\(\);[\s\S]*if health_check_ready\(\)/);
+    assert.match(libSource, /fn release_stale_backend_port\(\) -> BackendPortCleanup/);
+    assert.match(libSource, /if health_check_ready\(\)[\s\S]*existing backend already ready[\s\S]*release_stale_backend_port\(\);/);
+    assert.match(libSource, /let cleanup = release_stale_backend_port\(\);[\s\S]*backend became ready after stale port cleanup/);
     assert.match(libSource, /local_address\.starts_with\("127\.0\.0\.1:"\)/);
     assert.match(libSource, /local_address\.starts_with\("\[::1\]:"\)/);
     assert.match(libSource, /non-local listener/);
+    assert.match(libSource, /fn is_managed_backend_command\(command_line: &str\) -> bool/);
+    assert.match(libSource, /cli\.js run/);
+    assert.match(libSource, /codexmate\.exe run/);
+    assert.match(libSource, /ELEVATED_BACKEND_RESTART_ARG/);
+    assert.match(libSource, /ShellExecuteW/);
+    assert.match(libSource, /runas/);
+    assert.match(libSource, /requires administrator restart before killing managed listener/);
+    assert.match(libSource, /administrator restart launched/);
     assert.match(libSource, /command_line=/);
     assert.match(libSource, /taskkill[\s\S]*\/PID[\s\S]*\/F/);
     assert.match(libSource, /kill[\s\S]*-9/);
-    assert.match(libSource, /backend port cleanup killing loopback listener/);
-    assert.doesNotMatch(libSource, /unmanaged listener on 127\.0\.0\.1:3737/);
+    assert.match(libSource, /backend port cleanup killing managed loopback listener/);
+    assert.match(libSource, /unmanaged listener on 127\.0\.0\.1:3737/);
 });
 
 test('desktop startup surfaces occupied backend port guidance instead of waiting for readiness timeout', () => {
