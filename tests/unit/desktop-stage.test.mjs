@@ -67,7 +67,8 @@ test('desktop staging creates validated runtime resource layout', () => {
         'web-ui.html',
         'package.json',
         'package-lock.json',
-        'node_modules'
+        'node_modules',
+        'node-runtime'
     ];
 
     for (const entry of requiredEntries) {
@@ -79,6 +80,8 @@ test('desktop staging creates validated runtime resource layout', () => {
     assert.strictEqual(manifest.layoutVersion, 1);
     assert.strictEqual(manifest.version, pkg.version);
     assert.strictEqual(manifest.entrypoint, 'cli.js');
+    assert.match(manifest.nodeRuntime, /^node-runtime\/node(\.exe)?$/);
+    assert.ok(fs.existsSync(path.join(stageRoot, manifest.nodeRuntime)), 'manifest should point at the bundled Node.js runtime');
     assert.ok(manifest.copiedRuntimeModules > 0, 'manifest should record copied runtime node modules');
 
     for (const dependencyName of Object.keys(pkg.dependencies || {})) {

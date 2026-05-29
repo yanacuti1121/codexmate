@@ -42,6 +42,24 @@ test('desktop backend startup diagnostics use fixed startup log for child stdio'
     assert.match(libSource, /if DESKTOP_CONSOLE_LOGGING\.load[\s\S]*return;[\s\S]*CREATE_NO_WINDOW/);
 });
 
+
+test('desktop release backend uses bundled Node runtime instead of requiring system PATH node', () => {
+    const libSource = readSource('src-tauri/src/lib.rs');
+    const stageSource = readSource('tools/desktop/prepare-tauri-resources.js');
+
+    assert.match(stageSource, /function copyNodeRuntime\(\)/);
+    assert.match(stageSource, /process\.execPath/);
+    assert.match(stageSource, /node-runtime/);
+    assert.match(stageSource, /nodeRuntime/);
+    assert.match(libSource, /fn find_node_runtime_path\(app: &tauri::App\)/);
+    assert.match(libSource, /CODEXMATE_NODE/);
+    assert.match(libSource, /node-runtime/);
+    assert.match(libSource, /bundled_node_executable_name\(\)/);
+    assert.match(libSource, /let node_bin = find_node_runtime_path\(app\)\?/);
+    assert.match(libSource, /Command::new\(&node_bin\)/);
+    assert.doesNotMatch(libSource, /unwrap_or_else\(\|_\| "node"\.to_string\(\)\)/);
+});
+
 test('desktop startup force-cleans managed backend port listeners before spawning', () => {
     const libSource = readSource('src-tauri/src/lib.rs');
 

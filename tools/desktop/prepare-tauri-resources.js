@@ -13,6 +13,7 @@ const cargoTomlPath = path.join(rootDir, 'src-tauri', 'Cargo.toml');
 const stageRelativePath = path.join('dist', 'desktop', 'codexmate');
 const stageDir = path.join(rootDir, stageRelativePath);
 const stageNodeModulesDir = path.join(stageDir, 'node_modules');
+const stageNodeRuntimeDir = path.join(stageDir, 'node-runtime');
 const TAURI_CSP = "default-src 'self' http://127.0.0.1:3737; connect-src 'self' http://127.0.0.1:3737; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'";
 
 const runtimeEntries = [
@@ -110,12 +111,32 @@ function copyRuntimeNodeModules(pkg, lockFile) {
   return copied;
 }
 
-function writeStageManifest(pkg, copiedModules) {
+function nodeExecutableName() {
+  return process.platform === 'win32' ? 'node.exe' : 'node';
+}
+
+function copyNodeRuntime() {
+  const source = process.execPath;
+  if (!source || !fs.existsSync(source)) {
+    throw new Error('unable to locate current Node.js executable for desktop packaging');
+  }
+
+  fs.mkdirSync(stageNodeRuntimeDir, { recursive: true });
+  const executableName = nodeExecutableName();
+  const destination = path.join(stageNodeRuntimeDir, executableName);
+  fs.copyFileSync(source, destination);
+  const sourceMode = fs.statSync(source).mode;
+  fs.chmodSync(destination, sourceMode | 0o755);
+  return path.join('node-runtime', executableName).replace(/\\/g, '/');
+}
+
+function writeStageManifest(pkg, copiedModules, nodeRuntime) {
   writeJson(path.join(stageDir, 'codexmate-desktop.json'), {
     layoutVersion: LAYOUT_VERSION,
     productName: 'Codex Mate',
     version: pkg.version,
     entrypoint: 'cli.js',
+    nodeRuntime,
     nodeModules: 'node_modules',
     webUi: 'web-ui',
     copiedRuntimeModules: copiedModules.length
@@ -133,6 +154,7 @@ function validateStagedResources(pkg) {
     'web-ui',
     'web-ui.html',
     'node_modules',
+    'node-runtime',
     'codexmate-desktop.json'
   ];
 
@@ -152,6 +174,9 @@ function validateStagedResources(pkg) {
   if (manifest.layoutVersion !== LAYOUT_VERSION || manifest.entrypoint !== 'cli.js') {
     throw new Error('staged desktop manifest is invalid');
   }
+  if (!manifest.nodeRuntime || !fs.existsSync(path.join(stageDir, manifest.nodeRuntime))) {
+    throw new Error('staged desktop Node.js runtime is missing');
+  }
 }
 
 function stageDesktopResources(pkg, lockFile) {
@@ -159,7 +184,8 @@ function stageDesktopResources(pkg, lockFile) {
   fs.mkdirSync(stageDir, { recursive: true });
   copyRuntimeEntries();
   const copiedModules = copyRuntimeNodeModules(pkg, lockFile);
-  writeStageManifest(pkg, copiedModules);
+  const nodeRuntime = copyNodeRuntime();
+  writeStageManifest(pkg, copiedModules, nodeRuntime);
   validateStagedResources(pkg);
   return copiedModules.length;
 }

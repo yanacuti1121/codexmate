@@ -481,6 +481,49 @@ fn find_cli_path(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>
     .ok_or_else(|| "unable to locate bundled codexmate cli.js".into())
 }
 
+fn bundled_node_executable_name() -> &'static str {
+  if cfg!(windows) {
+    "node.exe"
+  } else {
+    "node"
+  }
+}
+
+fn find_node_runtime_path(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>> {
+  if let Ok(value) = std::env::var("CODEXMATE_NODE") {
+    let trimmed = value.trim();
+    if !trimmed.is_empty() {
+      return Ok(PathBuf::from(trimmed));
+    }
+  }
+
+  if let Ok(resource_dir) = app.path().resource_dir() {
+    let candidates = [
+      resource_dir
+        .join("codexmate")
+        .join("node-runtime")
+        .join(bundled_node_executable_name()),
+      resource_dir
+        .join("node-runtime")
+        .join(bundled_node_executable_name()),
+    ];
+
+    if let Some(candidate) = candidates.into_iter().find(|candidate| candidate.is_file()) {
+      return Ok(candidate);
+    }
+  }
+
+  #[cfg(debug_assertions)]
+  {
+    Ok(PathBuf::from("node"))
+  }
+
+  #[cfg(not(debug_assertions))]
+  {
+    startup_error("Codex Mate 打包产物缺少内置 Node.js runtime，无法启动后端。请重新下载安装包；如果问题持续，请查看 startup.log。详情：bundled node-runtime/node is missing")
+  }
+}
+
 fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::Error>> {
   if std::env::var("CODEXMATE_DESKTOP_SKIP_BACKEND").ok().as_deref() == Some("1") {
     desktop_log("backend spawn skipped by CODEXMATE_DESKTOP_SKIP_BACKEND=1");
@@ -499,18 +542,18 @@ fn spawn_backend(app: &tauri::App) -> Result<Option<Child>, Box<dyn std::error::
   let cli_dir = cli_path
     .parent()
     .ok_or_else(|| "unable to resolve codexmate cli directory")?;
-  let node_bin = std::env::var("CODEXMATE_NODE").unwrap_or_else(|_| "node".to_string());
+  let node_bin = find_node_runtime_path(app)?;
   let inherit_backend_stdio = DESKTOP_CONSOLE_LOGGING.load(Ordering::Relaxed);
 
   desktop_log(format!(
     "spawning backend; node={}; cli={}; cwd={}; inherit_stdio={}",
-    node_bin,
+    node_bin.display(),
     cli_path.display(),
     cli_dir.display(),
     inherit_backend_stdio
   ));
 
-  let mut command = Command::new(node_bin);
+  let mut command = Command::new(&node_bin);
   command
     .arg(&cli_path)
     .arg("run")

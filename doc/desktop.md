@@ -9,6 +9,7 @@ Codex Mate 的桌面版使用 Tauri 作为 Windows / macOS 外壳，复用现有
 - 桌面窗口加载 `http://127.0.0.1:3737`，避免重写现有 Web UI API。
 - Rust / Tauri 源码只参与桌面构建阶段，不进入主 npm CLI 包。
 - `npm run desktop:stage` 会先生成稳定运行时目录 `dist/desktop/codexmate/`，再由 Tauri 把这个目录作为单一 resource 打进 app。
+- 打包产物内置构建机当前 Node.js runtime，release 启动后端时优先使用 bundled `node-runtime/node(.exe)`，不依赖用户系统 PATH 里的 `node`。
 
 ## Staging 布局
 
@@ -25,10 +26,11 @@ dist/desktop/codexmate/
 ├── web-ui.html
 ├── package.json
 ├── package-lock.json
+├── node-runtime/          # bundled Node.js runtime used by release desktop startup
 └── node_modules/          # package-lock 中非 dev 的运行时依赖
 ```
 
-脚本会验证入口文件、Web UI、manifest、`node_modules` 和直接运行时依赖是否存在。这样可以提前暴露资源缺失，而不是等 `tauri build` 中途炸掉。
+脚本会验证入口文件、Web UI、manifest、`node_modules`、bundled Node runtime 和直接运行时依赖是否存在。这样可以提前暴露资源缺失，而不是等 `tauri build` 通过后才在用户机器上启动失败。
 
 ## 命令
 
@@ -47,7 +49,7 @@ npm run desktop:build
 - Rust / Cargo
 - Tauri 对应平台依赖
 
-当前实现仍通过系统 `node` 启动打包进 resources 的 Codex Mate 后端。后续如果要做完全免 Node 安装的分发，需要把 Node runtime 或预编译 sidecar 纳入打包流程。
+release 桌面包会内置 Node.js runtime 来启动打包进 resources 的 Codex Mate 后端；用户机器不需要预装 Node.js。调试或排障时仍可用 `CODEXMATE_NODE=/path/to/node` 显式覆盖 runtime。
 
 ## 启动诊断日志
 
