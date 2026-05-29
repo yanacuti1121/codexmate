@@ -42,28 +42,37 @@ test('desktop backend startup diagnostics use fixed startup log for child stdio'
     assert.match(libSource, /if DESKTOP_CONSOLE_LOGGING\.load[\s\S]*return;[\s\S]*CREATE_NO_WINDOW/);
 });
 
-test('desktop startup reuses a healthy backend before cleaning stale port listeners', () => {
+test('desktop startup force-cleans managed backend port listeners before spawning', () => {
     const libSource = readSource('src-tauri/src/lib.rs');
 
-    assert.match(libSource, /fn release_stale_backend_port\(\) -> BackendPortCleanup/);
-    assert.match(libSource, /if health_check_ready\(\)[\s\S]*existing backend already ready[\s\S]*release_stale_backend_port\(\);/);
-    assert.match(libSource, /let cleanup = release_stale_backend_port\(\);[\s\S]*backend became ready after stale port cleanup/);
+    assert.match(libSource, /fn release_stale_backend_port\(\) -> usize/);
+    assert.match(libSource, /release_stale_backend_port\(\);[\s\S]*if backend_port_occupied\(\)/);
+    assert.doesNotMatch(libSource, /existing backend already ready/);
+    assert.doesNotMatch(libSource, /backend became ready after stale port cleanup/);
     assert.match(libSource, /local_address\.starts_with\("127\.0\.0\.1:"\)/);
     assert.match(libSource, /local_address\.starts_with\("\[::1\]:"\)/);
     assert.match(libSource, /non-local listener/);
     assert.match(libSource, /fn is_managed_backend_command\(command_line: &str\) -> bool/);
     assert.match(libSource, /cli\.js run/);
     assert.match(libSource, /codexmate\.exe run/);
-    assert.match(libSource, /ELEVATED_BACKEND_RESTART_ARG/);
-    assert.match(libSource, /ShellExecuteW/);
-    assert.match(libSource, /runas/);
-    assert.match(libSource, /requires administrator restart before killing managed listener/);
-    assert.match(libSource, /administrator restart launched/);
     assert.match(libSource, /command_line=/);
     assert.match(libSource, /taskkill[\s\S]*\/PID[\s\S]*\/F/);
     assert.match(libSource, /kill[\s\S]*-9/);
     assert.match(libSource, /backend port cleanup killing managed loopback listener/);
     assert.match(libSource, /unmanaged listener on 127\.0\.0\.1:3737/);
+    assert.doesNotMatch(libSource, /ShellExecuteW/);
+    assert.doesNotMatch(libSource, /runas/);
+});
+
+test('desktop Windows package manifest requires administrator privileges', () => {
+    const buildSource = readSource('src-tauri/build.rs');
+    const manifestSource = readSource('src-tauri/app.manifest');
+
+    assert.match(buildSource, /tauri_build::WindowsAttributes::new\(\)/);
+    assert.match(buildSource, /\.app_manifest\(include_str!\("app\.manifest"\)\)/);
+    assert.match(buildSource, /tauri_build::try_build\(attrs\)/);
+    assert.match(manifestSource, /requestedExecutionLevel\s+level="requireAdministrator"\s+uiAccess="false"/);
+    assert.match(manifestSource, /Microsoft\.Windows\.Common-Controls/);
 });
 
 test('desktop startup surfaces occupied backend port guidance instead of waiting for readiness timeout', () => {
@@ -77,7 +86,7 @@ test('desktop startup surfaces occupied backend port guidance instead of waiting
     assert.match(libSource, /fn backend_port_occupied\(\) -> bool/);
     assert.match(libSource, /fn backend_port_occupied_message\(\) -> String/);
     assert.match(libSource, /端口 3737 已被其他进程占用/);
-    assert.match(libSource, /以管理员身份运行 Codex Mate/);
+    assert.match(libSource, /Windows 桌面版启动时会请求管理员权限/);
     assert.match(libSource, /详情见 startup\.log/);
     assert.match(libSource, /if backend_port_occupied\(\)[\s\S]*return startup_error\(message\)/);
     assert.match(libSource, /backend port remains occupied after cleanup/);
