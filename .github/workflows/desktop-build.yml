@@ -84,10 +84,14 @@ jobs:
           if ($text -notmatch 'requestedExecutionLevel\s+level="requireAdministrator"\s+uiAccess="false"') {
             throw 'Windows app manifest does not require administrator privileges'
           }
+          Copy-Item $manifest (Join-Path (Split-Path $exe) 'codexmate-desktop.manifest.xml') -Force
 
       - name: Upload desktop bundles
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: codexmate-desktop-${{ matrix.name }}
-          path: src-tauri/target/release/bundle/**
+          path: |
+            src-tauri/target/release/bundle/**
+            src-tauri/target/release/codexmate-desktop.exe
+            src-tauri/target/release/codexmate-desktop.manifest.xml
           if-no-files-found: error

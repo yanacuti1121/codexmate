@@ -82,6 +82,9 @@ test('desktop build workflow verifies the final Windows exe UAC manifest', () =>
     assert.match(workflowSource, /Verify Windows app UAC manifest/);
     assert.match(workflowSource, /codexmate-desktop\.exe/);
     assert.match(workflowSource, /mt\.exe/);
+    assert.match(workflowSource, /Copy-Item \$manifest/);
+    assert.match(workflowSource, /codexmate-desktop\.manifest\.xml/);
+    assert.match(workflowSource, /src-tauri\/target\/release\/codexmate-desktop\.exe/);
     assert.match(workflowSource, /requestedExecutionLevel\\s\+level=\"requireAdministrator\"/);
 });
 
