@@ -71,8 +71,18 @@ test('desktop Windows package manifest requires administrator privileges', () =>
     assert.match(buildSource, /tauri_build::WindowsAttributes::new\(\)/);
     assert.match(buildSource, /\.app_manifest\(include_str!\("app\.manifest"\)\)/);
     assert.match(buildSource, /tauri_build::try_build\(attrs\)/);
+    assert.match(manifestSource, /assemblyIdentity[\s\S]*name="ai\.codexmate\.desktop"/);
     assert.match(manifestSource, /requestedExecutionLevel\s+level="requireAdministrator"\s+uiAccess="false"/);
     assert.match(manifestSource, /Microsoft\.Windows\.Common-Controls/);
+});
+
+test('desktop build workflow verifies the final Windows exe UAC manifest', () => {
+    const workflowSource = readSource('.github/workflows/desktop-build.yml');
+
+    assert.match(workflowSource, /Verify Windows app UAC manifest/);
+    assert.match(workflowSource, /codexmate-desktop\.exe/);
+    assert.match(workflowSource, /mt\.exe/);
+    assert.match(workflowSource, /requestedExecutionLevel\\s\+level=\"requireAdministrator\"/);
 });
 
 test('desktop startup surfaces occupied backend port guidance instead of waiting for readiness timeout', () => {
