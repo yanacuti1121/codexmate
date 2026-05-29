@@ -208,7 +208,7 @@ export function createProvidersMethods(options = {}) {
             const configured = !!(provider && provider.hasKey);
             return {
                 configured,
-                text: configured ? '已配置' : '未配置'
+                text: configured ? this.t('common.configured') : this.t('common.notConfigured')
             };
         },
 

@@ -1264,8 +1264,8 @@ return function render(_ctx, _cache) {
                                   ? (_openBlock(), _createElementBlock("span", {
                                       key: 0,
                                       class: "card-icon-dot",
-                                      title: "通过内建转换适配"
-                                    }))
+                                      title: _ctx.t('config.transformProvider.title')
+                                    }, null, 8 /* PROPS */, ["title"]))
                                   : _createCommentVNode("v-if", true)
                               ]),
                               _createElementVNode("div", { class: "card-content" }, [
@@ -1301,7 +1301,7 @@ return function render(_ctx, _cache) {
                                         _createElementVNode("path", { d: "M6 8v4h6v4" }),
                                         _createElementVNode("path", { d: "M18 8v4h-6v4" })
                                       ])),
-                                      _createElementVNode("span", { class: "bridge-pool-summary-text" }, "已启用 " + _toDisplayString(_ctx.localBridgeCandidateProviders().filter(cp => !_ctx.isLocalBridgeExcluded(cp.name)).length) + " / " + _toDisplayString(_ctx.localBridgeCandidateProviders().length), 1 /* TEXT */)
+                                      _createElementVNode("span", { class: "bridge-pool-summary-text" }, _toDisplayString(_ctx.t('config.localBridge.enabledCount', { enabled: _ctx.localBridgeCandidateProviders().filter(cp => !_ctx.isLocalBridgeExcluded(cp.name)).length, total: _ctx.localBridgeCandidateProviders().length })), 1 /* TEXT */)
                                     ]))
                                   : _createCommentVNode("v-if", true),
                                 _createElementVNode("div", { class: "card-title" }, [
@@ -1346,8 +1346,8 @@ return function render(_ctx, _cache) {
                                       key: 0,
                                       class: "card-action-btn bridge-pool-trigger",
                                       onClick: $event => (_ctx.showCodexBridgePoolModal = true),
-                                      "aria-label": '轮询池设置',
-                                      title: '轮询池设置'
+                                      "aria-label": _ctx.t('config.localBridge.poolSettings'),
+                                      title: _ctx.t('config.localBridge.poolSettings')
                                     }, [
                                       (_openBlock(), _createElementBlock("svg", {
                                         viewBox: "0 0 24 24",
@@ -1373,7 +1373,7 @@ return function render(_ctx, _cache) {
                                         _createElementVNode("path", { d: "M6 8v4h6v4" }),
                                         _createElementVNode("path", { d: "M18 8v4h-6v4" })
                                       ]))
-                                    ], 8 /* PROPS */, ["onClick"]))
+                                    ], 8 /* PROPS */, ["onClick", "aria-label", "title"]))
                                   : _createCommentVNode("v-if", true),
                                 _createElementVNode("button", {
                                   class: _normalizeClass(["card-action-btn", { loading: _ctx.speedLoading[provider.name] }]),
@@ -4192,7 +4192,7 @@ return function render(_ctx, _cache) {
           ], 512 /* NEED_PATCH */), [
             [_vShow, _ctx.mainTab === 'settings']
           ]),
-          _createCommentVNode(" 回收站面板 "),
+          _createCommentVNode(" Trash panel "),
           _withDirectives(_createElementVNode("div", {
             class: "mode-content",
             id: "panel-trash",
@@ -4204,7 +4204,7 @@ return function render(_ctx, _cache) {
                   key: 0,
                   class: "trash-panel-shell"
                 }, [
-                  _createCommentVNode(" 空态 "),
+                  _createCommentVNode(" Empty state "),
                   (_ctx.getSessionTrashViewState() === 'empty')
                     ? (_openBlock(), _createElementBlock("div", {
                         key: 0,
@@ -4227,11 +4227,11 @@ return function render(_ctx, _cache) {
                           })
                         ])),
                         _createElementVNode("div", { class: "trash-empty-title" }, _toDisplayString(_ctx.t('settings.trash.empty')), 1 /* TEXT */),
-                        _createElementVNode("div", { class: "trash-empty-hint" }, "删除的会话保留 " + _toDisplayString(_ctx.sessionTrashRetentionDays) + " 天后自动清理", 1 /* TEXT */)
+                        _createElementVNode("div", { class: "trash-empty-hint" }, _toDisplayString(_ctx.t('settings.trash.emptyHint', { days: _ctx.sessionTrashRetentionDays })), 1 /* TEXT */)
                       ]))
                     : (_ctx.getSessionTrashViewState() === 'loading')
                       ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [
-                          _createCommentVNode(" 加载态 "),
+                          _createCommentVNode(" Loading state "),
                           _createElementVNode("div", { class: "trash-empty-state" }, [
                             _createElementVNode("div", { class: "trash-spinner" }),
                             _createElementVNode("div", { class: "trash-empty-title" }, _toDisplayString(_ctx.t('settings.trash.loading')), 1 /* TEXT */)
@@ -4239,7 +4239,7 @@ return function render(_ctx, _cache) {
                         ], 2112 /* STABLE_FRAGMENT, DEV_ROOT_FRAGMENT */))
                       : (_ctx.getSessionTrashViewState() === 'retry')
                         ? (_openBlock(), _createElementBlock(_Fragment, { key: 2 }, [
-                            _createCommentVNode(" 错误态 "),
+                            _createCommentVNode(" Error state "),
                             _createElementVNode("div", { class: "trash-empty-state" }, [
                               (_openBlock(), _createElementBlock("svg", {
                                 class: "trash-empty-svg",
@@ -4263,15 +4263,15 @@ return function render(_ctx, _cache) {
                               _createElementVNode("button", {
                                 class: "btn-tool",
                                 onClick: $event => (_ctx.loadSessionTrash({ forceRefresh: true }))
-                              }, "重试", 8 /* PROPS */, ["onClick"])
+                              }, _toDisplayString(_ctx.t('common.retry')), 9 /* TEXT, PROPS */, ["onClick"])
                             ])
                           ], 2112 /* STABLE_FRAGMENT, DEV_ROOT_FRAGMENT */))
                         : (_openBlock(), _createElementBlock(_Fragment, { key: 3 }, [
-                            _createCommentVNode(" 列表态 "),
+                            _createCommentVNode(" List state "),
                             _createElementVNode("div", { class: "trash-toolbar" }, [
                               _createElementVNode("div", { class: "trash-toolbar-left" }, [
-                                _createElementVNode("span", { class: "trash-toolbar-count" }, _toDisplayString(_ctx.sessionTrashCount) + " 个已删除会话", 1 /* TEXT */),
-                                _createElementVNode("span", { class: "trash-toolbar-retention" }, _toDisplayString(_ctx.sessionTrashRetentionDays) + " 天后自动清理", 1 /* TEXT */)
+                                _createElementVNode("span", { class: "trash-toolbar-count" }, _toDisplayString(_ctx.t('settings.trash.count', { count: _ctx.sessionTrashCount })), 1 /* TEXT */),
+                                _createElementVNode("span", { class: "trash-toolbar-retention" }, _toDisplayString(_ctx.t('settings.trash.retentionShort', { days: _ctx.sessionTrashRetentionDays })), 1 /* TEXT */)
                               ]),
                               _createElementVNode("div", { class: "trash-toolbar-right" }, [
                                 _createElementVNode("button", {
@@ -4294,7 +4294,7 @@ return function render(_ctx, _cache) {
                                   class: "btn-mini delete",
                                   onClick: _ctx.clearSessionTrash,
                                   disabled: _ctx.sessionTrashClearing || _ctx.sessionTrashLoading || !(Number(_ctx.sessionTrashCount) > 0)
-                                }, _toDisplayString(_ctx.sessionTrashClearing ? '清空中…' : '清空'), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                                }, _toDisplayString(_ctx.sessionTrashClearing ? _ctx.t('settings.trash.clearing') : _ctx.t('settings.trash.clearShort')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
                               ])
                             ]),
                             _createElementVNode("div", { class: "trash-list" }, [
@@ -4325,7 +4325,7 @@ return function render(_ctx, _cache) {
                                         class: "trash-action-btn restore",
                                         onClick: $event => (_ctx.restoreSessionTrash(item)),
                                         disabled: _ctx.sessionTrashLoading || _ctx.sessionTrashClearing || _ctx.isSessionTrashActionBusy(item),
-                                        title: _ctx.sessionTrashRestoring[_ctx.getSessionTrashActionKey(item)] ? '恢复中…' : '恢复'
+                                        title: _ctx.sessionTrashRestoring[_ctx.getSessionTrashActionKey(item)] ? _ctx.t('settings.trash.restoring') : _ctx.t('settings.trash.restore')
                                       }, [
                                         (_openBlock(), _createElementBlock("svg", {
                                           viewBox: "0 0 24 24",
@@ -4341,7 +4341,7 @@ return function render(_ctx, _cache) {
                                         class: "trash-action-btn delete",
                                         onClick: $event => (_ctx.purgeSessionTrash(item)),
                                         disabled: _ctx.sessionTrashLoading || _ctx.sessionTrashClearing || _ctx.isSessionTrashActionBusy(item),
-                                        title: _ctx.sessionTrashPurging[_ctx.getSessionTrashActionKey(item)] ? '删除中…' : '彻底删除'
+                                        title: _ctx.sessionTrashPurging[_ctx.getSessionTrashActionKey(item)] ? _ctx.t('settings.trash.purging') : _ctx.t('settings.trash.purge')
                                       }, [
                                         (_openBlock(), _createElementBlock("svg", {
                                           viewBox: "0 0 24 24",
@@ -4365,7 +4365,7 @@ return function render(_ctx, _cache) {
                                       class: "btn-tool btn-tool-compact",
                                       onClick: _ctx.loadMoreSessionTrashItems,
                                       disabled: _ctx.sessionTrashLoading || _ctx.sessionTrashClearing
-                                    }, " 加载更多（" + _toDisplayString(_ctx.sessionTrashHiddenCount) + " 条） ", 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                                    }, _toDisplayString(_ctx.t('settings.trash.loadMoreItems', { count: _ctx.sessionTrashHiddenCount })), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
                                   ]))
                                 : _createCommentVNode("v-if", true)
                             ])
@@ -5659,7 +5659,7 @@ return function render(_ctx, _cache) {
           ])
         ], 8 /* PROPS */, ["onClick"]))
       : _createCommentVNode("v-if", true),
-    _createCommentVNode(" Codex 轮询池控制模态框 "),
+    _createCommentVNode(" Codex bridge pool modal "),
     (_ctx.showCodexBridgePoolModal)
       ? (_openBlock(), _createElementBlock("div", {
           key: 8,
@@ -5703,9 +5703,9 @@ return function render(_ctx, _cache) {
                 _createElementVNode("path", { d: "M6 8v4h6v4" }),
                 _createElementVNode("path", { d: "M18 8v4h-6v4" })
               ])),
-              _createTextVNode(" 轮询池设置 ")
+              _createTextVNode(" " + _toDisplayString(_ctx.t('config.localBridge.poolSettings')), 1 /* TEXT */)
             ]),
-            _createElementVNode("div", { class: "bridge-pool-modal-hint" }, "勾选参与负载均衡的提供商"),
+            _createElementVNode("div", { class: "bridge-pool-modal-hint" }, _toDisplayString(_ctx.t('config.localBridge.poolHint')), 1 /* TEXT */),
             (_ctx.localBridgeCandidateProviders().length === 0)
               ? (_openBlock(), _createElementBlock("div", {
                   key: 0,
@@ -5721,7 +5721,7 @@ return function render(_ctx, _cache) {
                   }, [
                     _createElementVNode("path", { d: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" })
                   ])),
-                  _createElementVNode("span", null, "暂无可用上游 provider，请先添加直连 provider")
+                  _createElementVNode("span", null, _toDisplayString(_ctx.t('config.localBridge.noProviders')), 1 /* TEXT */)
                 ]))
               : (_openBlock(), _createElementBlock("div", {
                   key: 1,
@@ -5735,7 +5735,7 @@ return function render(_ctx, _cache) {
                       _createElementVNode("span", { class: "bridge-pool-item-name" }, _toDisplayString(cp.name), 1 /* TEXT */),
                       _createElementVNode("span", {
                         class: _normalizeClass(["bridge-pool-item-status", { active: !_ctx.isLocalBridgeExcluded(cp.name) }])
-                      }, _toDisplayString(_ctx.isLocalBridgeExcluded(cp.name) ? '未启用' : '已启用'), 3 /* TEXT, CLASS */),
+                      }, _toDisplayString(_ctx.isLocalBridgeExcluded(cp.name) ? _ctx.t('common.disabled') : _ctx.t('common.enabled')), 3 /* TEXT, CLASS */),
                       _createElementVNode("input", {
                         type: "checkbox",
                         checked: !_ctx.isLocalBridgeExcluded(cp.name),

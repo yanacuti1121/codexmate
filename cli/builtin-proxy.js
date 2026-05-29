@@ -134,11 +134,12 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         if (/ECONNRESET|ECONNREFUSED|EPIPE|EPROTO|ETIMEDOUT/i.test(text)) return true;
         if (/EAI_AGAIN/i.test(text)) return true;
         if (/UND_ERR_SOCKET/i.test(text)) return true;
-        if (/disconnected before|secure tls|tls handshake/i.test(text)) return true;
+        if (/aborted|stream aborted|disconnected before|secure tls|tls handshake/i.test(text)) return true;
         return false;
     }
 
     const TRANSIENT_RETRY_DELAYS_MS = [200, 600];
+    const STREAM_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 
     async function retryTransientRequest(executor) {
         let lastResult = null;
@@ -712,6 +713,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         content: [{ type: 'output_text', text: '' }]
                     };
                     state.output.push(state.messageItem);
+                    beginChatStreamResponsesSse(state);
                     writeSse(state.res, 'response.output_item.added', {
                         type: 'response.output_item.added',
                         output_index: state.output.length - 1,
@@ -764,6 +766,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
     function finishChatStreamResponsesSse(state) {
         if (state.finished) return;
+        beginChatStreamResponsesSse(state);
         state.finished = true;
         stopChatStreamHeartbeat(state);
 
@@ -829,8 +832,36 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         } catch (_) {}
     }
 
+    function beginChatStreamResponsesSse(state) {
+        if (!state || state.started) return;
+        state.started = true;
+        const res = state.res;
+        if (!res.headersSent) {
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+            });
+        }
+        startChatStreamHeartbeat(state);
+        if (typeof res.on === 'function' && !state.closeListenerAttached) {
+            state.closeListenerAttached = true;
+            res.on('close', () => stopChatStreamHeartbeat(state));
+        }
+        writeSse(res, 'response.created', {
+            type: 'response.created',
+            response: {
+                id: state.responseId,
+                model: state.model,
+                created_at: state.createdAt
+            }
+        });
+    }
+
     function failChatStreamResponsesSse(state, message) {
         if (!state || state.finished) return;
+        beginChatStreamResponsesSse(state);
         state.finished = true;
         stopChatStreamHeartbeat(state);
         failResponsesSseRaw(state.res, message);
@@ -856,6 +887,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
         return new Promise((resolve) => {
             let settled = false;
+            let streamAccepted = false;
             const finish = (value) => {
                 if (settled) return;
                 settled = true;
@@ -873,13 +905,18 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                 const status = upstreamRes.statusCode || 0;
                 const chunks = [];
                 const contentType = String(upstreamRes.headers && upstreamRes.headers['content-type'] || '');
+                streamAccepted = status >= 200 && status < 300 && /text\/event-stream/i.test(contentType);
                 let streamState = null;
 
                 const handleAbort = (reason) => {
                     if (settled) return;
                     if (streamState) {
-                        failChatStreamResponsesSse(streamState, reason);
-                        finish({ ok: true });
+                        if (streamState.started) {
+                            failChatStreamResponsesSse(streamState, reason);
+                            finish({ ok: true });
+                            return;
+                        }
+                        finish({ ok: false, error: reason || 'upstream stream failed' });
                         return;
                     }
                     if (res.headersSent) {
@@ -909,14 +946,13 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     return;
                 }
 
-                res.writeHead(200, {
-                    'Content-Type': 'text/event-stream; charset=utf-8',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'X-Accel-Buffering': 'no'
-                });
-
                 if (!/text\/event-stream/i.test(contentType)) {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    });
                     upstreamRes.on('data', (chunk) => chunk && chunks.push(chunk));
                     upstreamRes.on('end', () => {
                         const text = chunks.length ? Buffer.concat(chunks).toString('utf-8') : '';
@@ -946,24 +982,14 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     messageText: '',
                     toolCalls: [],
                     finished: false,
+                    started: false,
+                    closeListenerAttached: false,
                     nextSeq: () => {
                         sequence += 1;
                         return sequence;
                     }
                 };
                 streamState = state;
-                startChatStreamHeartbeat(state);
-                if (typeof res.on === 'function') {
-                    res.on('close', () => stopChatStreamHeartbeat(state));
-                }
-                writeSse(res, 'response.created', {
-                    type: 'response.created',
-                    response: {
-                        id: state.responseId,
-                        model: state.model,
-                        created_at: state.createdAt
-                    }
-                });
 
                 let buffer = '';
                 const handleEventBlock = (block) => {
@@ -981,6 +1007,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     }
                     const parsedChunk = parseJsonOrError(data);
                     if (!parsedChunk.error) {
+                        beginChatStreamResponsesSse(state);
                         writeChatCompletionChunkAsResponsesSse(state, parsedChunk.value);
                     }
                 };
@@ -1003,6 +1030,10 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                 });
             });
             req.setTimeout(timeoutMs, () => {
+                if (streamAccepted) {
+                    req.setTimeout(STREAM_IDLE_TIMEOUT_MS);
+                    return;
+                }
                 try { req.destroy(new Error('timeout')); } catch (_) {}
                 finish({ ok: false, error: 'timeout' });
             });
