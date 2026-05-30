@@ -412,6 +412,66 @@ test('ensureClaudeConfigFromSettings imports external auth-token backed Claude s
     });
 });
 
+
+test('saveAndApplyConfig writes the edited Claude model through apply api', async () => {
+    const source = extractMethodAsFunction(appSource, 'saveAndApplyConfig');
+    const applyCalls = [];
+    const saveAndApplyConfig = instantiateFunction(source, 'saveAndApplyConfig', {
+        api: async (action, params) => {
+            applyCalls.push({ action, params });
+            return { success: true };
+        }
+    });
+
+    const messages = [];
+    let saveCount = 0;
+    let closed = false;
+    let refreshCount = 0;
+    const context = {
+        editingConfig: {
+            name: 'UI Claude Use',
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.example.com/anthropic',
+            model: ' claude-model-from-edit '
+        },
+        claudeConfigs: {
+            'UI Claude Use': {
+                apiKey: 'old-key',
+                baseUrl: 'https://old.example.com/anthropic',
+                model: 'old-model'
+            }
+        },
+        currentClaudeConfig: 'UI Claude Use',
+        _lastAppliedClaudeKey: '',
+        mergeClaudeConfig(existing, updates) {
+            return { ...existing, ...updates };
+        },
+        saveClaudeConfigs() { saveCount += 1; },
+        closeEditConfigModal() { closed = true; },
+        refreshClaudeModelContext() { refreshCount += 1; },
+        showMessage(msg, type) { messages.push({ msg, type }); }
+    };
+
+    await saveAndApplyConfig.call(context);
+
+    assert.strictEqual(context.claudeConfigs['UI Claude Use'].model, 'claude-model-from-edit');
+    assert.strictEqual(saveCount, 1);
+    assert.strictEqual(closed, true);
+    assert.strictEqual(refreshCount, 1);
+    assert.deepStrictEqual(applyCalls, [{
+        action: 'apply-claude-config',
+        params: {
+            config: {
+                apiKey: 'sk-test',
+                baseUrl: 'https://api.example.com/anthropic',
+                model: 'claude-model-from-edit',
+                name: 'UI Claude Use'
+            }
+        }
+    }]);
+    assert.deepStrictEqual(messages, [{ msg: 'Claude 配置已生效', type: 'success' }]);
+});
+
 test('applyClaudeConfig reports informative message for external credential only config', async () => {
     const source = extractMethodAsFunction(appSource, 'applyClaudeConfig');
     const applyClaudeConfig = instantiateFunction(source, 'applyClaudeConfig', {

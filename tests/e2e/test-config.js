@@ -308,6 +308,13 @@ preferred_auth_method = "shadow-key"
     const exportAfterAdd = await api('export-config', { includeKeys: true });
     assert(exportAfterAdd.data && exportAfterAdd.data.currentModels && exportAfterAdd.data.currentModels['e2e-api'] === 'gpt-e2e-api', 'add-provider should persist entered model as provider current model');
     assert(exportAfterAdd.data && Array.isArray(exportAfterAdd.data.models) && exportAfterAdd.data.models.includes('gpt-e2e-api'), 'add-provider should persist entered model in model list');
+    const addedProviderTemplate = await api('get-config-template', {
+        provider: 'e2e-api',
+        model: exportAfterAdd.data.currentModels['e2e-api']
+    });
+    assert(!addedProviderTemplate.error, `get-config-template should accept add-provider model: ${addedProviderTemplate.error || ''}`);
+    assert(addedProviderTemplate.template.includes('model_provider = "e2e-api"'), 'entered provider should be usable in generated config template');
+    assert(addedProviderTemplate.template.includes('model = "gpt-e2e-api"'), 'entered model should be used in generated config template');
 
     const addProviderMissingModel = await api('add-provider', { name: 'test-empty-model', url: mockProviderUrl, key: 'sk-empty-model', model: '   ' });
     assert(addProviderMissingModel.error, 'add-provider should reject empty model');
