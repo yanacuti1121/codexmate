@@ -1052,6 +1052,8 @@ const DICT = Object.freeze({
 
         // OpenClaw config panel
         'openclaw.applyHint': '写入 ~/.openclaw/openclaw.json，支持 JSON5。',
+        'openclaw.workspace.title': 'OpenClaw 工作区',
+        'openclaw.configs.hint': '选择常用配置，或进入编辑器维护完整 JSON5。',
         'openclaw.agents.hint': '读写 Workspace 的 AGENTS.md，默认路径 ~/.openclaw/workspace/AGENTS.md。',
         'openclaw.agents.open': '打开 AGENTS.md',
         'openclaw.workspaceFile': '工作区文件',
@@ -3178,6 +3180,8 @@ const DICT = Object.freeze({
 
         // OpenClaw config panel
         'openclaw.applyHint': 'Writes to ~/.openclaw/openclaw.json (JSON5 supported).',
+        'openclaw.workspace.title': 'OpenClaw workspace',
+        'openclaw.configs.hint': 'Select a saved config, or open the editor to maintain full JSON5.',
         'openclaw.agents.hint': 'Read/write Workspace AGENTS.md. Default: ~/.openclaw/workspace/AGENTS.md.',
         'openclaw.agents.open': 'Open AGENTS.md',
         'openclaw.workspaceFile': 'Workspace file',
