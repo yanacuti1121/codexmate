@@ -38,6 +38,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(html, /<script src="\/res\/vue\.runtime\.global\.prod\.js"><\/script>/);
     assert.doesNotMatch(html, /<script src="\/res\/vue\.global\.prod\.js"><\/script>/);
     assert.match(html, /quickSwitchProvider\(\$event\.target\.value\)/);
+    assert.match(html, /newProvider\.model = tpl\.model \|\| ''/);
     assert.match(html, /onMainTabPointerDown\('sessions', \$event\)/);
     assert.match(html, /onConfigTabPointerDown\('codex', \$event\)/);
     assert.match(html, /onMainTabClick\('sessions', \$event\)/);
@@ -362,6 +363,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     }
     assert.doesNotMatch(modalsBasic, /install-cli-modal-title/);
     assert.doesNotMatch(modalsBasic, /showInstallModal/);
+    assert.match(modalsBasic, /<input[\s\S]*v-model="newProvider\.model"[\s\S]*:placeholder="t\('placeholder\.modelExample'\)"[\s\S]*@blur="normalizeProviderDraft\('add'\)">/);
     assert.match(modalsBasic, /<input v-model="newProvider\.key" class="form-input" type="password" placeholder="sk-\.\.\.">/);
     assert.match(modalsBasic, /<input v-model="editingProvider\.key" class="form-input" :type="showEditProviderKey \? 'text' : 'password'" placeholder="sk-\.\.\." autocomplete="off" spellcheck="false">/);
     assert.match(modalsBasic, /<input v-model="newClaudeConfig\.apiKey" class="form-input" type="password" autocomplete="off" spellcheck="false" :placeholder="t\('placeholder\.apiKeyExampleClaude'\)">/);

@@ -47,6 +47,9 @@ function normalizeProviderDraftState(target) {
     if (typeof target.url === 'string') {
         target.url = normalizeProviderUrl(target.url);
     }
+    if (typeof target.model === 'string') {
+        target.model = target.model.trim();
+    }
 }
 
 function maskKeyLocal(key) {
@@ -66,9 +69,11 @@ function getProviderValidationForContext(vm, mode = 'add') {
     const editingName = mode === 'edit' ? normalizeText(draft && draft.name) : '';
     const name = normalizeText(draft && draft.name);
     const url = normalizeProviderUrl(draft && draft.url);
+    const model = normalizeText(draft && draft.model);
     const errors = {
         name: '',
-        url: ''
+        url: '',
+        model: ''
     };
 
     if (mode === 'add') {
@@ -91,12 +96,17 @@ function getProviderValidationForContext(vm, mode = 'add') {
         errors.url = 'URL 仅支持 http/https';
     }
 
+    if (mode === 'add' && !model) {
+        errors.model = '模型名称必填';
+    }
+
     return {
         mode,
         name,
         url,
+        model,
         errors,
-        ok: !errors.name && !errors.url
+        ok: !errors.name && !errors.url && !errors.model
     };
 }
 
@@ -150,21 +160,20 @@ export function createProvidersMethods(options = {}) {
             normalizeProviderDraftState(this.newProvider);
             const validation = getProviderValidationForContext(this, 'add');
             if (!validation.ok) {
-                return this.showMessage(validation.errors.name || validation.errors.url || '名称和URL必填', 'error');
+                return this.showMessage(validation.errors.name || validation.errors.url || validation.errors.model || '名称、URL 和模型名称必填', 'error');
             }
 
             try {
                 const payload = {
                     name: validation.name,
                     url: validation.url,
-                    key: this.newProvider.key || ''
+                    key: this.newProvider.key || '',
+                    model: validation.model
                 };
                 if (this.newProvider && this.newProvider.useTransform) {
                     payload.useTransform = true;
                 }
-                const suggestedModel = typeof this.newProvider._suggestedModel === 'string'
-                    ? this.newProvider._suggestedModel.trim()
-                    : '';
+                const suggestedModel = validation.model;
                 const res = await api('add-provider', payload);
                 if (res.error) {
                     this.showMessage(res.error, 'error');
@@ -179,7 +188,7 @@ export function createProvidersMethods(options = {}) {
                     codexmate_bridge: payload.useTransform ? 'openai' : '',
                     key: maskKeyLocal(payload.key),
                     hasKey: !!payload.key,
-                    models: [],
+                    models: suggestedModel ? [{ id: suggestedModel, name: suggestedModel, cost: null, contextWindow: undefined, maxTokens: undefined }] : [],
                     current: false,
                     readOnly: false,
                     nonDeletable: false,
@@ -300,6 +309,7 @@ export function createProvidersMethods(options = {}) {
                 name: '',
                 url: cloneUrl,
                 key: '',
+                model: '',
                 useTransform: isTransform
             };
             this.showAddModal = true;
@@ -513,7 +523,7 @@ export function createProvidersMethods(options = {}) {
 
         closeAddModal() {
             this.showAddModal = false;
-            this.newProvider = { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' };
+            this.newProvider = { name: '', url: '', key: '', model: '', useTransform: false, _suggestedModel: '' };
         },
 
         closeModelModal() {

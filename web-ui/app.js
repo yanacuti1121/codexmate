@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 installRegistryPreset: 'default',
                 installRegistryCustom: '',
                 installStatusTargets: null,
-                newProvider: { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' },
+                newProvider: { name: '', url: '', key: '', model: '', useTransform: false, _suggestedModel: '' },
                 resetConfigLoading: false,
                 editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
                 newModelName: '',

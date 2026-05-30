@@ -1041,7 +1041,7 @@ return function render(_ctx, _cache) {
                               key: tpl.name,
                               type: "button",
                               class: "btn-mini",
-                              onClick: $event => {_ctx.newProvider.name = tpl.name; _ctx.newProvider.url = tpl.url; _ctx.newProvider._suggestedModel = tpl.model || ''; _ctx.newProvider.useTransform = !!tpl.useTransform; _ctx.showAddModal = true}
+                              onClick: $event => {_ctx.newProvider.name = tpl.name; _ctx.newProvider.url = tpl.url; _ctx.newProvider.model = tpl.model || ''; _ctx.newProvider._suggestedModel = tpl.model || ''; _ctx.newProvider.useTransform = !!tpl.useTransform; _ctx.showAddModal = true}
                             }, _toDisplayString(tpl.label), 9 /* TEXT, PROPS */, ["onClick"]))
                           }), 128 /* KEYED_FRAGMENT */))
                         ])
@@ -5316,6 +5316,25 @@ return function render(_ctx, _cache) {
                     key: 0,
                     class: "form-hint form-error"
                   }, _toDisplayString(_ctx.providerFieldError('add', 'url')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
+            ]),
+            _createElementVNode("div", { class: "form-group" }, [
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.modelName')), 1 /* TEXT */),
+              _withDirectives(_createElementVNode("input", {
+                "onUpdate:modelValue": $event => ((_ctx.newProvider.model) = $event),
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.providerFieldError('add', 'model') }]),
+                placeholder: _ctx.t('placeholder.modelExample'),
+                autocomplete: "off",
+                spellcheck: "false",
+                onBlur: $event => (_ctx.normalizeProviderDraft('add'))
+              }, null, 42 /* CLASS, PROPS, NEED_HYDRATION */, ["onUpdate:modelValue", "placeholder", "onBlur"]), [
+                [_vModelText, _ctx.newProvider.model]
+              ]),
+              (_ctx.providerFieldError('add', 'model'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.providerFieldError('add', 'model')), 1 /* TEXT */))
                 : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "form-group" }, [

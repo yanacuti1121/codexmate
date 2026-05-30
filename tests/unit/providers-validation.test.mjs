@@ -11,7 +11,7 @@ function createContext(overrides = {}, apiImpl = async () => ({ success: true })
         showAddModal: true,
         showEditModal: false,
         resetConfigLoading: false,
-        newProvider: { name: '', url: '', key: '', useTransform: false },
+        newProvider: { name: '', url: '', key: '', model: '', useTransform: false },
         editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
         claudeConfigs: {},
         showMessage(text, type) {
@@ -32,7 +32,8 @@ test('provider validation rejects invalid add-provider fields before submit', as
         newProvider: {
             name: 'bad name',
             url: 'not-a-url',
-            key: 'sk-test'
+            key: 'sk-test',
+            model: ''
         }
     }, async (action, params) => {
         apiCalls.push({ action, params });
@@ -60,7 +61,8 @@ test('addProvider normalizes trimmed values and submits sanitized payload', asyn
         newProvider: {
             name: '  beta.provider  ',
             url: ' https://api.example.com/v1/ ',
-            key: ' sk-live '
+            key: ' sk-live ',
+            model: ' gpt-e2e '
         }
     }, async (action, params) => {
         apiCalls.push({ action, params });
@@ -74,21 +76,51 @@ test('addProvider normalizes trimmed values and submits sanitized payload', asyn
         params: {
             name: 'beta.provider',
             url: 'https://api.example.com/v1',
-            key: ' sk-live '
+            key: ' sk-live ',
+            model: 'gpt-e2e'
         }
     }]);
     assert.strictEqual(context.showAddModal, false);
-    assert.deepStrictEqual(context.newProvider, { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' });
+    assert.deepStrictEqual(context.newProvider, { name: '', url: '', key: '', model: '', useTransform: false, _suggestedModel: '' });
     // c3c9ee5：增删改不再触发 loadAll，改为本地 providersList 增量更新。
     assert.deepStrictEqual(loadAllCalls, []);
     assert.ok(
         context.providersList.some((p) => p && p.name === 'beta.provider' && p.url === 'https://api.example.com/v1'),
         'new provider should be appended to providersList locally'
     );
+    assert.deepStrictEqual(context.currentModels, { 'beta.provider': 'gpt-e2e' });
+    const appendedProvider = context.providersList.find((p) => p && p.name === 'beta.provider');
+    assert.deepStrictEqual(appendedProvider.models.map((item) => item.id), ['gpt-e2e']);
     assert.strictEqual(messages.length, 1);
     assert.deepStrictEqual(messages[0], {
         text: '操作成功',
         type: 'success'
+    });
+});
+
+test('provider validation requires model when adding provider', async () => {
+    const apiCalls = [];
+    const { context, messages } = createContext({
+        newProvider: {
+            name: 'beta',
+            url: 'https://api.example.com/v1',
+            key: 'sk-test',
+            model: '   '
+        }
+    }, async (action, params) => {
+        apiCalls.push({ action, params });
+        return { success: true };
+    });
+
+    assert.strictEqual(context.canSubmitProvider('add'), false);
+    assert.strictEqual(context.providerFieldError('add', 'model'), '模型名称必填');
+
+    await context.addProvider();
+
+    assert.deepStrictEqual(apiCalls, []);
+    assert.deepStrictEqual(messages[0], {
+        text: '模型名称必填',
+        type: 'error'
     });
 });
 
@@ -125,7 +157,8 @@ test('provider validation rejects reserved proxy name on add', () => {
         newProvider: {
             name: 'codexmate-proxy',
             url: 'https://api.example.com/v1',
-            key: ''
+            key: '',
+            model: 'gpt-e2e'
         }
     });
 
