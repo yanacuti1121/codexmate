@@ -192,6 +192,70 @@ test('buildClaudeImportedConfigName derives host-based fallback name', () => {
     assert.strictEqual(name, '导入-maxx-direct.cloverstd.com');
 });
 
+
+test('addClaudeConfig requires a visible model value before saving', () => {
+    const source = extractMethodAsFunction(appSource, 'addClaudeConfig');
+    const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
+    const messages = [];
+    let saveCount = 0;
+    const context = {
+        newClaudeConfig: {
+            name: 'Claude Test',
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.example.com/anthropic',
+            model: '   '
+        },
+        claudeConfigs: {},
+        currentClaudeConfig: '',
+        showMessage(text, type) { messages.push({ text, type }); },
+        findDuplicateClaudeConfigName: () => '',
+        mergeClaudeConfig: (_, cfg) => ({ ...cfg }),
+        saveClaudeConfigs() { saveCount += 1; },
+        closeClaudeConfigModal() {},
+        refreshClaudeModelContext() {}
+    };
+
+    addClaudeConfig.call(context);
+
+    assert.deepStrictEqual(messages, [{ text: '请输入模型', type: 'error' }]);
+    assert.deepStrictEqual(context.claudeConfigs, {});
+    assert.strictEqual(saveCount, 0);
+});
+
+test('addClaudeConfig trims and persists the entered model', () => {
+    const source = extractMethodAsFunction(appSource, 'addClaudeConfig');
+    const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
+    const messages = [];
+    let saveCount = 0;
+    let closed = false;
+    let refreshed = false;
+    const context = {
+        newClaudeConfig: {
+            name: 'Claude Test',
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.example.com/anthropic',
+            model: ' claude-test-model '
+        },
+        claudeConfigs: {},
+        currentClaudeConfig: '',
+        showMessage(text, type) { messages.push({ text, type }); },
+        findDuplicateClaudeConfigName: () => '',
+        mergeClaudeConfig: (_, cfg) => ({ ...cfg }),
+        saveClaudeConfigs() { saveCount += 1; },
+        closeClaudeConfigModal() { closed = true; },
+        refreshClaudeModelContext() { refreshed = true; }
+    };
+
+    addClaudeConfig.call(context);
+
+    assert.strictEqual(context.currentClaudeConfig, 'Claude Test');
+    assert.strictEqual(context.claudeConfigs['Claude Test'].model, 'claude-test-model');
+    assert.strictEqual(saveCount, 1);
+    assert.strictEqual(closed, true);
+    assert.strictEqual(refreshed, true);
+    assert.deepStrictEqual(messages, [{ text: '操作成功', type: 'success' }]);
+});
+
 test('ensureClaudeConfigFromSettings creates imported config for unmatched Claude settings', () => {
     const source = extractMethodAsFunction(appSource, 'ensureClaudeConfigFromSettings');
     const ensureClaudeConfigFromSettings = instantiateFunction(source, 'ensureClaudeConfigFromSettings');

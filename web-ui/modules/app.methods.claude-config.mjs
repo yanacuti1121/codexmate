@@ -71,6 +71,10 @@ export function createClaudeConfigMethods(options = {}) {
 
         updateConfig() {
             const name = this.editingConfig.name;
+            if (!this.editingConfig.model || !this.editingConfig.model.trim()) {
+                return this.showMessage('请输入模型', 'error');
+            }
+            this.editingConfig.model = this.editingConfig.model.trim();
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
             this.showMessage('操作成功', 'success');
@@ -92,6 +96,10 @@ export function createClaudeConfigMethods(options = {}) {
 
         async saveAndApplyConfig() {
             const name = this.editingConfig.name;
+            if (!this.editingConfig.model || !this.editingConfig.model.trim()) {
+                return this.showMessage('请输入模型', 'error');
+            }
+            this.editingConfig.model = this.editingConfig.model.trim();
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
 
@@ -128,6 +136,10 @@ export function createClaudeConfigMethods(options = {}) {
             if (!this.newClaudeConfig.name || !this.newClaudeConfig.name.trim()) {
                 return this.showMessage('请输入名称', 'error');
             }
+            if (!this.newClaudeConfig.model || !this.newClaudeConfig.model.trim()) {
+                return this.showMessage('请输入模型', 'error');
+            }
+            this.newClaudeConfig.model = this.newClaudeConfig.model.trim();
             const name = this.newClaudeConfig.name.trim();
             if (this.claudeConfigs[name]) {
                 return this.showMessage('名称已存在', 'error');

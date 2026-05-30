@@ -144,6 +144,10 @@
                     <label class="form-label">{{ t('field.baseUrl') }}</label>
                     <input v-model="newClaudeConfig.baseUrl" class="form-input" :placeholder="t('placeholder.baseUrlExampleClaude')">
                 </div>
+                <div class="form-group">
+                    <label class="form-label">{{ t('field.modelName') }}</label>
+                    <input v-model="newClaudeConfig.model" class="form-input" :placeholder="t('placeholder.modelExample')" autocomplete="off" spellcheck="false">
+                </div>
 
                 <div class="btn-group">
                     <button class="btn btn-cancel" @click="closeClaudeConfigModal">{{ t('common.cancel') }}</button>
@@ -174,6 +178,10 @@
                 <div class="form-group">
                     <label class="form-label">{{ t('field.baseUrl') }}</label>
                     <input v-model="editingConfig.baseUrl" class="form-input" :placeholder="t('placeholder.baseUrlExampleClaude')">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">{{ t('field.modelName') }}</label>
+                    <input v-model="editingConfig.model" class="form-input" :placeholder="t('placeholder.modelExample')" autocomplete="off" spellcheck="false">
                 </div>
 
                 <div class="btn-group">

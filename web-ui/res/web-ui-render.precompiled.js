@@ -5615,6 +5615,18 @@ return function render(_ctx, _cache) {
                 [_vModelText, _ctx.newClaudeConfig.baseUrl]
               ])
             ]),
+            _createElementVNode("div", { class: "form-group" }, [
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.modelName')), 1 /* TEXT */),
+              _withDirectives(_createElementVNode("input", {
+                "onUpdate:modelValue": $event => ((_ctx.newClaudeConfig.model) = $event),
+                class: "form-input",
+                placeholder: _ctx.t('placeholder.modelExample'),
+                autocomplete: "off",
+                spellcheck: "false"
+              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+                [_vModelText, _ctx.newClaudeConfig.model]
+              ])
+            ]),
             _createElementVNode("div", { class: "btn-group" }, [
               _createElementVNode("button", {
                 class: "btn btn-cancel",
@@ -5714,6 +5726,18 @@ return function render(_ctx, _cache) {
                 placeholder: _ctx.t('placeholder.baseUrlExampleClaude')
               }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.editingConfig.baseUrl]
+              ])
+            ]),
+            _createElementVNode("div", { class: "form-group" }, [
+              _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.modelName')), 1 /* TEXT */),
+              _withDirectives(_createElementVNode("input", {
+                "onUpdate:modelValue": $event => ((_ctx.editingConfig.model) = $event),
+                class: "form-input",
+                placeholder: _ctx.t('placeholder.modelExample'),
+                autocomplete: "off",
+                spellcheck: "false"
+              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+                [_vModelText, _ctx.editingConfig.model]
               ])
             ]),
             _createElementVNode("div", { class: "btn-group" }, [
