@@ -1,3 +1,56 @@
+function normalizeClaudeText(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeClaudeBaseUrl(value) {
+    return normalizeClaudeText(value).replace(/\/+$/g, '');
+}
+
+function isValidClaudeHttpUrl(value) {
+    if (!value) return true;
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
+function getClaudeConfigValidationForContext(vm, mode = 'add') {
+    const draft = mode === 'edit' ? vm.editingConfig : vm.newClaudeConfig;
+    const name = normalizeClaudeText(draft && draft.name);
+    const baseUrl = normalizeClaudeBaseUrl(draft && draft.baseUrl);
+    const model = normalizeClaudeText(draft && draft.model);
+    const errors = {
+        name: '',
+        baseUrl: '',
+        model: ''
+    };
+
+    if (!name) {
+        errors.name = '配置名称不能为空';
+    } else if (mode === 'add' && vm.claudeConfigs && vm.claudeConfigs[name]) {
+        errors.name = '名称已存在';
+    }
+
+    if (baseUrl && !isValidClaudeHttpUrl(baseUrl)) {
+        errors.baseUrl = 'Base URL 仅支持 http/https';
+    }
+
+    if (!model) {
+        errors.model = '模型名称必填';
+    }
+
+    return {
+        mode,
+        name,
+        baseUrl,
+        model,
+        errors,
+        ok: !errors.name && !errors.baseUrl && !errors.model
+    };
+}
+
 export function createClaudeConfigMethods(options = {}) {
     const { api } = options;
 
@@ -57,6 +110,21 @@ export function createClaudeConfigMethods(options = {}) {
             this.showClaudeConfigModal = true;
         },
 
+        getClaudeConfigValidation(mode = 'add') {
+            return getClaudeConfigValidationForContext(this, mode);
+        },
+
+        claudeConfigFieldError(mode, fieldName) {
+            const validation = getClaudeConfigValidationForContext(this, mode);
+            return validation && validation.errors && typeof validation.errors[fieldName] === 'string'
+                ? validation.errors[fieldName]
+                : '';
+        },
+
+        canSubmitClaudeConfig(mode = 'add') {
+            return getClaudeConfigValidationForContext(this, mode).ok;
+        },
+
         openEditConfigModal(name) {
             const config = this.claudeConfigs[name];
             this.editingConfig = {
@@ -70,11 +138,13 @@ export function createClaudeConfigMethods(options = {}) {
         },
 
         updateConfig() {
-            const name = this.editingConfig.name;
-            if (!this.editingConfig.model || !this.editingConfig.model.trim()) {
-                return this.showMessage('请输入模型', 'error');
+            const validation = getClaudeConfigValidationForContext(this, 'edit');
+            if (!validation.ok) {
+                return this.showMessage(validation.errors.name || validation.errors.baseUrl || validation.errors.model || '请检查 Claude 配置', 'error');
             }
-            this.editingConfig.model = this.editingConfig.model.trim();
+            const name = validation.name;
+            this.editingConfig.baseUrl = validation.baseUrl;
+            this.editingConfig.model = validation.model;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
             this.showMessage('操作成功', 'success');
@@ -95,11 +165,13 @@ export function createClaudeConfigMethods(options = {}) {
         },
 
         async saveAndApplyConfig() {
-            const name = this.editingConfig.name;
-            if (!this.editingConfig.model || !this.editingConfig.model.trim()) {
-                return this.showMessage('请输入模型', 'error');
+            const validation = getClaudeConfigValidationForContext(this, 'edit');
+            if (!validation.ok) {
+                return this.showMessage(validation.errors.name || validation.errors.baseUrl || validation.errors.model || '请检查 Claude 配置', 'error');
             }
-            this.editingConfig.model = this.editingConfig.model.trim();
+            const name = validation.name;
+            this.editingConfig.baseUrl = validation.baseUrl;
+            this.editingConfig.model = validation.model;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
 
@@ -133,17 +205,14 @@ export function createClaudeConfigMethods(options = {}) {
         },
 
         addClaudeConfig() {
-            if (!this.newClaudeConfig.name || !this.newClaudeConfig.name.trim()) {
-                return this.showMessage('请输入名称', 'error');
+            const validation = getClaudeConfigValidationForContext(this, 'add');
+            if (!validation.ok) {
+                return this.showMessage(validation.errors.name || validation.errors.baseUrl || validation.errors.model || '请检查 Claude 配置', 'error');
             }
-            if (!this.newClaudeConfig.model || !this.newClaudeConfig.model.trim()) {
-                return this.showMessage('请输入模型', 'error');
-            }
-            this.newClaudeConfig.model = this.newClaudeConfig.model.trim();
-            const name = this.newClaudeConfig.name.trim();
-            if (this.claudeConfigs[name]) {
-                return this.showMessage('名称已存在', 'error');
-            }
+            this.newClaudeConfig.name = validation.name;
+            this.newClaudeConfig.baseUrl = validation.baseUrl;
+            this.newClaudeConfig.model = validation.model;
+            const name = validation.name;
             const duplicateName = this.findDuplicateClaudeConfigName(this.newClaudeConfig);
             if (duplicateName) {
                 return this.showMessage('配置已存在', 'info');

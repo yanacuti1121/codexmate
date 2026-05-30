@@ -1,7 +1,8 @@
-﻿import assert from 'assert';
-import { readBundledWebUiScript } from './helpers/web-ui-source.mjs';
+import assert from 'assert';
+import { readBundledWebUiScript, readProjectFile } from './helpers/web-ui-source.mjs';
 
 const appSource = readBundledWebUiScript();
+const claudeConfigModuleSource = readProjectFile('web-ui/modules/app.methods.claude-config.mjs');
 
 function escapeRegExp(value) {
     return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -179,6 +180,31 @@ function extractMethodAsFunction(source, methodName) {
     return `function ${methodBlock}`;
 }
 
+function extractFunctionDeclaration(source, functionName) {
+    const pattern = new RegExp(`(?:^|\\n)(function\\s+${escapeRegExp(functionName)}\\s*\\([^)]*\\)\\s*\\{)`, 'm');
+    const match = pattern.exec(source);
+    if (!match) {
+        throw new Error(`Function declaration not found: ${functionName}`);
+    }
+    const startIndex = match.index + match[0].lastIndexOf(match[1]);
+    const braceStart = startIndex + match[1].lastIndexOf('{');
+    const endIndex = findMatchingBraceRespectingSyntax(source, braceStart);
+    return source.slice(startIndex, endIndex + 1);
+}
+
+function claudeValidationSupportSource() {
+    return [
+        'normalizeClaudeText',
+        'normalizeClaudeBaseUrl',
+        'isValidClaudeHttpUrl',
+        'getClaudeConfigValidationForContext'
+    ].map((name) => extractFunctionDeclaration(claudeConfigModuleSource, name)).join('\n');
+}
+
+function extractClaudeMethodAsFunction(source, methodName) {
+    return `${claudeValidationSupportSource()}\n${extractMethodAsFunction(claudeConfigModuleSource, methodName)}`;
+}
+
 function instantiateFunction(funcSource, funcName, bindings = {}) {
     const bindingNames = Object.keys(bindings);
     const bindingValues = Object.values(bindings);
@@ -194,7 +220,7 @@ test('buildClaudeImportedConfigName derives host-based fallback name', () => {
 
 
 test('addClaudeConfig requires a visible model value before saving', () => {
-    const source = extractMethodAsFunction(appSource, 'addClaudeConfig');
+    const source = extractClaudeMethodAsFunction(appSource, 'addClaudeConfig');
     const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
     const messages = [];
     let saveCount = 0;
@@ -217,13 +243,48 @@ test('addClaudeConfig requires a visible model value before saving', () => {
 
     addClaudeConfig.call(context);
 
-    assert.deepStrictEqual(messages, [{ text: '请输入模型', type: 'error' }]);
+    assert.deepStrictEqual(messages, [{ text: '模型名称必填', type: 'error' }]);
     assert.deepStrictEqual(context.claudeConfigs, {});
     assert.strictEqual(saveCount, 0);
 });
 
+test('Claude config validation exposes inline add/edit field errors', () => {
+    const support = claudeValidationSupportSource();
+    const fieldErrorSource = `${support}
+${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
+    const canSubmitSource = `${support}
+${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
+    const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
+    const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const context = {
+        newClaudeConfig: {
+            name: 'Existing',
+            apiKey: '',
+            baseUrl: 'ftp://bad.example.com',
+            model: '   '
+        },
+        editingConfig: {
+            name: 'Edit Me',
+            apiKey: '',
+            baseUrl: 'not-a-url',
+            model: ''
+        },
+        claudeConfigs: {
+            Existing: { model: 'claude-old' }
+        }
+    };
+
+    assert.strictEqual(claudeConfigFieldError.call(context, 'add', 'name'), '名称已存在');
+    assert.strictEqual(claudeConfigFieldError.call(context, 'add', 'baseUrl'), 'Base URL 仅支持 http/https');
+    assert.strictEqual(claudeConfigFieldError.call(context, 'add', 'model'), '模型名称必填');
+    assert.strictEqual(canSubmitClaudeConfig.call(context, 'add'), false);
+    assert.strictEqual(claudeConfigFieldError.call(context, 'edit', 'baseUrl'), 'Base URL 仅支持 http/https');
+    assert.strictEqual(claudeConfigFieldError.call(context, 'edit', 'model'), '模型名称必填');
+    assert.strictEqual(canSubmitClaudeConfig.call(context, 'edit'), false);
+});
+
 test('addClaudeConfig trims and persists the entered model', () => {
-    const source = extractMethodAsFunction(appSource, 'addClaudeConfig');
+    const source = extractClaudeMethodAsFunction(appSource, 'addClaudeConfig');
     const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
     const messages = [];
     let saveCount = 0;
@@ -414,7 +475,7 @@ test('ensureClaudeConfigFromSettings imports external auth-token backed Claude s
 
 
 test('saveAndApplyConfig writes the edited Claude model through apply api', async () => {
-    const source = extractMethodAsFunction(appSource, 'saveAndApplyConfig');
+    const source = extractClaudeMethodAsFunction(appSource, 'saveAndApplyConfig');
     const applyCalls = [];
     const saveAndApplyConfig = instantiateFunction(source, 'saveAndApplyConfig', {
         api: async (action, params) => {

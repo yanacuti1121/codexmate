@@ -134,7 +134,8 @@
 
                 <div class="form-group">
                     <label class="form-label">{{ t('field.configName') }}</label>
-                    <input v-model="newClaudeConfig.name" class="form-input" :placeholder="t('placeholder.configNameExample')">
+                    <input v-model="newClaudeConfig.name" :class="['form-input', { invalid: !!claudeConfigFieldError('add', 'name') }]" :placeholder="t('placeholder.configNameExample')">
+                    <div v-if="claudeConfigFieldError('add', 'name')" class="form-hint form-error">{{ claudeConfigFieldError('add', 'name') }}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">API Key</label>
@@ -142,16 +143,18 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">{{ t('field.baseUrl') }}</label>
-                    <input v-model="newClaudeConfig.baseUrl" class="form-input" :placeholder="t('placeholder.baseUrlExampleClaude')">
+                    <input v-model="newClaudeConfig.baseUrl" :class="['form-input', { invalid: !!claudeConfigFieldError('add', 'baseUrl') }]" :placeholder="t('placeholder.baseUrlExampleClaude')">
+                    <div v-if="claudeConfigFieldError('add', 'baseUrl')" class="form-hint form-error">{{ claudeConfigFieldError('add', 'baseUrl') }}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">{{ t('field.modelName') }}</label>
-                    <input v-model="newClaudeConfig.model" class="form-input" :placeholder="t('placeholder.modelExample')" autocomplete="off" spellcheck="false">
+                    <input v-model="newClaudeConfig.model" :class="['form-input', { invalid: !!claudeConfigFieldError('add', 'model') }]" :placeholder="t('placeholder.modelExample')" autocomplete="off" spellcheck="false">
+                    <div v-if="claudeConfigFieldError('add', 'model')" class="form-hint form-error">{{ claudeConfigFieldError('add', 'model') }}</div>
                 </div>
 
                 <div class="btn-group">
                     <button class="btn btn-cancel" @click="closeClaudeConfigModal">{{ t('common.cancel') }}</button>
-                    <button class="btn btn-confirm" @click="addClaudeConfig">{{ t('common.add') }}</button>
+                    <button class="btn btn-confirm" @click="addClaudeConfig" :disabled="!canSubmitClaudeConfig('add')">{{ t('common.add') }}</button>
                 </div>
             </div>
         </div>
@@ -163,7 +166,8 @@
 
                 <div class="form-group">
                     <label class="form-label">{{ t('field.configName') }}</label>
-                    <input v-model="editingConfig.name" class="form-input" :placeholder="t('field.configName')" readonly>
+                    <input v-model="editingConfig.name" :class="['form-input', { invalid: !!claudeConfigFieldError('edit', 'name') }]" :placeholder="t('field.configName')" readonly>
+                    <div v-if="claudeConfigFieldError('edit', 'name')" class="form-hint form-error">{{ claudeConfigFieldError('edit', 'name') }}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">API Key</label>
@@ -177,16 +181,18 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">{{ t('field.baseUrl') }}</label>
-                    <input v-model="editingConfig.baseUrl" class="form-input" :placeholder="t('placeholder.baseUrlExampleClaude')">
+                    <input v-model="editingConfig.baseUrl" :class="['form-input', { invalid: !!claudeConfigFieldError('edit', 'baseUrl') }]" :placeholder="t('placeholder.baseUrlExampleClaude')">
+                    <div v-if="claudeConfigFieldError('edit', 'baseUrl')" class="form-hint form-error">{{ claudeConfigFieldError('edit', 'baseUrl') }}</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">{{ t('field.modelName') }}</label>
-                    <input v-model="editingConfig.model" class="form-input" :placeholder="t('placeholder.modelExample')" autocomplete="off" spellcheck="false">
+                    <input v-model="editingConfig.model" :class="['form-input', { invalid: !!claudeConfigFieldError('edit', 'model') }]" :placeholder="t('placeholder.modelExample')" autocomplete="off" spellcheck="false">
+                    <div v-if="claudeConfigFieldError('edit', 'model')" class="form-hint form-error">{{ claudeConfigFieldError('edit', 'model') }}</div>
                 </div>
 
                 <div class="btn-group">
                     <button class="btn btn-cancel" @click="closeEditConfigModal">{{ t('common.cancel') }}</button>
-                    <button class="btn btn-confirm" @click="saveAndApplyConfig">{{ t('common.saveApply') }}</button>
+                    <button class="btn btn-confirm" @click="saveAndApplyConfig" :disabled="!canSubmitClaudeConfig('edit')">{{ t('common.saveApply') }}</button>
                 </div>
             </div>
         </div>

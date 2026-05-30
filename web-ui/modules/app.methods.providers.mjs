@@ -523,7 +523,7 @@ export function createProvidersMethods(options = {}) {
 
         closeAddModal() {
             this.showAddModal = false;
-            this.newProvider = { name: '', url: '', key: '', model: '', useTransform: false, _suggestedModel: '' };
+            this.newProvider = { name: '', url: '', key: '', model: '', useTransform: false };
         },
 
         closeModelModal() {

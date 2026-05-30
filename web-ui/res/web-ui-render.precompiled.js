@@ -1041,7 +1041,7 @@ return function render(_ctx, _cache) {
                               key: tpl.name,
                               type: "button",
                               class: "btn-mini",
-                              onClick: $event => {_ctx.newProvider.name = tpl.name; _ctx.newProvider.url = tpl.url; _ctx.newProvider.model = tpl.model || ''; _ctx.newProvider._suggestedModel = tpl.model || ''; _ctx.newProvider.useTransform = !!tpl.useTransform; _ctx.showAddModal = true}
+                              onClick: $event => {_ctx.newProvider.name = tpl.name; _ctx.newProvider.url = tpl.url; _ctx.newProvider.model = tpl.model || ''; _ctx.newProvider.useTransform = !!tpl.useTransform; _ctx.showAddModal = true}
                             }, _toDisplayString(tpl.label), 9 /* TEXT, PROPS */, ["onClick"]))
                           }), 128 /* KEYED_FRAGMENT */))
                         ])
@@ -5586,11 +5586,17 @@ return function render(_ctx, _cache) {
               _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.configName')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.newClaudeConfig.name) = $event),
-                class: "form-input",
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.claudeConfigFieldError('add', 'name') }]),
                 placeholder: _ctx.t('placeholder.configNameExample')
-              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+              }, null, 10 /* CLASS, PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.newClaudeConfig.name]
-              ])
+              ]),
+              (_ctx.claudeConfigFieldError('add', 'name'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.claudeConfigFieldError('add', 'name')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "form-group" }, [
               _createElementVNode("label", { class: "form-label" }, "API Key"),
@@ -5609,23 +5615,35 @@ return function render(_ctx, _cache) {
               _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.baseUrl')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.newClaudeConfig.baseUrl) = $event),
-                class: "form-input",
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.claudeConfigFieldError('add', 'baseUrl') }]),
                 placeholder: _ctx.t('placeholder.baseUrlExampleClaude')
-              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+              }, null, 10 /* CLASS, PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.newClaudeConfig.baseUrl]
-              ])
+              ]),
+              (_ctx.claudeConfigFieldError('add', 'baseUrl'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.claudeConfigFieldError('add', 'baseUrl')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "form-group" }, [
               _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.modelName')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.newClaudeConfig.model) = $event),
-                class: "form-input",
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.claudeConfigFieldError('add', 'model') }]),
                 placeholder: _ctx.t('placeholder.modelExample'),
                 autocomplete: "off",
                 spellcheck: "false"
-              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+              }, null, 10 /* CLASS, PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.newClaudeConfig.model]
-              ])
+              ]),
+              (_ctx.claudeConfigFieldError('add', 'model'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.claudeConfigFieldError('add', 'model')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "btn-group" }, [
               _createElementVNode("button", {
@@ -5634,8 +5652,9 @@ return function render(_ctx, _cache) {
               }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick"]),
               _createElementVNode("button", {
                 class: "btn btn-confirm",
-                onClick: _ctx.addClaudeConfig
-              }, _toDisplayString(_ctx.t('common.add')), 9 /* TEXT, PROPS */, ["onClick"])
+                onClick: _ctx.addClaudeConfig,
+                disabled: !_ctx.canSubmitClaudeConfig('add')
+              }, _toDisplayString(_ctx.t('common.add')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
             ])
           ])
         ], 8 /* PROPS */, ["onClick"]))
@@ -5661,12 +5680,18 @@ return function render(_ctx, _cache) {
               _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.configName')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.editingConfig.name) = $event),
-                class: "form-input",
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.claudeConfigFieldError('edit', 'name') }]),
                 placeholder: _ctx.t('field.configName'),
                 readonly: ""
-              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+              }, null, 10 /* CLASS, PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.editingConfig.name]
-              ])
+              ]),
+              (_ctx.claudeConfigFieldError('edit', 'name'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.claudeConfigFieldError('edit', 'name')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "form-group" }, [
               _createElementVNode("label", { class: "form-label" }, "API Key"),
@@ -5722,23 +5747,35 @@ return function render(_ctx, _cache) {
               _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.baseUrl')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.editingConfig.baseUrl) = $event),
-                class: "form-input",
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.claudeConfigFieldError('edit', 'baseUrl') }]),
                 placeholder: _ctx.t('placeholder.baseUrlExampleClaude')
-              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+              }, null, 10 /* CLASS, PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.editingConfig.baseUrl]
-              ])
+              ]),
+              (_ctx.claudeConfigFieldError('edit', 'baseUrl'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.claudeConfigFieldError('edit', 'baseUrl')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "form-group" }, [
               _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t('field.modelName')), 1 /* TEXT */),
               _withDirectives(_createElementVNode("input", {
                 "onUpdate:modelValue": $event => ((_ctx.editingConfig.model) = $event),
-                class: "form-input",
+                class: _normalizeClass(['form-input', { invalid: !!_ctx.claudeConfigFieldError('edit', 'model') }]),
                 placeholder: _ctx.t('placeholder.modelExample'),
                 autocomplete: "off",
                 spellcheck: "false"
-              }, null, 8 /* PROPS */, ["onUpdate:modelValue", "placeholder"]), [
+              }, null, 10 /* CLASS, PROPS */, ["onUpdate:modelValue", "placeholder"]), [
                 [_vModelText, _ctx.editingConfig.model]
-              ])
+              ]),
+              (_ctx.claudeConfigFieldError('edit', 'model'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "form-hint form-error"
+                  }, _toDisplayString(_ctx.claudeConfigFieldError('edit', 'model')), 1 /* TEXT */))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "btn-group" }, [
               _createElementVNode("button", {
@@ -5747,8 +5784,9 @@ return function render(_ctx, _cache) {
               }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick"]),
               _createElementVNode("button", {
                 class: "btn btn-confirm",
-                onClick: _ctx.saveAndApplyConfig
-              }, _toDisplayString(_ctx.t('common.saveApply')), 9 /* TEXT, PROPS */, ["onClick"])
+                onClick: _ctx.saveAndApplyConfig,
+                disabled: !_ctx.canSubmitClaudeConfig('edit')
+              }, _toDisplayString(_ctx.t('common.saveApply')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
             ])
           ])
         ], 8 /* PROPS */, ["onClick"]))
