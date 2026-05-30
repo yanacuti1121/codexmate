@@ -335,6 +335,19 @@ preferred_auth_method = "shadow-key"
     assert(addProviderInvalidName.error, 'add-provider should reject invalid provider name');
     const addProviderInvalidUrl = await api('add-provider', { name: 'bad-url', url: 'not-a-url' });
     assert(addProviderInvalidUrl.error, 'add-provider should reject invalid provider url');
+
+    const cliAddBridgeNoModel = runSync(node, [cliPath, 'add', 'legacy-bridge-no-model', mockProviderUrl, 'sk-legacy-bridge', '--bridge', 'openai'], { env });
+    assert(
+        cliAddBridgeNoModel.status === 0,
+        `CLI add --bridge without model should remain backward compatible: ${cliAddBridgeNoModel.stderr || cliAddBridgeNoModel.stdout}`
+    );
+    const exportAfterLegacyBridgeAdd = await api('export-config', { includeKeys: true });
+    assert(
+        exportAfterLegacyBridgeAdd.data
+            && exportAfterLegacyBridgeAdd.data.currentModels
+            && exportAfterLegacyBridgeAdd.data.currentModels['legacy-bridge-no-model'],
+        'legacy CLI add --bridge should initialize a fallback current model'
+    );
     const cliAddInvalidUrl = runSync(node, [cliPath, 'add', 'cli-bad-url', 'not-a-url'], { env });
     assert(cliAddInvalidUrl.status !== 0, 'cli add should reject invalid provider url');
     const apiListAfterInvalidName = await api('list');

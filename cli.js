@@ -2081,7 +2081,15 @@ function addProviderToConfig(params = {}) {
     const name = typeof params.name === 'string' ? params.name.trim() : '';
     const url = typeof params.url === 'string' ? params.url.trim() : '';
     const key = typeof params.key === 'string' ? params.key.trim() : '';
-    const model = typeof params.model === 'string' ? params.model.trim() : '';
+    const requireModel = !!params.requireModel;
+    const fallbackModel = (() => {
+        if (requireModel) return '';
+        const list = readModels();
+        return Array.isArray(list) && typeof list[0] === 'string' ? list[0].trim() : '';
+    })();
+    const model = typeof params.model === 'string' && params.model.trim()
+        ? params.model.trim()
+        : fallbackModel;
     const useTransform = !!params.useTransform;
     const allowManaged = !!params.allowManaged;
     const normalizedUrl = normalizeBaseUrl(url);
@@ -10876,7 +10884,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = buildConfigTemplateDiff(params || {});
                             break;
                         case 'add-provider':
-                            result = addProviderToConfig(params || {});
+                            result = addProviderToConfig({ ...(params || {}), requireModel: true });
                             break;
                         case 'update-provider':
                             result = updateProviderInConfig(params || {});
