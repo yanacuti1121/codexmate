@@ -350,6 +350,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'claudeLocalBridgeExcluded',
         'providersHealthLoading',
         'providersHealthResult',
+        'showAddClaudeConfigKey',
+        'showAddProviderKey',
         'showEditClaudeConfigKey',
         'showEditProviderKey'
     ] : [
@@ -383,6 +385,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'claudeLocalBridgeExcluded',
         'providersHealthLoading',
         'providersHealthResult',
+        'showAddClaudeConfigKey',
+        'showAddProviderKey',
         'showEditClaudeConfigKey',
         'showEditProviderKey'
     ];
@@ -449,7 +453,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionSortMode',
         'sessionsUsageCompareEnabled',
         'sessionsUsageSelectedDayKey',
-        'currentModels'
+        'currentModels',
+        'openclawAccordionStep',
+        'openclawValidation'
     );
     if (parityAgainstHead) {
         const allowedExtraKeySet = new Set(allowedExtraCurrentKeys);
@@ -558,6 +564,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'claudeLocalBridgeCandidateProviders',
         'claudeLocalBridgeConfigured',
         'syncClaudeBridgeProviders',
+        'toggleAddClaudeConfigKey',
+        'toggleAddProviderKey',
         'toggleEditClaudeConfigKey',
         'toggleEditProviderKey'
     ];
@@ -618,10 +626,19 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'importSingleSkill',
         'openSkillsMenu',
         'isClaudeLocalBridgeDisabled',
+        'languageOptions',
+        'currentLanguageLabel',
+        'openLanguageSettings',
         'isDefaultOpenclawConfig',
         'getClaudeConfigValidation',
         'claudeConfigFieldError',
-        'canSubmitClaudeConfig'
+        'canSubmitClaudeConfig',
+        'toggleAccordionStep',
+        'nextAccordionStep',
+        'prevAccordionStep',
+        'finishAccordionStep',
+        'validateProviderName',
+        'validateModelId'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',

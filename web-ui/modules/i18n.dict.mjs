@@ -154,6 +154,7 @@ const DICT = Object.freeze({
         'side.sessions.browser.meta': '浏览 / 导出 / 清理',
         'side.plugins.tools': '提示词工具',
         'side.plugins.tools.meta': '模板 / 变量',
+        'side.plugins.templatesCount': '{count} 个模板',
         'side.system.settings': '运行设置',
         'side.system.settings.meta': '数据 / 备份',
 
@@ -912,6 +913,7 @@ const DICT = Object.freeze({
         'settings.tab.data': '数据',
         'settings.tabs.aria': '设置分类',
         'settings.quickSettings.title': '快捷设置',
+        'settings.language.sideLabel': '语言：{language}',
         'settings.sharePrefix.title': '分享命令前缀',
         'settings.sharePrefix.meta': '影响 Web UI 里“复制分享命令”的前缀',
         'settings.sharePrefix.label': '前缀',
@@ -1067,6 +1069,7 @@ const DICT = Object.freeze({
         'modal.openclaw.quick.subtitle': '按 3 步完成：填 Provider 和模型，写入编辑器，保存并应用。',
         'modal.openclaw.quick.step2': '点击写入编辑器',
         'modal.openclaw.structured.writeHint': '写入编辑器会重排 JSON，注释可能丢失。',
+        'openclaw.action.applyAria': '应用 OpenClaw 配置：{name}',
         'openclaw.action.editAria': '编辑 OpenClaw 配置：{name}',
         'openclaw.action.deleteAria': '删除 OpenClaw 配置：{name}'
     },
@@ -1226,6 +1229,7 @@ const DICT = Object.freeze({
         'side.sessions.browser.meta': '閲覧 / エクスポート / クリーンアップ',
         'side.plugins.tools': 'プロンプトツール',
         'side.plugins.tools.meta': 'テンプレート / 変数',
+        'side.plugins.templatesCount': '{count} 件のテンプレート',
         'side.system.settings': '実行設定',
         'side.system.settings.meta': 'データ / バックアップ',
 
@@ -1972,6 +1976,7 @@ const DICT = Object.freeze({
         'settings.tab.data': 'データ',
         'settings.tabs.aria': '設定カテゴリ',
         'settings.quickSettings.title': 'クイック設定',
+        'settings.language.sideLabel': '言語：{language}',
         'settings.sharePrefix.title': '共有コマンドプレフィックス',
         'settings.sharePrefix.meta': 'Web UI の「共有コマンドをコピー」のプレフィックスに影響',
         'settings.sharePrefix.label': 'プレフィックス',
@@ -2125,6 +2130,7 @@ const DICT = Object.freeze({
         'modal.openclaw.quick.subtitle': '3ステップで完了：Provider とモデルを入力、エディタに書き込み、保存して適用。',
         'modal.openclaw.quick.step2': 'エディタに書き込みをクリック',
         'modal.openclaw.structured.writeHint': 'エディタに書き込むと JSON が再配置され、コメントが失われる可能性があります。',
+        'openclaw.action.applyAria': 'OpenClaw 設定を適用：{name}',
         'openclaw.action.editAria': 'OpenClaw 設定を編集：{name}',
         'openclaw.action.deleteAria': 'OpenClaw 設定を削除：{name}',
     
@@ -2285,6 +2291,7 @@ const DICT = Object.freeze({
         'side.sessions.browser.meta': 'Browse / Export / Cleanup',
         'side.plugins.tools': 'Prompt Tools',
         'side.plugins.tools.meta': 'Templates / Variables',
+        'side.plugins.templatesCount': '{count} templates',
         'side.system.settings': 'Runtime Settings',
         'side.system.settings.meta': 'Data / Backup',
 
@@ -3044,6 +3051,7 @@ const DICT = Object.freeze({
         'settings.tab.data': 'Data',
         'settings.tabs.aria': 'Settings categories',
         'settings.quickSettings.title': 'Quick Settings',
+        'settings.language.sideLabel': 'Language: {language}',
         'settings.sharePrefix.title': 'Share command prefix',
         'settings.sharePrefix.meta': 'Used as the prefix for “Copy share command” in the Web UI',
         'settings.sharePrefix.label': 'Prefix',
@@ -3195,6 +3203,7 @@ const DICT = Object.freeze({
         'modal.openclaw.quick.subtitle': '3 steps: fill provider/model, write to editor, save & apply.',
         'modal.openclaw.quick.step2': 'Write to editor',
         'modal.openclaw.structured.writeHint': 'Writing to editor may reformat JSON and drop comments.',
+        'openclaw.action.applyAria': 'Apply OpenClaw config: {name}',
         'openclaw.action.editAria': 'Edit OpenClaw config: {name}',
         'openclaw.action.deleteAria': 'Delete OpenClaw config: {name}'
     }

@@ -227,7 +227,7 @@ export function createProvidersMethods(options = {}) {
             const configured = !!(provider && provider.hasKey);
             return {
                 configured,
-                text: configured ? '已配置' : '未配置'
+                text: configured ? this.t('common.configured') : this.t('common.notConfigured')
             };
         },
 
@@ -322,6 +322,7 @@ export function createProvidersMethods(options = {}) {
                 model: '',
                 useTransform: isTransform
             };
+            this.showAddProviderKey = false;
             this.showAddModal = true;
         },
 
@@ -533,7 +534,12 @@ export function createProvidersMethods(options = {}) {
 
         closeAddModal() {
             this.showAddModal = false;
+            this.showAddProviderKey = false;
             this.newProvider = { name: '', url: '', key: '', model: '', useTransform: false };
+        },
+
+        toggleAddProviderKey() {
+            this.showAddProviderKey = !this.showAddProviderKey;
         },
 
         closeModelModal() {

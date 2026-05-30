@@ -118,6 +118,7 @@ export function createClaudeConfigMethods(options = {}) {
                 baseUrl: config.baseUrl || '',
                 model: config.model || ''
             };
+            this.showAddClaudeConfigKey = false;
             this.showClaudeConfigModal = true;
         },
 
@@ -295,12 +296,17 @@ export function createClaudeConfigMethods(options = {}) {
 
         closeClaudeConfigModal() {
             this.showClaudeConfigModal = false;
+            this.showAddClaudeConfigKey = false;
             this.newClaudeConfig = {
                 name: '',
                 apiKey: '',
                 baseUrl: '',
                 model: ''
             };
+        },
+
+        toggleAddClaudeConfigKey() {
+            this.showAddClaudeConfigKey = !this.showAddClaudeConfigKey;
         },
 
         async loadClaudeLocalBridgeStatus() {

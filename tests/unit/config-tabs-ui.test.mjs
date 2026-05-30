@@ -26,6 +26,10 @@ test('config template keeps expected config tabs in top and side navigation', ()
 
     assert.deepStrictEqual(sideTabModes, ['codex', 'claude', 'openclaw']);
     assert.match(html, /id="tab-dashboard"/);
+    assert.match(html, /v-if="healthCheckResult && healthCheckResult\.report" class="doctor-action-list"/);
+    assert.match(html, /v-if="healthCheckResult\.report\.issues && healthCheckResult\.report\.issues\.length"/);
+    assert.match(html, /action\.type === 'navigate' && action\.target/);
+    assert.match(html, /@click="action\.target \? switchMainTab\(action\.target\) : null"/);
     assert.match(html, /id="tab-config"/);
     assert.match(html, /:data-config-mode="configMode"/);
     assert.doesNotMatch(html, /id="tab-config-codex"/);
@@ -364,10 +368,10 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.doesNotMatch(modalsBasic, /install-cli-modal-title/);
     assert.doesNotMatch(modalsBasic, /showInstallModal/);
     assert.match(modalsBasic, /<input[\s\S]*v-model="newProvider\.model"[\s\S]*:placeholder="t\('placeholder\.modelExample'\)"[\s\S]*@blur="normalizeProviderDraft\('add'\)">/);
-    assert.match(modalsBasic, /<input v-model="newProvider\.key"[^>]*:class="\['form-input', \{ invalid: !!providerFieldError\('add', 'key'\) \}\]"[^>]*type="password"[^>]*placeholder="sk-\.\.\."[^>]*autocomplete="off"[^>]*spellcheck="false"[^>]*@blur="normalizeProviderDraft\('add'\)">/);
+    assert.match(modalsBasic, /<input v-model="newProvider\.key"[^>]*:class="\['form-input', \{ invalid: !!providerFieldError\('add', 'key'\) \}\]"[^>]*:type="showAddProviderKey \? 'text' : 'password'"[^>]*placeholder="sk-\.\.\."[^>]*autocomplete="off"[^>]*spellcheck="false"[^>]*@blur="normalizeProviderDraft\('add'\)">/);
     assert.match(modalsBasic, /<div v-if="providerFieldError\('add', 'key'\)" class="form-hint form-error">\{\{ providerFieldError\('add', 'key'\) \}\}<\/div>/);
     assert.match(modalsBasic, /<input v-model="editingProvider\.key" class="form-input" :type="showEditProviderKey \? 'text' : 'password'" placeholder="sk-\.\.\." autocomplete="off" spellcheck="false">/);
-    assert.match(modalsBasic, /<input v-model="newClaudeConfig\.apiKey"[^>]*:class="\['form-input', \{ invalid: !!claudeConfigFieldError\('add', 'apiKey'\) \}\]"[^>]*type="password"[^>]*autocomplete="off"[^>]*spellcheck="false"[^>]*:placeholder="t\('placeholder\.apiKeyExampleClaude'\)">/);
+    assert.match(modalsBasic, /<input v-model="newClaudeConfig\.apiKey"[^>]*:class="\['form-input', \{ invalid: !!claudeConfigFieldError\('add', 'apiKey'\) \}\]"[^>]*:type="showAddClaudeConfigKey \? 'text' : 'password'"[^>]*autocomplete="off"[^>]*spellcheck="false"[^>]*:placeholder="t\('placeholder\.apiKeyExampleClaude'\)">/);
     assert.match(modalsBasic, /<div v-if="claudeConfigFieldError\('add', 'apiKey'\)" class="form-hint form-error">\{\{ claudeConfigFieldError\('add', 'apiKey'\) \}\}<\/div>/);
     assert.match(modalsBasic, /<input v-model="newClaudeConfig\.model"[^>]*:class="\['form-input', \{ invalid: !!claudeConfigFieldError\('add', 'model'\) \}\]"[^>]*:placeholder="t\('placeholder\.modelExample'\)"[^>]*autocomplete="off"[^>]*spellcheck="false">/);
     assert.match(modalsBasic, /<div v-if="claudeConfigFieldError\('add', 'model'\)" class="form-hint form-error">\{\{ claudeConfigFieldError\('add', 'model'\) \}\}<\/div>/);
@@ -377,7 +381,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(modalsBasic, /<input v-model="editingConfig\.model"[^>]*:class="\['form-input', \{ invalid: !!claudeConfigFieldError\('edit', 'model'\) \}\]"[^>]*:placeholder="t\('placeholder\.modelExample'\)"[^>]*autocomplete="off"[^>]*spellcheck="false">/);
     assert.match(modalsBasic, /<div v-if="claudeConfigFieldError\('edit', 'model'\)" class="form-hint form-error">\{\{ claudeConfigFieldError\('edit', 'model'\) \}\}<\/div>/);
     assert.match(modalsBasic, /<button class="btn btn-confirm" @click="saveAndApplyConfig" :disabled="!canSubmitClaudeConfig\('edit'\)">/);
-    assert.strictEqual([...modalsBasic.matchAll(/type="password"/g)].length, 2);
+    assert.strictEqual([...modalsBasic.matchAll(/\? 'text' : 'password'/g)].length, 4);
     assert.match(templateAgentModals, /<div v-if="showConfigTemplateModal" class="modal-overlay" @click\.self="!configTemplateApplying && closeConfigTemplateModal\(\)">/);
     assert.match(templateAgentModals, /<div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="config-template-modal-title">/);
     assert.match(templateAgentModals, /<div class="modal-title" id="config-template-modal-title">\{\{\s*t\('modal\.configTemplate\.title'\)\s*\}\}<\/div>/);

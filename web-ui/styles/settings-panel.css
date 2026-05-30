@@ -413,3 +413,7 @@
         max-width: none;
     }
 }
+
+.settings-language-select {
+    max-width: 280px;
+}

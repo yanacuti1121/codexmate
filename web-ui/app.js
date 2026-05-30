@@ -62,11 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageType: '',
                 showAddModal: false,
                 showEditModal: false,
+                showAddProviderKey: false,
                 showEditProviderKey: false,
                 showModelModal: false,
                 showModelListModal: false,
                 showClaudeConfigModal: false,
                 showEditConfigModal: false,
+                showAddClaudeConfigKey: false,
                 showEditClaudeConfigKey: false,
                 showOpenclawConfigModal: false,
                 showConfigTemplateModal: false,
@@ -343,6 +345,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     overrideProvider: true,
                     overrideModels: true,
                     showKey: false
+                },
+                openclawAccordionStep: 1,
+                openclawValidation: {
+                    providerName: { valid: true, message: '' },
+                    modelId: { valid: true, message: '' }
                 },
                 openclawAgentsList: [],
                 openclawProviders: [],
