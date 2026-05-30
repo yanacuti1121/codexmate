@@ -293,7 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentOpenclawConfig: '',
                 openclawConfigs: {
                     '默认配置': {
-                        content: DEFAULT_OPENCLAW_TEMPLATE
+                        content: DEFAULT_OPENCLAW_TEMPLATE,
+                        isDefault: true
                     }
                 },
                 openclawEditing: { name: '', content: '', lockName: false },
@@ -567,7 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         : { content: DEFAULT_OPENCLAW_TEMPLATE };
                 const normalized = {
                     '默认配置': {
-                        content: typeof defaultEntry.content === 'string' ? defaultEntry.content : DEFAULT_OPENCLAW_TEMPLATE
+                        content: typeof defaultEntry.content === 'string' ? defaultEntry.content : DEFAULT_OPENCLAW_TEMPLATE,
+                        isDefault: true
                     }
                 };
                 for (const [name, value] of Object.entries(source)) {

@@ -345,7 +345,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
         html,
         /<div class="docs-command-row">[\s\S]*<div class="docs-command-box"[\s\S]*<code class="install-command">\{\{ target\.command \}\}<\/code>[\s\S]*<button[\s\S]*class="btn-mini docs-copy-btn"/
     );
-    assert.match(html, /<button v-if="name !== '默认配置'" class="card-action-btn delete"[^>]*@click="deleteOpenclawConfig\(name\)"[^>]*:aria-label="t\('openclaw\.action\.deleteAria', \{ name \}\)"[^>]*:title="t\('openclaw\.action\.delete'\)">/);
+    assert.match(html, /<button v-if="!isDefaultOpenclawConfig\(name, config\)" class="card-action-btn delete"[^>]*@click="deleteOpenclawConfig\(name\)"[^>]*:aria-label="t\('openclaw\.action\.deleteAria', \{ name \}\)"[^>]*:title="t\('openclaw\.action\.delete'\)">/);
     assert.match(modalsBasic, /<div v-if="showAddModal" class="modal-overlay" @click\.self="closeAddModal">/);
     assert.match(modalsBasic, /<div v-if="showModelModal" class="modal-overlay" @click\.self="closeModelModal">/);
     assert.match(modalsBasic, /<div v-if="showClaudeConfigModal" class="modal-overlay" @click\.self="closeClaudeConfigModal">/);
@@ -380,7 +380,7 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(openclawModal, /<div class="modal-title" id="openclaw-config-modal-title">{{ openclawEditorTitle }}<\/div>/);
     assert.match(openclawModal, /:readonly="openclawSaving \|\| openclawApplying"/);
     assert.match(openclawModal, /<button class="btn btn-cancel" @click="closeOpenclawConfigModal" :disabled="openclawSaving \|\| openclawApplying">取消<\/button>/);
-    assert.match(openclawModal, /<button class="btn btn-confirm" @click="saveOpenclawConfig" :disabled="openclawSaving \|\| openclawApplying \|\| \(openclawEditing\.lockName && openclawEditing\.name === '默认配置'\)">/);
+    assert.match(openclawModal, /<button class="btn btn-confirm" @click="saveOpenclawConfig" :disabled="openclawSaving \|\| openclawApplying \|\| \(openclawEditing\.lockName && isDefaultOpenclawConfig\(openclawEditing\.name\)\)">/);
     assert.match(openclawModal, /<button class="btn btn-confirm secondary" @click="saveAndApplyOpenclawConfig" :disabled="openclawSaving \|\| openclawApplying">/);
     assert.doesNotMatch(baseTheme, /fonts\.googleapis\.com/);
     assert.match(controlsForms, /\.btn-tool-compact:disabled:hover,\s*\.btn-tool-compact\[disabled\]:hover/);

@@ -264,3 +264,136 @@
     word-break: break-all;
 }
 
+
+/* OpenClaw config tab: align with current settings/card system */
+.openclaw-layout {
+    display: grid;
+    gap: 12px;
+    padding: 4px 0 0;
+}
+
+.openclaw-overview-card,
+.openclaw-configs-card {
+    margin: 0;
+}
+
+.openclaw-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.openclaw-tool-card {
+    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border-soft);
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.88) 0%, rgba(248, 243, 238, 0.58) 100%);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-subtle);
+}
+
+.openclaw-tool-card--workspace {
+    grid-template-columns: 1fr;
+    align-items: start;
+}
+
+.openclaw-tool-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.openclaw-tool-title {
+    font-size: 13px;
+    font-weight: var(--font-weight-title);
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+}
+
+.openclaw-tool-meta {
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--color-text-tertiary);
+}
+
+.openclaw-tool-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.openclaw-tool-actions .btn-tool,
+.openclaw-workspace-row .btn-tool {
+    width: auto;
+    white-space: nowrap;
+}
+
+.openclaw-workspace-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.openclaw-workspace-row .form-input {
+    min-height: 36px;
+}
+
+.openclaw-card-list {
+    margin-bottom: 0;
+}
+
+.openclaw-card-list .card {
+    background: rgba(255, 255, 255, 0.76);
+}
+
+.openclaw-card-list .card-subtitle {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 1200px) {
+    .openclaw-tool-card--workspace {
+        grid-template-columns: minmax(0, 0.9fr) minmax(200px, 1.25fr);
+        align-items: center;
+    }
+}
+
+@media (max-width: 980px) {
+    .openclaw-tools-grid,
+    .openclaw-tool-card,
+    .openclaw-tool-card--workspace,
+    .openclaw-workspace-row {
+        grid-template-columns: 1fr;
+    }
+
+    .openclaw-tool-actions,
+    .openclaw-workspace-row .btn-tool {
+        justify-content: flex-start;
+        width: 100%;
+    }
+}
+
+@media (max-width: 520px) {
+    .openclaw-layout {
+        gap: 10px;
+        padding-top: 0;
+    }
+
+    .openclaw-tool-card {
+        padding: 10px;
+    }
+
+    .openclaw-card-list .card {
+        align-items: stretch;
+    }
+}
