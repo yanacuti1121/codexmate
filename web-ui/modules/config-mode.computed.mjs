@@ -35,16 +35,16 @@ export function createConfigModeComputed() {
             return this.activeProviderModeMeta.modelPlaceholder;
         },
         activeProviderConfigChipLabel() {
-            return this.activeProviderModeMeta.statusConfigLabel;
+            return this.t('field.provider');
         },
         activeProviderModelChipLabel() {
-            return this.activeProviderModeMeta.statusModelLabel;
+            return this.t('field.model');
         },
         activeProviderBridgeHint() {
             if (!this.isProviderConfigMode || this.isCodexConfigMode) {
                 return '';
             }
-            return `${this.activeProviderModeLabel} 当前复用 Codex Provider / Model 管理链路。`;
+            return this.t('config.providerBridgeHint', { label: this.activeProviderModeLabel });
         },
         inspectorMainTabLabel() {
             if (this.mainTab === 'dashboard') return '概览';

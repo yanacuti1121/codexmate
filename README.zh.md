@@ -15,6 +15,7 @@
 [![Version](https://img.shields.io/npm/v/codexmate?style=flat-square&color=A179FF)](https://www.npmjs.com/package/codexmate)
 [![Build](https://img.shields.io/github/actions/workflow/status/SakuraByteCore/codexmate/release.yml?style=flat-square&color=44cc11)](https://github.com/SakuraByteCore/codexmate/actions/workflows/release.yml)
 [![Downloads](https://img.shields.io/npm/dt/codexmate?style=flat-square)](https://www.npmjs.com/package/codexmate)
+[![Install](https://img.shields.io/badge/install-brew%20%7C%20curl%20%7C%20npm-0A0?style=flat-square)](#homebrew-安装macos--linux)
 [![Platform](https://img.shields.io/badge/platform-Termux%20%7C%20Linux%20%7C%20macOS%20%7C%20Windows-555?style=flat-square)](#快速开始)
 [![Node](https://img.shields.io/node/v/codexmate?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/npm/l/codexmate?style=flat-square)](LICENSE)
@@ -70,11 +71,19 @@
 
 ## 快速开始
 
+### Homebrew 安装（macOS / Linux）
+
+```bash
+brew tap SakuraByteCore/codexmate
+brew install codexmate
+```
+
+需要 [Node.js](https://nodejs.org/)（如未安装可执行 `brew install node`）。
+
 ### 通过 npm 安装
 
 ```bash
 npm install -g codexmate
-codexmate setup
 codexmate run
 ```
 
@@ -102,7 +111,7 @@ flowchart TD
     CLI[CLI 命令]
     WebUI[Web 界面]
     MCP[MCP 服务]
-    
+
     subgraph Mate [Codex Mate 核心]
         API[HTTP API]
         Config[配置引擎]
@@ -110,7 +119,7 @@ flowchart TD
         Skills[Skills 市场]
         Tasks[任务运行器]
     end
-    
+
     subgraph Local [本地文件系统]
         CodexDir[~/.codex]
         ClaudeDir[~/.claude]
@@ -120,9 +129,9 @@ flowchart TD
 
     User --> CLI & WebUI & MCP
     CLI & WebUI & MCP --> API
-    
+
     API --> Config & Session & Skills & Tasks
-    
+
     Config --> CodexDir & ClaudeDir & ClawDir
     Session --> State
     Skills --> Local

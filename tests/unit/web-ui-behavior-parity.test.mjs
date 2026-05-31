@@ -350,8 +350,12 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'claudeLocalBridgeExcluded',
         'providersHealthLoading',
         'providersHealthResult',
+        'showAddClaudeConfigKey',
+        'showAddProviderKey',
         'showEditClaudeConfigKey',
-        'showEditProviderKey'
+        'showEditProviderKey',
+        'toolConfigPermissionSaving',
+        'toolConfigPermissions'
     ] : [
         'appVersion',
         '__mainTabSwitchState',
@@ -383,6 +387,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'claudeLocalBridgeExcluded',
         'providersHealthLoading',
         'providersHealthResult',
+        'showAddClaudeConfigKey',
+        'showAddProviderKey',
         'showEditClaudeConfigKey',
         'showEditProviderKey'
     ];
@@ -408,6 +414,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'promptTemplateVarDraftError',
         'promptTemplateVarDraftName',
         'showPromptTemplateVarModal',
+        'brandHovered',
     ];
     allowedExtraCurrentKeys.push(
         'lang',
@@ -448,7 +455,11 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'sessionSortMode',
         'sessionsUsageCompareEnabled',
         'sessionsUsageSelectedDayKey',
-        'currentModels'
+        'currentModels',
+        'openclawAccordionStep',
+        'openclawValidation',
+        'toolConfigPermissionSaving',
+        'toolConfigPermissions'
     );
     if (parityAgainstHead) {
         const allowedExtraKeySet = new Set(allowedExtraCurrentKeys);
@@ -557,8 +568,13 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'claudeLocalBridgeCandidateProviders',
         'claudeLocalBridgeConfigured',
         'syncClaudeBridgeProviders',
+        'toggleAddClaudeConfigKey',
+        'toggleAddProviderKey',
         'toggleEditClaudeConfigKey',
-        'toggleEditProviderKey'
+        'toggleEditProviderKey',
+        'isToolConfigWriteAllowed',
+        'toolConfigPermissionStatusLabel',
+        'setToolConfigPermission'
     ];
     allowedExtraCurrentMethodKeys.push(
         'hasActiveSessionFilters',
@@ -616,7 +632,20 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'pasteAgentsContent',
         'importSingleSkill',
         'openSkillsMenu',
-        'isClaudeLocalBridgeDisabled'
+        'isClaudeLocalBridgeDisabled',
+        'languageOptions',
+        'currentLanguageLabel',
+        'openLanguageSettings',
+        'isDefaultOpenclawConfig',
+        'getClaudeConfigValidation',
+        'claudeConfigFieldError',
+        'canSubmitClaudeConfig',
+        'toggleAccordionStep',
+        'nextAccordionStep',
+        'prevAccordionStep',
+        'finishAccordionStep',
+        'validateProviderName',
+        'validateModelId'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',

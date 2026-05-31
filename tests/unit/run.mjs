@@ -27,6 +27,7 @@ await import(pathToFileURL(path.join(__dirname, 'web-ui-source-bundle.test.mjs')
 await import(pathToFileURL(path.join(__dirname, 'startup-claude-star-prompt.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'install-methods.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'cli-help.test.mjs')));
+await import(pathToFileURL(path.join(__dirname, 'analytics-export-args.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'cli-network-utils.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'config-health-module.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'openclaw-core.test.mjs')));
@@ -51,6 +52,7 @@ await import(pathToFileURL(path.join(__dirname, 'codex-proxy-options.test.mjs'))
 await import(pathToFileURL(path.join(__dirname, 'builtin-proxy-responses-shim.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'claude-proxy-adapter.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'coderabbit-workflows.test.mjs')));
+await import(pathToFileURL(path.join(__dirname, 'release-changelog.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'ci-workflow-contract.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'lint-contract.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'npm-package-files.test.mjs')));
@@ -58,6 +60,7 @@ await import(pathToFileURL(path.join(__dirname, 'session-tab-switch-performance.
 await import(pathToFileURL(path.join(__dirname, 'session-trash-state.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'web-ui-restart.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'web-ui-behavior-parity.test.mjs')));
+await import(pathToFileURL(path.join(__dirname, 'i18n-locales.test.mjs')));
 await import(pathToFileURL(path.join(__dirname, 'web-run-host.test.mjs')));
 
 let failures = 0;

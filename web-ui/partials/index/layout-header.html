@@ -93,27 +93,12 @@
                 @click="onMainTabClick('settings', $event)">{{ t('tab.settings') }}</button>
         </div>
 
-        <div v-if="!sessionStandalone" class="lang-fab" role="group" :aria-label="t('lang.label')">
-            <div class="lang-choice" role="group" :aria-label="t('lang.label')">
-                <button
-                    type="button"
-                    class="lang-choice-btn"
-                    :aria-pressed="(lang || 'zh') === 'zh'"
-                    :class="{ active: (lang || 'zh') === 'zh' }"
-                    @click="setLang('zh')">ZH</button>
-                <button
-                    type="button"
-                    class="lang-choice-btn"
-                    :aria-pressed="(lang || 'zh') === 'en'"
-                    :class="{ active: (lang || 'zh') === 'en' }"
-                    @click="setLang('en')">EN</button>
-                <button
-                    type="button"
-                    class="lang-choice-btn"
-                    :aria-pressed="(lang || 'zh') === 'ja'"
-                    :class="{ active: (lang || 'zh') === 'ja' }"
-                    @click="setLang('ja')">日本語</button>
-            </div>
+        <div v-if="!sessionStandalone" class="lang-fab">
+            <button
+                type="button"
+                class="language-settings-link"
+                :aria-label="t('settings.language.sideLabel', { language: currentLanguageLabel() })"
+                @click="openLanguageSettings">{{ t('settings.language.sideLabel', { language: currentLanguageLabel() }) }}</button>
         </div>
 
         <div :class="['app-shell', { standalone: sessionStandalone }]">
@@ -122,10 +107,9 @@
                     <div class="brand-head">
                         <img class="brand-logo" src="/res/logo-pack.webp" alt="Codex Mate logo">
                         <div class="brand-copy">
-                            <div class="brand-kicker">Codex Mate <span v-if="appVersion" class="brand-version">v{{ appVersion }}</span></div>
+                            <div class="brand-kicker">Codex Mate<span v-if="appVersion" class="brand-version"> v{{ appVersion }}</span></div>
                         </div>
                     </div>
-                    <div class="brand-subtitle">{{ t('brand.subtitle.localConfigSessionsWorkspace') }}</div>
                 </div>
 
                 <div class="side-rail-nav">
@@ -283,7 +267,7 @@
                         <div class="side-item-title">{{ t('side.plugins.tools') }}</div>
                         <div class="side-item-meta">
                             <span>{{ t('side.plugins.tools.meta') }}</span>
-                            <span>{{ promptTemplatesList.length }} templates</span>
+                            <span>{{ t('side.plugins.templatesCount', { count: promptTemplatesList.length }) }}</span>
                         </div>
                     </button>
                 </div>
@@ -309,36 +293,25 @@
                         :class="['side-item', { active: isMainTabNavActive('trash') }]"
                         @pointerdown="onMainTabPointerDown('trash', $event)"
                         @click="onMainTabClick('trash', $event)">
-                        <div class="side-item-title">回收站</div>
+                        <div class="side-item-title">{{ t('settings.trash.title') }}</div>
                         <div class="side-item-meta">
-                            <span>已删除会话</span>
+                            <span>{{ t('settings.trash.meta') }}</span>
                             <span v-if="sessionTrashCount > 0" class="side-item-badge">{{ sessionTrashCount }}</span>
                         </div>
                     </button>
                 </div>
+                <div id="side-tab-new" class="side-item side-item-ghost" tabindex="-1" aria-hidden="true">
+                    <div class="side-item-title">{{ t('side.newTab') }}</div>
+                    <div class="side-item-meta"><span>&nbsp;</span></div>
+                </div>
                 </div>
 
-                <div class="side-rail-lang" role="group" :aria-label="t('lang.label')">
-                    <div class="lang-choice" role="group" :aria-label="t('lang.label')">
-                        <button
-                            type="button"
-                            class="lang-choice-btn"
-                            :aria-pressed="(lang || 'zh') === 'zh'"
-                            :class="{ active: (lang || 'zh') === 'zh' }"
-                            @click="setLang('zh')">ZH</button>
-                        <button
-                            type="button"
-                            class="lang-choice-btn"
-                            :aria-pressed="(lang || 'zh') === 'en'"
-                            :class="{ active: (lang || 'zh') === 'en' }"
-                            @click="setLang('en')">EN</button>
-                        <button
-                            type="button"
-                            class="lang-choice-btn"
-                            :aria-pressed="(lang || 'zh') === 'ja'"
-                            :class="{ active: (lang || 'zh') === 'ja' }"
-                            @click="setLang('ja')">日本語</button>
-                    </div>
+                <div class="side-rail-lang">
+                    <button
+                        type="button"
+                        class="language-settings-link"
+                        :aria-label="t('settings.language.sideLabel', { language: currentLanguageLabel() })"
+                        @click="openLanguageSettings">{{ t('settings.language.sideLabel', { language: currentLanguageLabel() }) }}</button>
                 </div>
             </aside>
             <main class="main-panel">

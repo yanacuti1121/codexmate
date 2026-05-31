@@ -15,6 +15,7 @@
 [![Version](https://img.shields.io/npm/v/codexmate?style=flat-square&color=A179FF)](https://www.npmjs.com/package/codexmate)
 [![Build](https://img.shields.io/github/actions/workflow/status/SakuraByteCore/codexmate/release.yml?style=flat-square&color=44cc11)](https://github.com/SakuraByteCore/codexmate/actions/workflows/release.yml)
 [![Downloads](https://img.shields.io/npm/dt/codexmate?style=flat-square)](https://www.npmjs.com/package/codexmate)
+[![Install](https://img.shields.io/badge/install-brew%20%7C%20curl%20%7C%20npm-0A0?style=flat-square)](#install-via-homebrew-macos--linux)
 [![Platform](https://img.shields.io/badge/platform-Termux%20%7C%20Linux%20%7C%20macOS%20%7C%20Windows-555?style=flat-square)](#quick-start)
 [![Node](https://img.shields.io/node/v/codexmate?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/npm/l/codexmate?style=flat-square)](LICENSE)
@@ -70,11 +71,19 @@ Unlike simple wrappers, Codex Mate acts as a **Local Agent Bridge**:
 
 ## Quick Start
 
+### Install via Homebrew (macOS / Linux)
+
+```bash
+brew tap SakuraByteCore/codexmate
+brew install codexmate
+```
+
+Requires [Node.js](https://nodejs.org/) (`brew install node` if not present).
+
 ### Install via npm
 
 ```bash
 npm install -g codexmate
-codexmate setup
 codexmate run
 ```
 
@@ -102,7 +111,7 @@ flowchart TD
     CLI[CLI]
     WebUI[Web UI]
     MCP[MCP Server]
-    
+
     subgraph Mate [Codex Mate Core]
         API[HTTP API]
         Config[Config Engine]
@@ -110,7 +119,7 @@ flowchart TD
         Skills[Skills Market]
         Tasks[Task Runner]
     end
-    
+
     subgraph Local [Local Filesystem]
         CodexDir[~/.codex]
         ClaudeDir[~/.claude]
@@ -120,9 +129,9 @@ flowchart TD
 
     User --> CLI & WebUI & MCP
     CLI & WebUI & MCP --> API
-    
+
     API --> Config & Session & Skills & Tasks
-    
+
     Config --> CodexDir & ClaudeDir & ClawDir
     Session --> State
     Skills --> Local

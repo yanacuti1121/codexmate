@@ -168,7 +168,8 @@ module.exports = async function testClaudeProxy(ctx) {
         const addProvider = await api('add-provider', {
             name: 'claude-proxy-e2e',
             url: upstreamUrl,
-            key: 'sk-claude-upstream'
+            key: 'sk-claude-upstream',
+            model: 'claude-proxy-e2e-model'
         });
         assert(addProvider.success === true, 'add-provider(claude-proxy-e2e) failed');
 
@@ -349,6 +350,7 @@ module.exports = async function testClaudeProxy(ctx) {
             name: 'claude-proxy-openai-bridge-e2e',
             url: upstreamUrl,
             key: 'sk-bridge-upstream',
+            model: 'gpt-4.1',
             useTransform: true
         });
         assert(addBridgeProvider.success === true, 'add-provider(claude-proxy-openai-bridge-e2e) failed');

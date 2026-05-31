@@ -62,11 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageType: '',
                 showAddModal: false,
                 showEditModal: false,
+                showAddProviderKey: false,
                 showEditProviderKey: false,
                 showModelModal: false,
                 showModelListModal: false,
                 showClaudeConfigModal: false,
                 showEditConfigModal: false,
+                showAddClaudeConfigKey: false,
                 showEditClaudeConfigKey: false,
                 showOpenclawConfigModal: false,
                 showConfigTemplateModal: false,
@@ -268,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 installRegistryPreset: 'default',
                 installRegistryCustom: '',
                 installStatusTargets: null,
-                newProvider: { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' },
+                newProvider: { name: '', url: '', key: '', model: '', useTransform: false },
                 resetConfigLoading: false,
                 editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
                 newModelName: '',
@@ -295,7 +297,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentOpenclawConfig: '',
                 openclawConfigs: {
                     '默认配置': {
-                        content: DEFAULT_OPENCLAW_TEMPLATE
+                        content: DEFAULT_OPENCLAW_TEMPLATE,
+                        isDefault: true
                     }
                 },
                 openclawEditing: { name: '', content: '', lockName: false },
@@ -345,6 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     overrideModels: true,
                     showKey: false
                 },
+                openclawAccordionStep: 1,
+                openclawValidation: {
+                    providerName: { valid: true, message: '' },
+                    modelId: { valid: true, message: '' }
+                },
                 openclawAgentsList: [],
                 openclawProviders: [],
                 openclawMissingProviders: [],
@@ -360,6 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 codexDownloadProgress: 0,
                 codexDownloadTimer: null,
                 settingsTab: 'general',
+                toolConfigPermissions: { codex: false, claude: false },
+                toolConfigPermissionSaving: { codex: false, claude: false },
                 sessionTrashEnabled: true,
                 sessionTrashItems: [],
                 sessionTrashVisibleCount: SESSION_TRASH_PAGE_SIZE,
@@ -573,7 +583,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         : { content: DEFAULT_OPENCLAW_TEMPLATE };
                 const normalized = {
                     '默认配置': {
-                        content: typeof defaultEntry.content === 'string' ? defaultEntry.content : DEFAULT_OPENCLAW_TEMPLATE
+                        content: typeof defaultEntry.content === 'string' ? defaultEntry.content : DEFAULT_OPENCLAW_TEMPLATE,
+                        isDefault: true
                     }
                 };
                 for (const [name, value] of Object.entries(source)) {
