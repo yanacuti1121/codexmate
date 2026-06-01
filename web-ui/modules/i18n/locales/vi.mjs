@@ -66,6 +66,7 @@ const vi = Object.freeze({
     'common.resetFilters': 'Đặt lại bộ lọc',
     'common.notEditable': 'Không thể chỉnh sửa',
     'common.notDeletable': 'Không thể xóa',
+    'common.temporarilyDisabled': 'tạm thời vô hiệu hóa',
     'common.notLoaded': 'Chưa tải',
     'common.exists': 'Đã tồn tại',
     'common.notExistsWillCreateOnApply': 'Không tồn tại. Sẽ được tạo khi áp dụng.',

@@ -57,6 +57,7 @@ const ja = Object.freeze({
     'common.resetFilters': 'フィルターをリセット',
     'common.notEditable': '編集不可',
     'common.notDeletable': '削除不可',
+    'common.temporarilyDisabled': '一時的に無効',
     'common.notLoaded': '未読み込み',
     'common.exists': '存在します',
     'common.notExistsWillCreateOnApply': '存在しません。適用時に作成されます',

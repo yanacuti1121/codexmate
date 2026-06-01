@@ -145,7 +145,7 @@
                     </div>
                     <div v-for="(config, name) in claudeConfigs" :key="name" :class="['card', { active: currentClaudeConfig === name }]" @click="applyClaudeConfig(name)" @keydown.enter.self.prevent="applyClaudeConfig(name)" @keydown.space.self.prevent="applyClaudeConfig(name)" tabindex="0" role="button" :aria-current="currentClaudeConfig === name ? 'true' : null">
                         <div class="card-leading">
-                            <div class="card-icon">{{ name.charAt(0).toUpperCase() }}</div>
+                            <div class="card-icon">{{ name.charAt(0).toUpperCase() }}<span v-if="config.targetApi === 'chat_completions' || config.targetApi === 'ollama'" class="card-icon-dot" :title="t('config.transformProvider.title')"></span></div>
                             <div class="card-content">
                                 <div class="card-title">{{ name }}</div>
                                 <div class="card-subtitle card-subtitle-model">{{ config.model || t('claude.model.unset') }}</div>

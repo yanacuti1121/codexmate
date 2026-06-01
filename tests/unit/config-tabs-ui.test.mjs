@@ -284,6 +284,14 @@ test('config template keeps expected config tabs in top and side navigation', ()
     );
     assert.match(
         html,
+        /<div class="card-icon">\{\{\s*name\.charAt\(0\)\.toUpperCase\(\)\s*\}\}<span v-if="config\.targetApi === 'chat_completions' \|\| config\.targetApi === 'ollama'" class="card-icon-dot" :title="t\('config\.transformProvider\.title'\)"><\/span><\/div>/
+    );
+    assert.match(
+        html,
+        /<option value="ollama" disabled>\{\{\s*t\('claude\.targetApi\.ollama'\)\s*\}\} · \{\{\s*t\('common\.temporarilyDisabled'\)\s*\}\}<\/option>/
+    );
+    assert.match(
+        html,
         /<span v-if="claudeSpeedResults\[name\]"[\s\S]*class="\['latency', claudeSpeedResults\[name\]\.ok \? 'ok' : 'error'\]"[\s\S]*>\s*\{\{\s*formatLatency\(claudeSpeedResults\[name\]\)\s*\}\}\s*<\/span>[\s\S]*<span :class="\['pill', config\.hasKey \? 'configured' : 'empty'\]">/
     );
     assert.match(
