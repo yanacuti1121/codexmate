@@ -325,6 +325,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
     const missingCurrentKeys = headDataKeys.filter((key) => !currentDataKeys.includes(key)).sort();
     const allowedExtraCurrentKeys = parityAgainstHead ? [
         'appVersion',
+        'appLatestVersion',
+        'appVersionStatusError',
+        'appVersionStatusLoading',
         'sessionListInitialBatchSize',
         'sessionListLoadStep',
         'sessionListVisibleCount',
@@ -358,6 +361,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'toolConfigPermissions'
     ] : [
         'appVersion',
+        'appLatestVersion',
+        'appVersionStatusError',
+        'appVersionStatusLoading',
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
         'openclawPendingAuthProfileUpdates',
@@ -577,6 +583,13 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'setToolConfigPermission'
     ];
     allowedExtraCurrentMethodKeys.push(
+        'normalizePackageVersion',
+        'comparePackageVersions',
+        'isAppUpdateAvailable',
+        'appUpdateNoticeText',
+        'appUpdateNoticeMeta',
+        'loadAppVersionStatus',
+        'openAppUpdateDocs',
         'hasActiveSessionFilters',
         'getSessionFilterChips',
         'clearSessionFilterChip',

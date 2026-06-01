@@ -1,4 +1,5 @@
-export function createInstallMethods() {
+export function createInstallMethods(options = {}) {
+    const { api } = options;
     return {
         normalizeInstallPackageManager(value) {
             const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -14,6 +15,87 @@ export function createInstallMethods() {
                 return normalized;
             }
             return 'install';
+        },
+
+        normalizePackageVersion(value) {
+            const normalized = typeof value === 'string' ? value.trim().replace(/^v/i, '') : '';
+            return /^\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.-]+)?$/.test(normalized) ? normalized : '';
+        },
+
+        comparePackageVersions(left, right) {
+            const normalizeParts = (value) => {
+                const normalized = this.normalizePackageVersion(value);
+                if (!normalized) return null;
+                return normalized.split(/[+-]/)[0].split('.').map((part) => Number.parseInt(part, 10) || 0);
+            };
+            const a = normalizeParts(left);
+            const b = normalizeParts(right);
+            if (!a || !b) return 0;
+            for (let i = 0; i < 3; i += 1) {
+                const diff = (a[i] || 0) - (b[i] || 0);
+                if (diff < 0) return -1;
+                if (diff > 0) return 1;
+            }
+            return 0;
+        },
+
+        isAppUpdateAvailable() {
+            const current = this.normalizePackageVersion(this.appVersion);
+            const latest = this.normalizePackageVersion(this.appLatestVersion);
+            if (!current || !latest) return false;
+            return this.comparePackageVersions(current, latest) < 0;
+        },
+
+        appUpdateNoticeText() {
+            const latest = this.normalizePackageVersion(this.appLatestVersion);
+            return latest
+                ? this.t('side.update.availableWithVersion', { version: latest })
+                : this.t('side.update.available');
+        },
+
+        appUpdateNoticeMeta() {
+            const current = this.normalizePackageVersion(this.appVersion);
+            const latest = this.normalizePackageVersion(this.appLatestVersion);
+            if (current && latest) {
+                return this.t('side.update.metaVersions', { current, latest });
+            }
+            return this.t('side.update.meta');
+        },
+
+        async loadAppVersionStatus(options = {}) {
+            if (typeof api !== 'function') return false;
+            if (this.appVersionStatusLoading) return false;
+            this.appVersionStatusLoading = true;
+            this.appVersionStatusError = '';
+            try {
+                const res = await api('version-status');
+                if (res && res.currentVersion && !this.appVersion) {
+                    this.appVersion = this.normalizePackageVersion(res.currentVersion) || String(res.currentVersion || '');
+                }
+                if (res && res.latestVersion) {
+                    this.appLatestVersion = this.normalizePackageVersion(res.latestVersion) || String(res.latestVersion || '');
+                }
+                if (res && res.error) {
+                    this.appVersionStatusError = res.error;
+                    if (!options.silent) this.showMessage(res.error, 'error');
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                const message = e && e.message ? e.message : this.t('side.update.checkFailed');
+                this.appVersionStatusError = message;
+                if (!options.silent) this.showMessage(message, 'error');
+                return false;
+            } finally {
+                this.appVersionStatusLoading = false;
+            }
+        },
+
+        openAppUpdateDocs() {
+            this.installCommandAction = 'update';
+            if (typeof this.switchMainTab === 'function') {
+                this.switchMainTab('docs');
+            }
         },
 
         normalizeInstallRegistryPreset(value) {

@@ -163,7 +163,22 @@ return function render(_ctx, _cache) {
                       : _createCommentVNode("v-if", true)
                   ])
                 ])
-              ])
+              ]),
+              (_ctx.isAppUpdateAvailable())
+                ? (_openBlock(), _createElementBlock("button", {
+                    key: 0,
+                    type: "button",
+                    class: "side-update-notice",
+                    title: _ctx.appUpdateNoticeMeta(),
+                    onClick: _ctx.openAppUpdateDocs
+                  }, [
+                    _createElementVNode("span", { class: "side-update-dot" }),
+                    _createElementVNode("span", { class: "side-update-copy" }, [
+                      _createElementVNode("span", { class: "side-update-title" }, _toDisplayString(_ctx.appUpdateNoticeText()), 1 /* TEXT */),
+                      _createElementVNode("span", { class: "side-update-meta" }, _toDisplayString(_ctx.appUpdateNoticeMeta()), 1 /* TEXT */)
+                    ])
+                  ], 8 /* PROPS */, ["title", "onClick"]))
+                : _createCommentVNode("v-if", true)
             ]),
             _createElementVNode("div", { class: "side-rail-nav" }, [
               _createElementVNode("div", {

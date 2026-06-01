@@ -110,6 +110,18 @@
                             <div class="brand-kicker">Codex Mate<span v-if="appVersion" class="brand-version"> v{{ appVersion }}</span></div>
                         </div>
                     </div>
+                    <button
+                        v-if="isAppUpdateAvailable()"
+                        type="button"
+                        class="side-update-notice"
+                        :title="appUpdateNoticeMeta()"
+                        @click="openAppUpdateDocs">
+                        <span class="side-update-dot"></span>
+                        <span class="side-update-copy">
+                            <span class="side-update-title">{{ appUpdateNoticeText() }}</span>
+                            <span class="side-update-meta">{{ appUpdateNoticeMeta() }}</span>
+                        </span>
+                    </button>
                 </div>
 
                 <div class="side-rail-nav">

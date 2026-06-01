@@ -89,7 +89,7 @@ export function createAppMethods() {
             api,
             defaultOpenclawTemplate: DEFAULT_OPENCLAW_TEMPLATE
         }),
-        ...createInstallMethods(),
+        ...createInstallMethods({ api }),
         ...createRuntimeMethods({ api }),
         ...createTaskOrchestrationMethods({ api })
     };

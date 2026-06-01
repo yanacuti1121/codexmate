@@ -64,22 +64,41 @@ async function cmdToolUpdate(args = []) {
     }
 }
 
-async function fetchLatestVersion() {
+async function fetchLatestVersion(options = {}) {
     return new Promise((resolve, reject) => {
+        const timeoutMs = Number.isFinite(Number(options.timeoutMs))
+            ? Math.max(0, Number(options.timeoutMs))
+            : 5000;
         const url = 'https://registry.npmjs.org/codexmate/latest';
-        https.get(url, (res) => {
+        let settled = false;
+        const finish = (fn, value) => {
+            if (settled) return;
+            settled = true;
+            fn(value);
+        };
+        const req = https.get(url, (res) => {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
                 try {
+                    if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+                        finish(reject, new Error(`NPM registry returned ${res.statusCode}`));
+                        return;
+                    }
                     const json = JSON.parse(data);
-                    resolve(json.version || '');
+                    finish(resolve, json.version || '');
                 } catch (e) {
-                    reject(new Error('解析 NPM 响应失败'));
+                    finish(reject, new Error('解析 NPM 响应失败'));
                 }
             });
-        }).on('error', (err) => {
-            reject(err);
+        });
+        if (timeoutMs > 0) {
+            req.setTimeout(timeoutMs, () => {
+                req.destroy(new Error('获取 NPM 最新版本超时'));
+            });
+        }
+        req.on('error', (err) => {
+            finish(reject, err);
         });
     });
 }
@@ -167,5 +186,6 @@ function updateViaStandalone(version) {
 }
 
 module.exports = {
-    cmdToolUpdate
+    cmdToolUpdate,
+    fetchLatestVersion
 };

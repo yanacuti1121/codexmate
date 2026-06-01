@@ -270,6 +270,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 installRegistryPreset: 'default',
                 installRegistryCustom: '',
                 installStatusTargets: null,
+                appLatestVersion: '',
+                appVersionStatusLoading: false,
+                appVersionStatusError: '',
                 newProvider: { name: '', url: '', key: '', model: '', useTransform: false },
                 resetConfigLoading: false,
                 editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
@@ -629,6 +632,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 void this.runProvidersHealthCheck({ remote: true });
                             }
                         }
+                    }
+                    if (typeof this.loadAppVersionStatus === 'function') {
+                        void this.loadAppVersionStatus({ silent: true });
                     }
                     void this.refreshClaudeSelectionFromSettings({ silent: true });
                     void this.syncDefaultOpenclawConfigEntry({ silent: true });

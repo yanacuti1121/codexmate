@@ -148,7 +148,7 @@ const {
     deleteCodexSkills
 } = require('./cli/skills');
 const { cmdImportSkills: cmdImportSkillsFromUrl } = require('./cli/import-skills-url');
-const { cmdToolUpdate } = require('./cli/update');
+const { cmdToolUpdate, fetchLatestVersion } = require('./cli/update');
 const {
     getFileStatSafe,
     isBootstrapLikeText,
@@ -11073,6 +11073,27 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                         case 'install-status':
                             result = buildInstallStatusReport();
                             break;
+                        case 'version-status': {
+                            const currentVersion = (() => {
+                                try {
+                                    const pkg = require('./package.json');
+                                    return pkg && pkg.version ? pkg.version : '';
+                                } catch (_) {
+                                    return '';
+                                }
+                            })();
+                            try {
+                                const latestVersion = await fetchLatestVersion({ timeoutMs: 2000 });
+                                result = { currentVersion, latestVersion };
+                            } catch (e) {
+                                result = {
+                                    currentVersion,
+                                    latestVersion: '',
+                                    error: e && e.message ? e.message : '获取最新版本失败'
+                                };
+                            }
+                            break;
+                        }
                         case 'list':
                             result = buildMcpProviderListPayload();
                             break;

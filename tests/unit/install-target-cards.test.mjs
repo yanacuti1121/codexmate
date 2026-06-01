@@ -42,3 +42,37 @@ test('installTargetCards falls back when install-status is missing', () => {
     assert(codex.termuxCommand.includes('@mmmbuto/codex-cli-termux'));
 });
 
+test('app update notice only appears when latest package version is newer', () => {
+    const ctx = createContext({
+        appVersion: '0.0.40',
+        appLatestVersion: '0.0.41',
+        t(key, params = {}) {
+            if (key === 'side.update.availableWithVersion') return `Update v${params.version}`;
+            if (key === 'side.update.metaVersions') return `${params.current}->${params.latest}`;
+            return key;
+        }
+    });
+
+    assert.strictEqual(ctx.comparePackageVersions('0.0.40', '0.0.41'), -1);
+    assert.strictEqual(ctx.comparePackageVersions('0.0.41', '0.0.40'), 1);
+    assert.strictEqual(ctx.comparePackageVersions('v0.0.41', '0.0.41'), 0);
+    assert.strictEqual(ctx.isAppUpdateAvailable(), true);
+    assert.strictEqual(ctx.appUpdateNoticeText(), 'Update v0.0.41');
+    assert.strictEqual(ctx.appUpdateNoticeMeta(), '0.0.40->0.0.41');
+
+    ctx.appLatestVersion = '0.0.40';
+    assert.strictEqual(ctx.isAppUpdateAvailable(), false);
+});
+
+test('openAppUpdateDocs switches to docs update command without running update', () => {
+    const calls = [];
+    const ctx = createContext({
+        installCommandAction: 'install',
+        switchMainTab(tab) { calls.push(tab); }
+    });
+
+    ctx.openAppUpdateDocs();
+
+    assert.strictEqual(ctx.installCommandAction, 'update');
+    assert.deepStrictEqual(calls, ['docs']);
+});

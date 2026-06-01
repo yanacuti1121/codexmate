@@ -507,6 +507,61 @@ body::after {
     -webkit-text-fill-color: #8e8e93;
 }
 
+.side-update-notice {
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px 9px;
+    border: 1px solid rgba(200, 121, 99, 0.16);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.52);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: none;
+    transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.side-update-notice:hover {
+    border-color: rgba(200, 121, 99, 0.30);
+    background: rgba(255, 255, 255, 0.74);
+    color: var(--color-text-primary);
+}
+
+.side-update-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(200, 121, 99, 0.72);
+    box-shadow: 0 0 0 4px rgba(200, 121, 99, 0.08);
+    flex-shrink: 0;
+}
+
+.side-update-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.side-update-title {
+    font-size: 11px;
+    line-height: 1.25;
+    font-weight: 650;
+    color: inherit;
+}
+
+.side-update-meta {
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .brand-version-fade-enter-active,
 .brand-version-fade-leave-active {
     transition: opacity 0.2s var(--ease-smooth);
