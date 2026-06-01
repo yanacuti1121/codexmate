@@ -122,8 +122,13 @@ const resolveWebHostSource = extractFunctionBySignature(
 );
 const cmdStartSource = extractFunctionBySignature(
     cliContent,
-    'function cmdStart(options = {}) {',
+    'async function cmdStart(options = {}) {',
     'cmdStart'
+);
+const resolveAvailableWebPortSource = extractFunctionBySignature(
+    cliContent,
+    'async function resolveAvailableWebPort(port, host, options = {}) {',
+    'resolveAvailableWebPort'
 );
 const releaseRunPortIfNeededSource = extractFunctionBySignature(
     cliContent,
@@ -156,6 +161,83 @@ test('resolveWebHost still prefers environment host over default host', () => {
     });
 
     assert.strictEqual(withEnv({}), '192.168.1.10');
+});
+
+function createPortProbeNetMock(outcomes = {}) {
+    const checkedPorts = [];
+    return {
+        checkedPorts,
+        createServer() {
+            const handlers = {};
+            return {
+                once(event, handler) {
+                    handlers[event] = handler;
+                    return this;
+                },
+                listen(port) {
+                    checkedPorts.push(port);
+                    const outcome = outcomes[port] || 'available';
+                    setImmediate(() => {
+                        if (outcome === 'available') {
+                            if (handlers.listening) handlers.listening();
+                            return;
+                        }
+                        if (handlers.error) {
+                            handlers.error({ code: outcome, message: `${outcome} ${port}` });
+                        }
+                    });
+                },
+                close(callback) {
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            };
+        }
+    };
+}
+
+test('resolveAvailableWebPort auto-increments only for the implicit default port', async () => {
+    const netMock = createPortProbeNetMock({
+        3737: 'EADDRINUSE',
+        3738: 'EACCES',
+        3739: 'available'
+    });
+    const resolveAvailableWebPort = instantiateFunction(resolveAvailableWebPortSource, 'resolveAvailableWebPort', {
+        net: netMock
+    });
+
+    const result = await resolveAvailableWebPort(3737, '127.0.0.1', { net: netMock });
+
+    assert.strictEqual(result.port, 3739);
+    assert.strictEqual(result.requestedPort, 3737);
+    assert.strictEqual(result.changed, true);
+    assert.deepStrictEqual(netMock.checkedPorts, [3737, 3738, 3739]);
+    assert.deepStrictEqual(result.attempts, [
+        { port: 3737, available: false, code: 'EADDRINUSE' },
+        { port: 3738, available: false, code: 'EACCES' },
+        { port: 3739, available: true, code: '' }
+    ]);
+});
+
+test('resolveAvailableWebPort does not probe or increment explicit ports', async () => {
+    const netMock = createPortProbeNetMock({
+        8080: 'EADDRINUSE'
+    });
+    const resolveAvailableWebPort = instantiateFunction(resolveAvailableWebPortSource, 'resolveAvailableWebPort', {
+        net: netMock
+    });
+
+    const result = await resolveAvailableWebPort(8080, '127.0.0.1', {
+        explicitPort: true,
+        net: netMock
+    });
+
+    assert.strictEqual(result.port, 8080);
+    assert.strictEqual(result.explicitPort, true);
+    assert.strictEqual(result.changed, false);
+    assert.deepStrictEqual(result.attempts, []);
+    assert.deepStrictEqual(netMock.checkedPorts, []);
 });
 
 test('web auto-open uses IPv6 loopback when binding to IPv6 any address', () => {
@@ -427,13 +509,16 @@ test('releaseRunPortIfNeeded only taskkills Windows listeners that match host an
 test('cmdStart releases the resolved port before creating the web server', () => {
     const resolveIndex = cmdStartSource.indexOf('resolveWebPort(');
     const releaseIndex = cmdStartSource.indexOf('releaseRunPortIfNeeded(port, host)');
+    const selectIndex = cmdStartSource.indexOf('resolveAvailableWebPort(port, host');
     const createIndex = cmdStartSource.indexOf('createWebServer(');
 
     assert(resolveIndex >= 0, 'cmdStart should resolve the web port');
     assert(releaseIndex >= 0, 'cmdStart should release the run port with host before startup');
+    assert(selectIndex >= 0, 'cmdStart should select an available port before startup');
     assert(createIndex >= 0, 'cmdStart should create the web server');
     assert(resolveIndex < releaseIndex, 'cmdStart should resolve the port before releasing it');
-    assert(releaseIndex < createIndex, 'cmdStart should release the port before creating the web server');
+    assert(releaseIndex < selectIndex, 'cmdStart should release the port before probing availability');
+    assert(selectIndex < createIndex, 'cmdStart should select the port before creating the web server');
 });
 
 const getCodexSkillsDirSource = extractFunctionBySignature(
@@ -812,6 +897,104 @@ test('createWebServer returns 500 when fallback bundled html generation throws',
     assertInternalServerErrorResponse(response);
     assert.deepStrictEqual(errors, [
         ['! Web UI 资源读取失败 [/]:', 'fallback html failed']
+    ]);
+});
+
+test('createWebServer prints port override guidance for EACCES listen errors', () => {
+    let errorHandler = null;
+    let exitCode = null;
+    const errors = [];
+    const createWebServer = instantiateFunction(createWebServerSource, 'createWebServer', {
+        http: {
+            createServer() {
+                return {
+                    listening: false,
+                    on() {},
+                    once(event, handler) {
+                        if (event === 'error') {
+                            errorHandler = handler;
+                        }
+                    },
+                    listen() {},
+                    close(callback) {
+                        if (typeof callback === 'function') {
+                            callback();
+                        }
+                    }
+                };
+            }
+        },
+        path,
+        __dirname: '/repo',
+        readBundledWebUiHtml() {
+            return '<!doctype html>';
+        },
+        PUBLIC_WEB_UI_DYNAMIC_ASSETS: new Map(),
+        PUBLIC_WEB_UI_STATIC_ASSETS: new Set(),
+        isPathInside() {
+            return true;
+        },
+        fs: {
+            existsSync() {
+                return false;
+            },
+            statSync() {
+                return {
+                    isFile() {
+                        return false;
+                    }
+                };
+            },
+            createReadStream() {
+                throw new Error('unexpected static asset read');
+            }
+        },
+        formatHostForUrl(value) {
+            return value;
+        },
+        DEFAULT_WEB_OPEN_HOST: '127.0.0.1',
+        isAnyAddressHost() {
+            return false;
+        },
+        process: {
+            env: {},
+            platform: 'linux',
+            exit(code) {
+                exitCode = code;
+            }
+        },
+        exec() {},
+        console: {
+            log() {},
+            warn() {},
+            error(...args) {
+                errors.push(args);
+            }
+        },
+        setTimeout,
+        Buffer,
+        startWinTray() {}
+    });
+
+    createWebServer({
+        htmlPath: '/repo/web-ui/index.html',
+        assetsDir: '/repo/res',
+        webDir: '/repo/web-ui',
+        host: '127.0.0.1',
+        port: 3737,
+        openBrowser: false
+    });
+
+    assert.strictEqual(typeof errorHandler, 'function');
+    errorHandler({ code: 'EACCES', message: 'listen EACCES: permission denied 127.0.0.1:3737' });
+
+    assert.strictEqual(exitCode, 1);
+    assert.deepStrictEqual(errors, [
+        ['! 启动失败: 没有权限监听 127.0.0.1:3737。'],
+        ['  请检查系统/安全软件限制，或更换端口后重试。'],
+        ['  临时换端口（macOS/Linux）: CODEXMATE_PORT=8080 codexmate run'],
+        ['  临时换端口（Windows PowerShell）: $env:CODEXMATE_PORT=8080; codexmate run'],
+        ['  临时换端口（Windows CMD）: set CODEXMATE_PORT=8080 && codexmate run']
     ]);
 });
 

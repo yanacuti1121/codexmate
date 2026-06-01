@@ -359,6 +359,91 @@ function resolveWebPort() {
     return parsed;
 }
 
+function isWebPortExplicit() {
+    return typeof process.env.CODEXMATE_PORT === 'string' && process.env.CODEXMATE_PORT.trim().length > 0;
+}
+
+async function resolveAvailableWebPort(port, host, options = {}) {
+    const explicitPort = !!options.explicitPort;
+    const maxAttemptsRaw = Number.isFinite(options.maxAttempts) ? options.maxAttempts : parseInt(options.maxAttempts, 10);
+    const maxAttempts = Number.isFinite(maxAttemptsRaw) && maxAttemptsRaw > 0 ? Math.floor(maxAttemptsRaw) : 20;
+    const netModule = options.net || net;
+    const requestedPort = parseInt(String(port), 10);
+    if (!Number.isFinite(requestedPort) || requestedPort <= 0 || explicitPort) {
+        return {
+            port,
+            requestedPort: port,
+            explicitPort,
+            changed: false,
+            attempts: []
+        };
+    }
+
+    const attempts = [];
+    const checkPort = (candidatePort) => new Promise((resolve) => {
+        const tester = netModule.createServer();
+        let settled = false;
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            resolve(result);
+        };
+        tester.once('error', (error) => {
+            finish({
+                available: false,
+                code: error && error.code ? String(error.code) : '',
+                message: error && error.message ? String(error.message) : ''
+            });
+        });
+        tester.once('listening', () => {
+            tester.close(() => finish({ available: true, code: '', message: '' }));
+        });
+        try {
+            tester.listen(candidatePort, host);
+        } catch (error) {
+            finish({
+                available: false,
+                code: error && error.code ? String(error.code) : '',
+                message: error && error.message ? String(error.message) : String(error)
+            });
+        }
+    });
+
+    const lastPort = Math.min(65535, requestedPort + maxAttempts - 1);
+    for (let candidatePort = requestedPort; candidatePort <= lastPort; candidatePort += 1) {
+        const result = await checkPort(candidatePort);
+        attempts.push({ port: candidatePort, available: !!result.available, code: result.code || '' });
+        if (result.available) {
+            return {
+                port: candidatePort,
+                requestedPort,
+                explicitPort: false,
+                changed: candidatePort !== requestedPort,
+                attempts
+            };
+        }
+        if (result.code !== 'EADDRINUSE' && result.code !== 'EACCES') {
+            return {
+                port: requestedPort,
+                requestedPort,
+                explicitPort: false,
+                changed: false,
+                attempts,
+                error: result.message || result.code || 'port probe failed'
+            };
+        }
+    }
+
+    return {
+        port: requestedPort,
+        requestedPort,
+        explicitPort: false,
+        changed: false,
+        attempts,
+        error: `no available port found from ${requestedPort} to ${lastPort}`
+    };
+}
+
 // #region releaseRunPortIfNeeded
 function releaseRunPortIfNeeded(port, host, deps = {}) {
     const numericPort = parseInt(String(port), 10);
@@ -11792,10 +11877,22 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         socket.on('close', () => connections.delete(socket));
     });
 
+    const printPortOverrideHint = () => {
+        const examplePort = port === 8080 ? 8081 : 8080;
+        console.error(`  临时换端口（macOS/Linux）: CODEXMATE_PORT=${examplePort} codexmate run`);
+        console.error(`  临时换端口（Windows PowerShell）: $env:CODEXMATE_PORT=${examplePort}; codexmate run`);
+        console.error(`  临时换端口（Windows CMD）: set CODEXMATE_PORT=${examplePort} && codexmate run`);
+    };
+
     server.once('error', (err) => {
         if (err && err.code === 'EADDRINUSE') {
             console.error(`! 启动失败: 端口 ${port} 已被占用，可能有残留的 codexmate run 实例。`);
             console.error('  请先停止旧实例或更换端口后重试。');
+            printPortOverrideHint();
+        } else if (err && err.code === 'EACCES') {
+            console.error(`! 启动失败: 没有权限监听 ${host}:${port}。`);
+            console.error('  请检查系统/安全软件限制，或更换端口后重试。');
+            printPortOverrideHint();
         } else {
             console.error('! 启动 Web UI 失败:', err && err.message ? err.message : err);
         }
@@ -11916,7 +12013,7 @@ async function restartWebUiServerAfterFrontendChange({
 // #endregion restartWebUiServerAfterFrontendChange
 
 // 打开 Web UI
-function cmdStart(options = {}) {
+async function cmdStart(options = {}) {
     const webDir = path.join(__dirname, 'web-ui');
     const newHtmlPath = path.join(webDir, 'index.html');
     const legacyHtmlPath = path.join(__dirname, 'web-ui.html');
@@ -11927,9 +12024,29 @@ function cmdStart(options = {}) {
         process.exit(1);
     }
 
-    const port = resolveWebPort();
+    let port = resolveWebPort();
+    const explicitPort = isWebPortExplicit();
     const host = resolveWebHost(options);
     releaseRunPortIfNeeded(port, host);
+    const selectedPort = await resolveAvailableWebPort(port, host, { explicitPort });
+    if (selectedPort.error) {
+        console.error(`! 启动失败: ${selectedPort.error}`);
+        console.error(`  已尝试端口: ${selectedPort.attempts.map((attempt) => attempt.port).join(', ')}`);
+        console.error('  请设置 CODEXMATE_PORT 指定可用端口后重试。');
+        process.exit(1);
+    }
+    if (selectedPort.changed) {
+        const failed = selectedPort.attempts
+            .filter((attempt) => !attempt.available)
+            .map((attempt) => `${attempt.port}${attempt.code ? `(${attempt.code})` : ''}`)
+            .join(', ');
+        console.warn(`! 默认端口 ${selectedPort.requestedPort} 不可用，已自动切换到 ${selectedPort.port}。`);
+        if (failed) {
+            console.warn(`  跳过端口: ${failed}`);
+        }
+        console.warn('  如需固定端口，请设置 CODEXMATE_PORT 后重新启动。');
+    }
+    port = selectedPort.port;
 
     const isDev = process.env.NODE_ENV === 'development'
         || process.env.CODEXMATE_DEV === '1'
@@ -16301,7 +16418,7 @@ async function main() {
         case 'workflow': await cmdWorkflow(args.slice(1)); break;
         case 'task': await cmdTask(args.slice(1)); break;
         case 'analytics': await cmdAnalytics(args.slice(1)); break;
-        case 'run': cmdStart(parseStartOptions(args.slice(1))); break;
+        case 'run': await cmdStart(parseStartOptions(args.slice(1))); break;
         case 'update': await cmdToolUpdate(args.slice(1)); break;
         case 'start':
             console.error('错误: 命令已更名为 "run"，请使用: codexmate run');
