@@ -547,9 +547,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             config.hasKey = false;
                         }
                         const targetApiRaw = typeof config.targetApi === 'string' ? config.targetApi.trim().toLowerCase() : '';
-                        config.targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
-                            ? 'chat_completions'
-                            : 'responses';
+                        if (targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions') {
+                            config.targetApi = 'chat_completions';
+                        } else if (targetApiRaw === 'ollama') {
+                            config.targetApi = 'ollama';
+                        } else {
+                            config.targetApi = 'responses';
+                        }
                     }
                     localStorage.setItem('claudeConfigs', JSON.stringify(this.claudeConfigs));
                 } catch (e) {

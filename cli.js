@@ -9324,9 +9324,13 @@ function maskKey(key) {
 
 function normalizeClaudeTargetApi(value) {
     const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-    return raw === 'chat_completions' || raw === 'chat-completions' || raw === 'chat/completions'
-        ? 'chat_completions'
-        : 'responses';
+    if (raw === 'chat_completions' || raw === 'chat-completions' || raw === 'chat/completions') {
+        return 'chat_completions';
+    }
+    if (raw === 'ollama') {
+        return 'ollama';
+    }
+    return 'responses';
 }
 
 function resetBuiltinClaudeProxySavedSettingsToResponses() {
@@ -9348,18 +9352,18 @@ async function applyToClaudeSettings(config = {}) {
     try {
         assertToolConfigWriteAllowed('claude');
         const apiKey = (config.apiKey || '').trim();
-        if (!apiKey) {
+        const targetApi = normalizeClaudeTargetApi(config.targetApi);
+        if (!apiKey && targetApi !== 'ollama') {
             return { success: false, mode: 'settings-file', error: '请先输入 API Key' };
         }
 
-        const baseUrl = (config.baseUrl || 'https://open.bigmodel.cn/api/anthropic').trim();
+        const baseUrl = (config.baseUrl || (targetApi === 'ollama' ? 'http://127.0.0.1:11434' : 'https://open.bigmodel.cn/api/anthropic')).trim();
         const model = (config.model || DEFAULT_CLAUDE_MODEL).trim();
-        const targetApi = normalizeClaudeTargetApi(config.targetApi);
         let settingsBaseUrl = baseUrl;
         let settingsApiKey = apiKey;
         let proxyResult = null;
 
-        if (targetApi === 'chat_completions') {
+        if (targetApi === 'chat_completions' || targetApi === 'ollama') {
             await stopBuiltinClaudeProxyRuntime();
             const proxyToken = crypto.randomBytes(24).toString('hex');
             proxyResult = await startBuiltinClaudeProxyRuntime({
@@ -9424,7 +9428,7 @@ async function applyToClaudeSettings(config = {}) {
 
         const result = {
             success: true,
-            mode: targetApi === 'chat_completions' ? 'claude-proxy' : 'settings-file',
+            mode: targetApi === 'responses' ? 'settings-file' : 'claude-proxy',
             targetApi,
             targetPath: CLAUDE_SETTINGS_FILE,
             updatedKeys: [
@@ -9438,7 +9442,7 @@ async function applyToClaudeSettings(config = {}) {
                 running: true,
                 listenUrl: proxyResult.listenUrl,
                 upstreamProvider: proxyResult.upstreamProvider || '',
-                mode: proxyResult.mode || 'anthropic-to-chat-completions'
+                mode: proxyResult.mode || (targetApi === 'ollama' ? 'anthropic-to-ollama' : 'anthropic-to-chat-completions')
             };
         }
         if (backupPath) {

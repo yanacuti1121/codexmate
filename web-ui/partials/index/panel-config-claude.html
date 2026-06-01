@@ -150,6 +150,7 @@
                                 <div class="card-title">{{ name }}</div>
                                 <div class="card-subtitle card-subtitle-model">{{ config.model || t('claude.model.unset') }}</div>
                                 <div class="card-subtitle" v-if="config.targetApi === 'chat_completions'">{{ t('claude.targetApi.chatCompletionsBadge') }}</div>
+                                <div class="card-subtitle" v-else-if="config.targetApi === 'ollama'">{{ t('claude.targetApi.ollamaBadge') }}</div>
                                 <div class="card-subtitle card-subtitle-url" v-if="config.baseUrl">{{ config.baseUrl }}</div>
                             </div>
                         </div>

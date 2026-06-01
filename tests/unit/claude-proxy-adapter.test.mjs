@@ -5,8 +5,10 @@ const require = createRequire(import.meta.url);
 const {
     buildBuiltinClaudeResponsesRequest,
     buildBuiltinClaudeChatCompletionsRequest,
+    buildBuiltinClaudeOllamaChatRequest,
     buildAnthropicMessageFromResponses,
     buildAnthropicMessageFromChatCompletion,
+    buildAnthropicMessageFromOllamaChat,
     buildAnthropicStreamEvents,
     buildAnthropicModelsPayload
 } = require('../../cli/claude-proxy');
@@ -64,6 +66,29 @@ test('buildBuiltinClaudeResponsesRequest maps anthropic messages/tools into resp
     ]);
 });
 
+test('buildBuiltinClaudeResponsesRequest preserves images and drops incompatible bridge-only blocks', () => {
+    const payload = buildBuiltinClaudeResponsesRequest({
+        model: 'gpt-4.1',
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'text', text: 'describe this' },
+                { type: 'thinking', thinking: 'hidden chain' },
+                { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'aW1n' } },
+                { type: 'document', source: { type: 'text', data: 'unsupported doc' } }
+            ]
+        }]
+    });
+
+    assert.deepStrictEqual(payload.input, [{
+        role: 'user',
+        content: [
+            { type: 'input_text', text: 'describe this' },
+            { type: 'input_image', image_url: 'data:image/png;base64,aW1n' }
+        ]
+    }]);
+});
+
 test('buildBuiltinClaudeChatCompletionsRequest maps anthropic messages/tools into chat completions payload', () => {
     const payload = buildBuiltinClaudeChatCompletionsRequest({
         model: 'DeepSeek-V4-pro',
@@ -102,6 +127,103 @@ test('buildBuiltinClaudeChatCompletionsRequest maps anthropic messages/tools int
         },
         { role: 'tool', tool_call_id: 'toolu_1', content: 'tool ok' }
     ]);
+});
+
+
+test('buildBuiltinClaudeChatCompletionsRequest preserves multimodal user content for OpenAI-compatible upstreams', () => {
+    const payload = buildBuiltinClaudeChatCompletionsRequest({
+        model: 'gpt-4o-mini',
+        max_tokens: 64,
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'text', text: 'describe this' },
+                { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'aW1n' } }
+            ]
+        }]
+    });
+
+    assert.deepStrictEqual(payload.messages, [{
+        role: 'user',
+        content: [
+            { type: 'text', text: 'describe this' },
+            { type: 'image_url', image_url: { url: 'data:image/png;base64,aW1n' } }
+        ]
+    }]);
+});
+
+test('buildBuiltinClaudeChatCompletionsRequest drops incompatible bridge-only blocks instead of sending them as text', () => {
+    const payload = buildBuiltinClaudeChatCompletionsRequest({
+        model: 'gpt-4o-mini',
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'text', text: 'visible' },
+                { type: 'thinking', thinking: 'hidden chain' },
+                { type: 'document', source: { type: 'text', data: 'unsupported doc' } }
+            ]
+        }]
+    });
+
+    assert.deepStrictEqual(payload.messages, [{ role: 'user', content: 'visible' }]);
+});
+
+test('buildBuiltinClaudeOllamaChatRequest maps anthropic messages/tools into Ollama /api/chat payload', () => {
+    const payload = buildBuiltinClaudeOllamaChatRequest({
+        model: 'qwen2.5-coder:7b',
+        max_tokens: 80,
+        temperature: 0.2,
+        top_p: 0.9,
+        system: [{ type: 'text', text: 'system prompt' }],
+        messages: [
+            {
+                role: 'user',
+                content: [
+                    { type: 'text', text: 'hello' },
+                    { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'aW1n' } }
+                ]
+            },
+            { role: 'assistant', content: [{ type: 'tool_use', id: 'toolu_1', name: 'lookup', input: { q: 'hi' } }] },
+            { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'tool ok' }] }
+        ],
+        tools: [{ name: 'lookup', description: 'Lookup', input_schema: { type: 'object', properties: { q: { type: 'string' } } } }],
+        stop_sequences: ['END']
+    });
+
+    assert.strictEqual(payload.model, 'qwen2.5-coder:7b');
+    assert.strictEqual(payload.stream, false);
+    assert.deepStrictEqual(payload.options, { num_predict: 80, temperature: 0.2, top_p: 0.9, stop: ['END'] });
+    assert.deepStrictEqual(payload.messages, [
+        { role: 'system', content: 'system prompt' },
+        { role: 'user', content: 'hello', images: ['aW1n'] },
+        { role: 'assistant', content: '', tool_calls: [{ function: { name: 'lookup', arguments: { q: 'hi' } } }] },
+        { role: 'tool', content: 'tool ok', tool_call_id: 'toolu_1' }
+    ]);
+    assert.deepStrictEqual(payload.tools, [{
+        type: 'function',
+        function: {
+            name: 'lookup',
+            description: 'Lookup',
+            parameters: { type: 'object', properties: { q: { type: 'string' } } }
+        }
+    }]);
+});
+
+test('buildBuiltinClaudeOllamaChatRequest drops incompatible bridge-only blocks and keeps base64 images', () => {
+    const payload = buildBuiltinClaudeOllamaChatRequest({
+        model: 'qwen2.5-coder:7b',
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'text', text: 'describe this' },
+                { type: 'thinking', thinking: 'hidden chain' },
+                { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'aW1n' } },
+                { type: 'document', source: { type: 'text', data: 'unsupported doc' } }
+            ]
+        }]
+    });
+
+    assert.deepStrictEqual(payload.messages, [{ role: 'user', content: 'describe this', images: ['aW1n'] }]);
 });
 
 test('buildAnthropicMessageFromResponses maps responses output into anthropic message', () => {
@@ -169,6 +291,29 @@ test('buildAnthropicMessageFromChatCompletion maps chat completion output into a
         { type: 'text', text: 'proxy ok' },
         { type: 'tool_use', id: 'call_9', name: 'lookup', input: { city: 'tokyo' } }
     ]);
+});
+
+
+test('buildAnthropicMessageFromOllamaChat maps Ollama /api/chat output into anthropic message', () => {
+    const message = buildAnthropicMessageFromOllamaChat({
+        model: 'qwen2.5-coder:7b',
+        message: {
+            role: 'assistant',
+            content: 'proxy ok',
+            tool_calls: [{ function: { name: 'lookup', arguments: { city: 'tokyo' } } }]
+        },
+        prompt_eval_count: 9,
+        eval_count: 4
+    }, { model: 'fallback' });
+
+    assert.strictEqual(message.model, 'qwen2.5-coder:7b');
+    assert.strictEqual(message.stop_reason, 'tool_use');
+    assert.deepStrictEqual(message.usage, { input_tokens: 9, output_tokens: 4 });
+    assert.deepStrictEqual(message.content, [
+        { type: 'text', text: 'proxy ok' },
+        { type: 'tool_use', id: message.content[1].id, name: 'lookup', input: { city: 'tokyo' } }
+    ]);
+    assert(message.content[1].id.startsWith('toolu_'));
 });
 
 test('buildAnthropicStreamEvents emits anthropic-style SSE events', () => {

@@ -239,8 +239,10 @@ const vi = Object.freeze({
     'claude.targetApi.label': 'API đích',
     'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
     'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
+    'claude.targetApi.ollama': 'Ollama Chat (/api/chat)',
     'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',
-    'claude.targetApi.hint': 'Khi chọn Chat Completions, proxy tương thích Claude sẽ chuyển đổi nội bộ mà không thay đổi wire_api của Codex provider.'
+    'claude.targetApi.ollamaBadge': 'Ollama',
+    'claude.targetApi.hint': 'Khi chọn Chat Completions hoặc Ollama, proxy tương thích Claude sẽ chuyển đổi nội bộ mà không thay đổi wire_api của Codex provider; Ollama không cần API key.'
 
 });
 

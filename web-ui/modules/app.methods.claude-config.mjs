@@ -23,6 +23,10 @@ function getClaudeConfigValidationForContext(vm, mode = 'add') {
     const externalCredentialType = normalizeClaudeText(draft && draft.externalCredentialType);
     const baseUrl = normalizeClaudeBaseUrl(draft && draft.baseUrl);
     const model = normalizeClaudeText(draft && draft.model);
+    const targetApiRaw = normalizeClaudeText(draft && draft.targetApi).toLowerCase();
+    const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+        ? 'chat_completions'
+        : (targetApiRaw === 'ollama' ? 'ollama' : 'responses');
     const errors = {
         name: '',
         apiKey: '',
@@ -36,7 +40,7 @@ function getClaudeConfigValidationForContext(vm, mode = 'add') {
         errors.name = '名称已存在';
     }
 
-    if (!apiKey && !externalCredentialType) {
+    if (!apiKey && !externalCredentialType && targetApi !== 'ollama') {
         errors.apiKey = 'API Key 必填';
     }
 
@@ -57,6 +61,7 @@ function getClaudeConfigValidationForContext(vm, mode = 'add') {
         externalCredentialType,
         baseUrl,
         model,
+        targetApi,
         errors,
         ok: !errors.name && !errors.apiKey && !errors.baseUrl && !errors.model
     };
@@ -88,7 +93,7 @@ export function createClaudeConfigMethods(options = {}) {
             this.claudeConfigs[name] = this.mergeClaudeConfig(existing, { model });
             this.saveClaudeConfigs();
             this.updateClaudeModelsCurrent();
-            if (!this.claudeConfigs[name].apiKey && !this.claudeConfigs[name].externalCredentialType) {
+            if (!this.claudeConfigs[name].apiKey && !this.claudeConfigs[name].externalCredentialType && this.claudeConfigs[name].targetApi !== 'ollama') {
                 this.showMessage('请先配置 API Key', 'error');
                 return;
             }

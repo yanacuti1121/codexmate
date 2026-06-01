@@ -510,6 +510,20 @@ test('shouldForceCompactLayoutMode keeps desktop layout for narrow non-touch win
     assert.strictEqual(enabled, false);
 });
 
+
+test('shouldForceCompactLayoutMode does not let mobile UA alone diverge from desktop Web UI layout', () => {
+    const enabled = shouldForceCompactLayoutMode({
+        viewportWidth: 390,
+        screenWidth: 390,
+        screenHeight: 844,
+        maxTouchPoints: 0,
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile',
+        coarsePointer: false,
+        noHover: false
+    });
+    assert.strictEqual(enabled, false);
+});
+
 test('shouldForceCompactLayoutMode enables compact mode for mobile UA on narrow viewport', () => {
     const enabled = shouldForceCompactLayoutMode({
         viewportWidth: 390,

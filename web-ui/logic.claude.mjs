@@ -70,9 +70,12 @@ export function normalizeClaudeConfig(config) {
     const externalCredentialType = normalizeClaudeValue(safe.externalCredentialType)
         || (apiKey ? '' : (authToken ? 'auth-token' : (useKey ? 'claude-code-use-key' : '')));
     const targetApiRaw = normalizeClaudeValue(safe.targetApi).toLowerCase();
-    const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
-        ? 'chat_completions'
-        : 'responses';
+    let targetApi = 'responses';
+    if (targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions') {
+        targetApi = 'chat_completions';
+    } else if (targetApiRaw === 'ollama') {
+        targetApi = 'ollama';
+    }
     return {
         apiKey,
         baseUrl: normalizeClaudeValue(safe.baseUrl),

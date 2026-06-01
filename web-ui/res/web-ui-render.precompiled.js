@@ -1914,10 +1914,15 @@ return function render(_ctx, _cache) {
                                       key: 0,
                                       class: "card-subtitle"
                                     }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletionsBadge')), 1 /* TEXT */))
-                                  : _createCommentVNode("v-if", true),
+                                  : (config.targetApi === 'ollama')
+                                    ? (_openBlock(), _createElementBlock("div", {
+                                        key: 1,
+                                        class: "card-subtitle"
+                                      }, _toDisplayString(_ctx.t('claude.targetApi.ollamaBadge')), 1 /* TEXT */))
+                                    : _createCommentVNode("v-if", true),
                                 (config.baseUrl)
                                   ? (_openBlock(), _createElementBlock("div", {
-                                      key: 1,
+                                      key: 2,
                                       class: "card-subtitle card-subtitle-url"
                                     }, _toDisplayString(config.baseUrl), 1 /* TEXT */))
                                   : _createCommentVNode("v-if", true)
@@ -5799,7 +5804,8 @@ return function render(_ctx, _cache) {
                 class: "form-input"
               }, [
                 _createElementVNode("option", { value: "responses" }, _toDisplayString(_ctx.t('claude.targetApi.responses')), 1 /* TEXT */),
-                _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */)
+                _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */),
+                _createElementVNode("option", { value: "ollama" }, _toDisplayString(_ctx.t('claude.targetApi.ollama')), 1 /* TEXT */)
               ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
                 [_vModelSelect, _ctx.newClaudeConfig.targetApi]
               ]),
@@ -5951,7 +5957,8 @@ return function render(_ctx, _cache) {
                 class: "form-input"
               }, [
                 _createElementVNode("option", { value: "responses" }, _toDisplayString(_ctx.t('claude.targetApi.responses')), 1 /* TEXT */),
-                _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */)
+                _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */),
+                _createElementVNode("option", { value: "ollama" }, _toDisplayString(_ctx.t('claude.targetApi.ollama')), 1 /* TEXT */)
               ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
                 [_vModelSelect, _ctx.editingConfig.targetApi]
               ]),
