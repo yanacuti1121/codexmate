@@ -56,7 +56,6 @@ const zh = Object.freeze({
     'common.resetFilters': '重置筛选',
     'common.notEditable': '不可编辑',
     'common.notDeletable': '不可删除',
-    'common.temporarilyDisabled': '暂不可用',
     'common.notLoaded': '未加载',
     'common.exists': '已存在',
     'common.notExistsWillCreateOnApply': '不存在，将在应用时创建',

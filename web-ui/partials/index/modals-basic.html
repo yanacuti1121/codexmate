@@ -170,7 +170,7 @@
                     <select v-model="newClaudeConfig.targetApi" class="form-input">
                         <option value="responses">{{ t('claude.targetApi.responses') }}</option>
                         <option value="chat_completions">{{ t('claude.targetApi.chatCompletions') }}</option>
-                        <option value="ollama" disabled>{{ t('claude.targetApi.ollama') }} · {{ t('common.temporarilyDisabled') }}</option>
+                        <option value="ollama">{{ t('claude.targetApi.ollama') }}</option>
                     </select>
                     <div class="form-hint">{{ t('claude.targetApi.hint') }}</div>
                 </div>
@@ -218,7 +218,7 @@
                     <select v-model="editingConfig.targetApi" class="form-input">
                         <option value="responses">{{ t('claude.targetApi.responses') }}</option>
                         <option value="chat_completions">{{ t('claude.targetApi.chatCompletions') }}</option>
-                        <option value="ollama" disabled>{{ t('claude.targetApi.ollama') }} · {{ t('common.temporarilyDisabled') }}</option>
+                        <option value="ollama">{{ t('claude.targetApi.ollama') }}</option>
                     </select>
                     <div class="form-hint">{{ t('claude.targetApi.hint') }}</div>
                 </div>

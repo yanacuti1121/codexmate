@@ -288,7 +288,15 @@ test('config template keeps expected config tabs in top and side navigation', ()
     );
     assert.match(
         html,
-        /<option value="ollama" disabled>\{\{\s*t\('claude\.targetApi\.ollama'\)\s*\}\} · \{\{\s*t\('common\.temporarilyDisabled'\)\s*\}\}<\/option>/
+        /<option value="ollama">\{\{\s*t\('claude\.targetApi\.ollama'\)\s*\}\}<\/option>/
+    );
+    assert.match(
+        html,
+        /type="checkbox"\s+autocomplete="off"\s+:checked="isToolConfigWriteAllowed\('codex'\)"[\s\S]*@change="setToolConfigPermission\('codex', \$event\.target\.checked\)"/
+    );
+    assert.match(
+        html,
+        /type="checkbox"\s+autocomplete="off"\s+:checked="isToolConfigWriteAllowed\('claude'\)"[\s\S]*@change="setToolConfigPermission\('claude', \$event\.target\.checked\)"/
     );
     assert.match(
         html,

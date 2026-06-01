@@ -958,6 +958,7 @@ return function render(_ctx, _cache) {
                     _createElementVNode("label", { class: "settings-toggle-row tool-config-write-toggle" }, [
                       _createElementVNode("input", {
                         type: "checkbox",
+                        autocomplete: "off",
                         checked: _ctx.isToolConfigWriteAllowed('codex'),
                         disabled: _ctx.toolConfigPermissionSaving.codex,
                         onChange: $event => (_ctx.setToolConfigPermission('codex', $event.target.checked))
@@ -1583,6 +1584,7 @@ return function render(_ctx, _cache) {
                     _createElementVNode("label", { class: "settings-toggle-row tool-config-write-toggle" }, [
                       _createElementVNode("input", {
                         type: "checkbox",
+                        autocomplete: "off",
                         checked: _ctx.isToolConfigWriteAllowed('claude'),
                         disabled: _ctx.toolConfigPermissionSaving.claude,
                         onChange: $event => (_ctx.setToolConfigPermission('claude', $event.target.checked))
@@ -5814,10 +5816,7 @@ return function render(_ctx, _cache) {
               }, [
                 _createElementVNode("option", { value: "responses" }, _toDisplayString(_ctx.t('claude.targetApi.responses')), 1 /* TEXT */),
                 _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */),
-                _createElementVNode("option", {
-                  value: "ollama",
-                  disabled: ""
-                }, _toDisplayString(_ctx.t('claude.targetApi.ollama')) + " · " + _toDisplayString(_ctx.t('common.temporarilyDisabled')), 1 /* TEXT */)
+                _createElementVNode("option", { value: "ollama" }, _toDisplayString(_ctx.t('claude.targetApi.ollama')), 1 /* TEXT */)
               ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
                 [_vModelSelect, _ctx.newClaudeConfig.targetApi]
               ]),
@@ -5970,10 +5969,7 @@ return function render(_ctx, _cache) {
               }, [
                 _createElementVNode("option", { value: "responses" }, _toDisplayString(_ctx.t('claude.targetApi.responses')), 1 /* TEXT */),
                 _createElementVNode("option", { value: "chat_completions" }, _toDisplayString(_ctx.t('claude.targetApi.chatCompletions')), 1 /* TEXT */),
-                _createElementVNode("option", {
-                  value: "ollama",
-                  disabled: ""
-                }, _toDisplayString(_ctx.t('claude.targetApi.ollama')) + " · " + _toDisplayString(_ctx.t('common.temporarilyDisabled')), 1 /* TEXT */)
+                _createElementVNode("option", { value: "ollama" }, _toDisplayString(_ctx.t('claude.targetApi.ollama')), 1 /* TEXT */)
               ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
                 [_vModelSelect, _ctx.editingConfig.targetApi]
               ]),

@@ -56,7 +56,6 @@ const en = Object.freeze({
     'common.resetFilters': 'Reset filters',
     'common.notEditable': 'Not editable',
     'common.notDeletable': 'Not deletable',
-    'common.temporarilyDisabled': 'temporarily disabled',
     'common.notLoaded': 'Not loaded',
     'common.exists': 'Exists',
     'common.notExistsWillCreateOnApply': 'Not found. Will be created on apply.',

@@ -314,6 +314,40 @@ ${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
     assert.strictEqual(canSubmitClaudeConfig.call(context, 'edit'), true);
 });
 
+test('Claude validation allows Ollama target without api key', () => {
+    const support = claudeValidationSupportSource();
+    const fieldErrorSource = `${support}
+${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
+    const canSubmitSource = `${support}
+${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
+    const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
+    const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const context = {
+        newClaudeConfig: {
+            name: 'Local Ollama',
+            apiKey: '',
+            externalCredentialType: '',
+            baseUrl: 'http://127.0.0.1:11434',
+            model: 'deepseek-v4-pro:cloud',
+            targetApi: 'ollama'
+        },
+        editingConfig: {
+            name: 'Edit Ollama',
+            apiKey: '',
+            externalCredentialType: '',
+            baseUrl: 'http://127.0.0.1:11434',
+            model: 'deepseek-v4-pro:cloud',
+            targetApi: 'ollama'
+        },
+        claudeConfigs: {}
+    };
+
+    assert.strictEqual(claudeConfigFieldError.call(context, 'add', 'apiKey'), '');
+    assert.strictEqual(canSubmitClaudeConfig.call(context, 'add'), true);
+    assert.strictEqual(claudeConfigFieldError.call(context, 'edit', 'apiKey'), '');
+    assert.strictEqual(canSubmitClaudeConfig.call(context, 'edit'), true);
+});
+
 test('openEditConfigModal carries external credential metadata into edit validation state', () => {
     const source = extractMethodAsFunction(appSource, 'openEditConfigModal');
     const openEditConfigModal = instantiateFunction(source, 'openEditConfigModal');

@@ -34,6 +34,7 @@
                     <label class="settings-toggle-row tool-config-write-toggle">
                         <input
                             type="checkbox"
+                            autocomplete="off"
                             :checked="isToolConfigWriteAllowed('claude')"
                             :disabled="toolConfigPermissionSaving.claude"
                             @change="setToolConfigPermission('claude', $event.target.checked)">
