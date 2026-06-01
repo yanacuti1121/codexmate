@@ -220,6 +220,34 @@ test('resolveAvailableWebPort auto-increments only for the implicit default port
     ]);
 });
 
+test('resolveAvailableWebPort reports a bounded error when no candidate port is available', async () => {
+    const netMock = createPortProbeNetMock({
+        3737: 'EADDRINUSE',
+        3738: 'EACCES',
+        3739: 'EADDRINUSE'
+    });
+    const resolveAvailableWebPort = instantiateFunction(resolveAvailableWebPortSource, 'resolveAvailableWebPort', {
+        net: netMock
+    });
+
+    const result = await resolveAvailableWebPort(3737, '127.0.0.1', {
+        maxAttempts: 3,
+        net: netMock
+    });
+
+    assert.strictEqual(result.port, 3737);
+    assert.strictEqual(result.requestedPort, 3737);
+    assert.strictEqual(result.changed, false);
+    assert.strictEqual(result.error, 'no available port found from 3737 to 3739');
+    assert.deepStrictEqual(netMock.checkedPorts, [3737, 3738, 3739]);
+    assert.strictEqual(result.attempts.length, 3);
+    assert.deepStrictEqual(result.attempts, [
+        { port: 3737, available: false, code: 'EADDRINUSE' },
+        { port: 3738, available: false, code: 'EACCES' },
+        { port: 3739, available: false, code: 'EADDRINUSE' }
+    ]);
+});
+
 test('resolveAvailableWebPort does not probe or increment explicit ports', async () => {
     const netMock = createPortProbeNetMock({
         8080: 'EADDRINUSE'
