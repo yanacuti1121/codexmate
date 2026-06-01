@@ -866,6 +866,15 @@ function buildAnthropicModelsPayload(upstreamPayload) {
     };
 }
 
+function joinBuiltinClaudeProxyUpstreamUrl(baseUrl, pathSuffix) {
+    const suffix = typeof pathSuffix === 'string' ? pathSuffix.replace(/^\/+/, '') : '';
+    if (suffix === 'api/tags' || suffix === 'api/chat') {
+        const normalized = normalizeBaseUrl(baseUrl);
+        return normalized ? `${normalized}/${suffix}` : '';
+    }
+    return joinApiUrl(baseUrl, suffix);
+}
+
 function createBuiltinClaudeProxyRuntimeController(deps = {}) {
     const {
         BUILTIN_CLAUDE_PROXY_SETTINGS_FILE,
@@ -1166,7 +1175,7 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
 
     function requestBuiltinClaudeProxyUpstream(upstream, requestOptions = {}) {
         const pathSuffix = typeof requestOptions.pathSuffix === 'string' ? requestOptions.pathSuffix : '';
-        const targetBase = joinApiUrl(upstream.baseUrl, pathSuffix);
+        const targetBase = joinBuiltinClaudeProxyUpstreamUrl(upstream.baseUrl, pathSuffix);
         if (!targetBase) {
             return Promise.reject(new Error('failed to build upstream URL'));
         }

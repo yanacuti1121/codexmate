@@ -1,5 +1,11 @@
 import assert from 'assert';
+import http from 'http';
+import net from 'net';
+import os from 'os';
+import path from 'path';
 import { createRequire } from 'module';
+import { Agent as HttpAgent } from 'http';
+import { Agent as HttpsAgent } from 'https';
 
 const require = createRequire(import.meta.url);
 const {
@@ -10,7 +16,8 @@ const {
     buildAnthropicMessageFromChatCompletion,
     buildAnthropicMessageFromOllamaChat,
     buildAnthropicStreamEvents,
-    buildAnthropicModelsPayload
+    buildAnthropicModelsPayload,
+    createBuiltinClaudeProxyRuntimeController
 } = require('../../cli/claude-proxy');
 
 test('buildBuiltinClaudeResponsesRequest maps anthropic messages/tools into responses payload', () => {
@@ -373,4 +380,120 @@ test('buildAnthropicModelsPayload reshapes upstream models list', () => {
             created_at: '1970-01-01T00:00:00Z'
         }
     ]);
+});
+
+function listenForTest(server, host = '127.0.0.1', port = 0) {
+    return new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(port, host, () => {
+            server.removeListener('error', reject);
+            resolve(server.address());
+        });
+    });
+}
+
+function closeServerForTest(server) {
+    return new Promise((resolve) => server.close(() => resolve()));
+}
+
+function findFreePortForTest() {
+    return new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+            const port = server.address().port;
+            server.close(() => resolve(port));
+        });
+    });
+}
+
+test('builtin Claude proxy sends Ollama traffic to /api paths without injecting /v1', async () => {
+    const upstreamRequests = [];
+    const upstream = http.createServer((req, res) => {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => {
+            upstreamRequests.push({ method: req.method, url: req.url, body: Buffer.concat(chunks).toString('utf8') });
+            res.setHeader('content-type', 'application/json; charset=utf-8');
+            if (req.method === 'GET' && req.url === '/api/tags') {
+                res.end(JSON.stringify({ models: [{ name: 'qwen2.5-coder:7b' }] }));
+                return;
+            }
+            if (req.method === 'POST' && req.url === '/api/chat') {
+                res.end(JSON.stringify({
+                    model: 'qwen2.5-coder:7b',
+                    message: { role: 'assistant', content: 'proxy ok' },
+                    done: true,
+                    done_reason: 'stop',
+                    prompt_eval_count: 3,
+                    eval_count: 2
+                }));
+                return;
+            }
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: `unexpected ${req.method} ${req.url}` }));
+        });
+    });
+
+    const upstreamAddress = await listenForTest(upstream);
+    const proxyPort = await findFreePortForTest();
+    const settingsFile = path.join(os.tmpdir(), `codexmate-claude-proxy-test-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+    const controller = createBuiltinClaudeProxyRuntimeController({
+        BUILTIN_CLAUDE_PROXY_SETTINGS_FILE: settingsFile,
+        DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS: {
+            enabled: true,
+            host: '127.0.0.1',
+            port: proxyPort,
+            provider: '',
+            authSource: 'none',
+            targetApi: 'ollama',
+            timeoutMs: 30000
+        },
+        BUILTIN_PROXY_PROVIDER_NAME: 'codexmate-builtin-proxy',
+        MAX_API_BODY_SIZE: 1024 * 1024,
+        HTTP_KEEP_ALIVE_AGENT: new HttpAgent({ keepAlive: false }),
+        HTTPS_KEEP_ALIVE_AGENT: new HttpsAgent({ keepAlive: false }),
+        readConfigOrVirtualDefault: () => ({ config: { model_providers: {}, model_provider: '' } }),
+        resolveBuiltinProxyProviderName: () => '',
+        resolveAuthTokenFromCurrentProfile: () => '',
+        OPENAI_BRIDGE_SETTINGS_FILE: '',
+        resolveOpenaiBridgeUpstream: () => null
+    });
+
+    try {
+        const start = await controller.startBuiltinClaudeProxyRuntime({
+            host: '127.0.0.1',
+            port: proxyPort,
+            authSource: 'none',
+            targetApi: 'ollama',
+            upstreamBaseUrl: `http://127.0.0.1:${upstreamAddress.port}`,
+            upstreamProviderName: 'ollama-test'
+        });
+        assert.strictEqual(start.success, true, JSON.stringify(start));
+
+        const modelsRes = await fetch(`${start.listenUrl}/v1/models`);
+        assert.strictEqual(modelsRes.status, 200);
+        const models = await modelsRes.json();
+        assert.deepStrictEqual(models.data.map((item) => item.id), ['qwen2.5-coder:7b']);
+
+        const messageRes = await fetch(`${start.listenUrl}/v1/messages`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                model: 'qwen2.5-coder:7b',
+                messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }]
+            })
+        });
+        assert.strictEqual(messageRes.status, 200);
+        const message = await messageRes.json();
+        assert.deepStrictEqual(message.content, [{ type: 'text', text: 'proxy ok' }]);
+
+        assert.deepStrictEqual(upstreamRequests.map((item) => `${item.method} ${item.url}`), [
+            'GET /api/tags',
+            'POST /api/chat'
+        ]);
+    } finally {
+        await controller.stopBuiltinClaudeProxyRuntime();
+        await closeServerForTest(upstream);
+    }
 });
