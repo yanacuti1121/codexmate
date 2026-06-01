@@ -9357,24 +9357,33 @@ async function applyToClaudeSettings(config = {}) {
             return { success: false, mode: 'settings-file', error: '请先输入 API Key' };
         }
 
-        const baseUrl = (config.baseUrl || (targetApi === 'ollama' ? 'http://127.0.0.1:11434' : 'https://open.bigmodel.cn/api/anthropic')).trim();
+        const configuredBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
+        const baseUrl = (configuredBaseUrl || (targetApi === 'ollama' ? 'http://127.0.0.1:11434' : 'https://open.bigmodel.cn/api/anthropic')).trim();
         const model = (config.model || DEFAULT_CLAUDE_MODEL).trim();
         let settingsBaseUrl = baseUrl;
         let settingsApiKey = apiKey;
         let proxyResult = null;
 
         if (targetApi === 'chat_completions' || targetApi === 'ollama') {
+            const upstreamProviderName = typeof config.name === 'string' ? config.name.trim() : '';
+            if (targetApi === 'chat_completions' && !configuredBaseUrl && !upstreamProviderName) {
+                return {
+                    success: false,
+                    mode: 'claude-proxy',
+                    error: 'chat_completions 模式需要显式的上游 Base URL 或可解析的 provider 名称'
+                };
+            }
             await stopBuiltinClaudeProxyRuntime();
             const proxyToken = crypto.randomBytes(24).toString('hex');
             proxyResult = await startBuiltinClaudeProxyRuntime({
                 enabled: true,
                 host: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.host,
-                provider: typeof config.name === 'string' ? config.name.trim() : '',
+                provider: upstreamProviderName,
                 authSource: 'provider',
                 targetApi,
                 timeoutMs: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.timeoutMs,
-                upstreamProviderName: typeof config.name === 'string' ? config.name.trim() : '',
-                upstreamBaseUrl: baseUrl,
+                upstreamProviderName,
+                ...(configuredBaseUrl ? { upstreamBaseUrl: configuredBaseUrl } : {}),
                 upstreamApiKey: apiKey
             });
             if (!proxyResult || proxyResult.error || proxyResult.success === false || !proxyResult.listenUrl) {
@@ -15825,7 +15834,16 @@ function createMcpTools(options = {}) {
                 name: { type: 'string' },
                 targetApi: { type: 'string' }
             },
-            required: ['apiKey'],
+            allOf: [{
+                if: {
+                    not: {
+                        type: 'object',
+                        properties: { targetApi: { const: 'ollama' } },
+                        required: ['targetApi']
+                    }
+                },
+                then: { required: ['apiKey'] }
+            }],
             additionalProperties: false
         },
         handler: async (args = {}) => applyToClaudeSettings(args || {})

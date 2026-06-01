@@ -3,6 +3,7 @@ import { readBundledWebUiScript, readProjectFile } from './helpers/web-ui-source
 
 const appSource = readBundledWebUiScript();
 const claudeConfigModuleSource = readProjectFile('web-ui/modules/app.methods.claude-config.mjs');
+const cliSource = readProjectFile('cli.js');
 
 function escapeRegExp(value) {
     return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1115,4 +1116,28 @@ test('loadClaudeModels skips remote fetch for external-credential config without
     assert.strictEqual(context.claudeModelsSource, 'catalog');
     assert.strictEqual(context.claudeModelsHasCurrent, true);
     assert.deepStrictEqual(messages, []);
+});
+
+test('applyToClaudeSettings does not proxy chat completions through default Anthropic URL', () => {
+    const startIndex = cliSource.indexOf('async function applyToClaudeSettings');
+    assert.notStrictEqual(startIndex, -1);
+    const endIndex = cliSource.indexOf('async function cmdClaude', startIndex);
+    assert.notStrictEqual(endIndex, -1);
+    const source = cliSource.slice(startIndex, endIndex);
+    assert.match(source, /const configuredBaseUrl = typeof config\.baseUrl === 'string' \? config\.baseUrl\.trim\(\) : '';/);
+    assert.match(source, /targetApi === 'chat_completions' && !configuredBaseUrl && !upstreamProviderName/);
+    assert.match(source, /chat_completions 模式需要显式的上游 Base URL 或可解析的 provider 名称/);
+    assert.match(source, /\.\.\.\(configuredBaseUrl \? \{ upstreamBaseUrl: configuredBaseUrl \} : \{\}\)/);
+});
+
+test('MCP Claude config schema allows Ollama without API key only for ollama target', () => {
+    const toolIndex = cliSource.indexOf("name: 'codexmate.claude.config.apply'");
+    assert.notStrictEqual(toolIndex, -1);
+    const schemaEnd = cliSource.indexOf('handler: async (args = {}) => applyToClaudeSettings(args || {})', toolIndex);
+    assert.notStrictEqual(schemaEnd, -1);
+    const schemaSource = cliSource.slice(toolIndex, schemaEnd);
+    assert.match(schemaSource, /allOf:\s*\[\{/);
+    assert.match(schemaSource, /properties:\s*\{ targetApi:\s*\{ const: 'ollama' \} \}/);
+    assert.match(schemaSource, /then:\s*\{ required:\s*\['apiKey'\] \}/);
+    assert.doesNotMatch(schemaSource, /required:\s*\['apiKey'\],\s*additionalProperties/);
 });
