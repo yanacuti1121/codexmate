@@ -165,8 +165,10 @@ export function createClaudeConfigMethods(options = {}) {
             }
             const name = validation.name;
             this.editingConfig.apiKey = validation.apiKey;
+            this.editingConfig.externalCredentialType = validation.externalCredentialType;
             this.editingConfig.baseUrl = validation.baseUrl;
             this.editingConfig.model = validation.model;
+            this.editingConfig.targetApi = validation.targetApi;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
             this.showMessage('操作成功', 'success');
@@ -193,13 +195,15 @@ export function createClaudeConfigMethods(options = {}) {
             }
             const name = validation.name;
             this.editingConfig.apiKey = validation.apiKey;
+            this.editingConfig.externalCredentialType = validation.externalCredentialType;
             this.editingConfig.baseUrl = validation.baseUrl;
             this.editingConfig.model = validation.model;
+            this.editingConfig.targetApi = validation.targetApi;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
 
             const config = this.claudeConfigs[name];
-            if (!config.apiKey) {
+            if (!config.apiKey && config.targetApi !== 'ollama') {
                 this.showMessage('已保存（未填写 API Key）', 'info');
                 this.closeEditConfigModal();
                 if (name === this.currentClaudeConfig) {
@@ -237,6 +241,7 @@ export function createClaudeConfigMethods(options = {}) {
             this.newClaudeConfig.externalCredentialType = validation.externalCredentialType;
             this.newClaudeConfig.baseUrl = validation.baseUrl;
             this.newClaudeConfig.model = validation.model;
+            this.newClaudeConfig.targetApi = validation.targetApi;
             const name = validation.name;
             const duplicateName = this.findDuplicateClaudeConfigName(this.newClaudeConfig);
             if (duplicateName) {
@@ -280,7 +285,7 @@ export function createClaudeConfigMethods(options = {}) {
             this.refreshClaudeModelContext();
             const config = this.claudeConfigs[name];
 
-            if (!config.apiKey) {
+            if (!config.apiKey && config.targetApi !== 'ollama') {
                 if (config.externalCredentialType) {
                     return this.showMessage('使用外部认证，无需 API Key', 'info');
                 }

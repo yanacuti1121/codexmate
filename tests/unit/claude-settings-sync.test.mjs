@@ -586,8 +586,10 @@ test('saveAndApplyConfig writes the edited Claude model through apply api', asyn
         params: {
             config: {
                 apiKey: 'sk-test',
+                externalCredentialType: '',
                 baseUrl: 'https://api.example.com/anthropic',
                 model: 'claude-model-from-edit',
+                targetApi: 'responses',
                 name: 'UI Claude Use'
             }
         }
@@ -646,6 +648,71 @@ test('saveAndApplyConfig saves external credential config without api key', asyn
     assert.deepStrictEqual(messages, [{ msg: '已保存（未填写 API Key）', type: 'info' }]);
 });
 
+test('saveAndApplyConfig applies ollama config without api key through proxy', async () => {
+    const source = extractClaudeMethodAsFunction(appSource, 'saveAndApplyConfig');
+    const applyCalls = [];
+    const saveAndApplyConfig = instantiateFunction(source, 'saveAndApplyConfig', {
+        api: async (action, params) => {
+            applyCalls.push({ action, params });
+            return { success: true, mode: 'claude-proxy', targetApi: 'ollama' };
+        }
+    });
+
+    const messages = [];
+    let saveCount = 0;
+    let closed = false;
+    let refreshCount = 0;
+    const context = {
+        editingConfig: {
+            name: 'Local Ollama',
+            apiKey: '',
+            externalCredentialType: '',
+            baseUrl: 'http://127.0.0.1:11434/',
+            model: 'deepseek-v4-pro:cloud',
+            targetApi: 'ollama'
+        },
+        claudeConfigs: {
+            'Local Ollama': {
+                apiKey: '',
+                baseUrl: 'https://old.example.com/anthropic',
+                model: 'old-model',
+                targetApi: 'responses'
+            }
+        },
+        currentClaudeConfig: 'Local Ollama',
+        _lastAppliedClaudeKey: '',
+        mergeClaudeConfig(existing, updates) {
+            return { ...existing, ...updates };
+        },
+        saveClaudeConfigs() { saveCount += 1; },
+        closeEditConfigModal() { closed = true; },
+        refreshClaudeModelContext() { refreshCount += 1; },
+        showMessage(msg, type) { messages.push({ msg, type }); }
+    };
+
+    await saveAndApplyConfig.call(context);
+
+    assert.strictEqual(context.claudeConfigs['Local Ollama'].baseUrl, 'http://127.0.0.1:11434');
+    assert.strictEqual(context.claudeConfigs['Local Ollama'].targetApi, 'ollama');
+    assert.strictEqual(saveCount, 1);
+    assert.strictEqual(closed, true);
+    assert.strictEqual(refreshCount, 1);
+    assert.deepStrictEqual(applyCalls, [{
+        action: 'apply-claude-config',
+        params: {
+            config: {
+                apiKey: '',
+                externalCredentialType: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-v4-pro:cloud',
+                targetApi: 'ollama',
+                name: 'Local Ollama'
+            }
+        }
+    }]);
+    assert.deepStrictEqual(messages, [{ msg: 'Claude 配置已生效', type: 'success' }]);
+});
+
 test('applyClaudeConfig reports informative message for external credential only config', async () => {
     const source = extractMethodAsFunction(appSource, 'applyClaudeConfig');
     const applyClaudeConfig = instantiateFunction(source, 'applyClaudeConfig', {
@@ -681,6 +748,57 @@ test('applyClaudeConfig reports informative message for external credential only
     assert.strictEqual(refreshCount, 1);
     assert.deepStrictEqual(messages, [{ msg: '使用外部认证，无需 API Key', type: 'info' }]);
     assert.deepStrictEqual(result, messages[0]);
+});
+
+test('applyClaudeConfig applies ollama config without api key', async () => {
+    const source = extractMethodAsFunction(appSource, 'applyClaudeConfig');
+    const applyCalls = [];
+    const applyClaudeConfig = instantiateFunction(source, 'applyClaudeConfig', {
+        api: async (action, params) => {
+            applyCalls.push({ action, params });
+            return { success: true, mode: 'claude-proxy', targetApi: 'ollama' };
+        }
+    });
+
+    const messages = [];
+    let refreshCount = 0;
+    const context = {
+        claudeConfigs: {
+            ollama: {
+                apiKey: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-v4-pro:cloud',
+                targetApi: 'ollama'
+            }
+        },
+        currentClaudeConfig: '',
+        _lastAppliedClaudeKey: '',
+        refreshClaudeModelContext: () => {
+            refreshCount += 1;
+        },
+        showMessage: (msg, type) => {
+            messages.push({ msg, type });
+            return { msg, type };
+        }
+    };
+
+    await applyClaudeConfig.call(context, 'ollama');
+
+    assert.strictEqual(context.currentClaudeConfig, 'ollama');
+    assert.strictEqual(refreshCount, 1);
+    assert.deepStrictEqual(applyCalls, [{
+        action: 'apply-claude-config',
+        params: {
+            config: {
+                apiKey: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-v4-pro:cloud',
+                targetApi: 'ollama',
+                name: 'ollama'
+            }
+        }
+    }]);
+    assert.deepStrictEqual(messages, [{ msg: '配置已应用', type: 'success' }]);
 });
 
 test('onClaudeModelChange applies external credential config without api key', () => {
