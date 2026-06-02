@@ -136,13 +136,16 @@ module.exports = async function testClaude(ctx) {
     // ========== Chat Completions Apply Rollback Tests ==========
     const claudeSettingsPath = path.join(tmpHome, '.claude', 'settings.json');
     const validClaudeSettings = fs.readFileSync(claudeSettingsPath, 'utf-8');
-    fs.writeFileSync(claudeSettingsPath, '{ invalid json', 'utf-8');
-    const failedChatApply = await api('apply-claude-config', {
-        config: { name: 'claude-chat-direct', baseUrl: mockProviderUrl, apiKey: 'sk-new', model: 'new-model', targetApi: 'chat_completions' }
-    });
-    assert(failedChatApply.success === false || failedChatApply.error, 'apply-claude-config should fail when Claude settings cannot be read');
-    const claudeProxyStatusAfterFailedApply = await api('claude-proxy-status');
-    assert(claudeProxyStatusAfterFailedApply.running === false, 'failed chat_completions apply should roll back the Claude proxy runtime');
-    assert(claudeProxyStatusAfterFailedApply.settings && claudeProxyStatusAfterFailedApply.settings.targetApi === 'responses', 'failed chat_completions apply should reset saved Claude proxy targetApi');
-    fs.writeFileSync(claudeSettingsPath, validClaudeSettings, 'utf-8');
+    try {
+        fs.writeFileSync(claudeSettingsPath, '{ invalid json', 'utf-8');
+        const failedChatApply = await api('apply-claude-config', {
+            config: { name: 'claude-chat-direct', baseUrl: mockProviderUrl, apiKey: 'sk-new', model: 'new-model', targetApi: 'chat_completions' }
+        });
+        assert(failedChatApply.success === false || failedChatApply.error, 'apply-claude-config should fail when Claude settings cannot be read');
+        const claudeProxyStatusAfterFailedApply = await api('claude-proxy-status');
+        assert(claudeProxyStatusAfterFailedApply.running === false, 'failed chat_completions apply should roll back the Claude proxy runtime');
+        assert(claudeProxyStatusAfterFailedApply.settings && claudeProxyStatusAfterFailedApply.settings.targetApi === 'responses', 'failed chat_completions apply should reset saved Claude proxy targetApi');
+    } finally {
+        fs.writeFileSync(claudeSettingsPath, validClaudeSettings, 'utf-8');
+    }
 };
