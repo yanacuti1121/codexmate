@@ -1100,7 +1100,7 @@ const zh = Object.freeze({
     'claude.model.placeholder': '例如: claude-3-7-sonnet',
     'claude.model.hint': '模型修改后会自动保存并应用到当前配置。',
     'claude.targetApi.label': '目标 API',
-    'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
+    'claude.targetApi.responses': 'Anthropic',
     'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
     'claude.targetApi.ollama': 'Ollama Chat (/api/chat)',
     'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',

@@ -8000,15 +8000,17 @@ function buildClaudeSharePayload(config = {}) {
     const apiKey = typeof config.apiKey === 'string' ? config.apiKey : '';
     const baseUrl = typeof config.baseUrl === 'string' ? config.baseUrl : '';
     const model = typeof config.model === 'string' ? config.model : '';
+    const targetApi = normalizeClaudeTargetApi(config.targetApi);
 
     if (!baseUrl) return { error: 'Claude Base URL 未设置' };
-    if (!apiKey) return { error: 'Claude API 密钥未设置' };
+    if (!apiKey && targetApi !== 'ollama') return { error: 'Claude API 密钥未设置' };
 
     return {
         payload: {
             baseUrl: baseUrl.trim(),
             apiKey: apiKey.trim(),
-            model: (model && model.trim()) || DEFAULT_CLAUDE_MODEL
+            model: (model && model.trim()) || DEFAULT_CLAUDE_MODEL,
+            targetApi
         }
     };
 }
@@ -9575,6 +9577,40 @@ async function restoreCodexDir(payload) {
 }
 
 // CLI: 一行写入 Claude Code 配置
+function parseClaudeCommandArgs(argv = []) {
+    const positionals = [];
+    let targetApi = 'responses';
+    for (let i = 0; i < argv.length; i += 1) {
+        const token = String(argv[i] ?? '');
+        if (token === '--target-api' || token === '--targetApi') {
+            const nextValue = String(argv[i + 1] ?? '');
+            if (!nextValue || nextValue.startsWith('--')) {
+                throw new Error('错误: --target-api 需要一个值（responses、chat_completions 或 ollama）');
+            }
+            targetApi = normalizeClaudeTargetApi(nextValue);
+            i += 1;
+            continue;
+        }
+        positionals.push(token);
+    }
+
+    const baseUrl = positionals[0];
+    if (targetApi === 'ollama' && positionals.length === 2) {
+        return {
+            baseUrl,
+            apiKey: '',
+            model: positionals[1],
+            targetApi
+        };
+    }
+    return {
+        baseUrl,
+        apiKey: positionals[1],
+        model: positionals[2],
+        targetApi
+    };
+}
+
 async function cmdClaude(args = []) {
     const argv = Array.isArray(args) ? args : [];
     // 无参数 → 代理启动
@@ -9582,7 +9618,7 @@ async function cmdClaude(args = []) {
         return runProxyCommand('Claude', 'claude', [], '', { autoFlag: '--dangerously-skip-permissions' });
     }
     // 有参数 → 配置写入
-    const [baseUrl, apiKey, model] = argv;
+    const { baseUrl, apiKey, model, targetApi } = parseClaudeCommandArgs(argv);
     const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
     const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     const normalizedModel = typeof model === 'string' && model.trim()
@@ -9591,19 +9627,21 @@ async function cmdClaude(args = []) {
 
     const silent = false;
 
-    if (!normalizedBaseUrl || !normalizedKey) {
+    if (!normalizedBaseUrl || (!normalizedKey && targetApi !== 'ollama')) {
         if (!silent) {
-            console.error('用法: codexmate claude <BaseURL> <API密钥> [模型]');
+            console.error('用法: codexmate claude <BaseURL> <API密钥> [模型] [--target-api responses|chat_completions|ollama]');
             console.log('\n示例:');
             console.log('  codexmate claude https://open.bigmodel.cn/api/anthropic sk-ant-xxx glm-4.7');
+            console.log("  codexmate claude http://127.0.0.1:11434 '' llama3.1:8b --target-api ollama");
         }
-        throw new Error('BaseURL 和 API 密钥必填');
+        throw new Error(targetApi === 'ollama' ? 'BaseURL 必填' : 'BaseURL 和 API 密钥必填');
     }
 
     const result = await applyToClaudeSettings({
         baseUrl: normalizedBaseUrl,
         apiKey: normalizedKey,
-        model: normalizedModel
+        model: normalizedModel,
+        targetApi
     });
 
     if (!result || result.success === false) {
@@ -16320,7 +16358,7 @@ function printMainHelp() {
     console.log('  codexmate add <名称> <URL> [密钥] [--bridge <openai>]');
     console.log('  codexmate delete <名称>    删除提供商');
     console.log('  codexmate claude            等同于 claude --dangerously-skip-permissions');
-    console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
+    console.log('  codexmate claude <BaseURL> <API密钥> [模型] [--target-api responses|chat_completions|ollama]  写入 Claude Code 配置');
     console.log('  codexmate auth <list|import|switch|delete|status>  认证管理');
     console.log('  codexmate add-model <模型> 添加模型');
     console.log('  codexmate delete-model <模型> 删除模型');

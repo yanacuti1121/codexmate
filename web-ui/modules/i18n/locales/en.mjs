@@ -1097,7 +1097,7 @@ const en = Object.freeze({
     'claude.model.placeholder': 'e.g. claude-3-7-sonnet',
     'claude.model.hint': 'Model changes are saved and applied to the current config automatically.',
     'claude.targetApi.label': 'Target API',
-    'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
+    'claude.targetApi.responses': 'Anthropic',
     'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
     'claude.targetApi.ollama': 'Ollama Chat (/api/chat)',
     'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',

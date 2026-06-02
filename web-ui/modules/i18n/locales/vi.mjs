@@ -242,7 +242,7 @@ const vi = Object.freeze({
 
     // Claude target API
     'claude.targetApi.label': 'API đích',
-    'claude.targetApi.responses': 'Anthropic / OpenAI Responses',
+    'claude.targetApi.responses': 'Anthropic',
     'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
     'claude.targetApi.ollama': 'Ollama Chat (/api/chat)',
     'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',
