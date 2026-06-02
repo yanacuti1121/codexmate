@@ -1289,7 +1289,7 @@ test('MCP Claude config schema allows Ollama without API key only for ollama tar
     assert.notStrictEqual(schemaEnd, -1);
     const schemaSource = cliSource.slice(toolIndex, schemaEnd);
     assert.match(schemaSource, /allOf:\s*\[\{/);
-    assert.match(schemaSource, /properties:\s*\{ targetApi:\s*\{ const: 'ollama' \} \}/);
+    assert.match(schemaSource, /properties:\s*\{ targetApi:\s*\{ type: 'string', pattern: '\^\[\\\\s\]\*\[oO\]\[lL\]\[lL\]\[aA\]\[mM\]\[aA\]\[\\\\s\]\*\$' \} \}/);
     assert.match(schemaSource, /then:\s*\{ required:\s*\['apiKey'\] \}/);
     assert.doesNotMatch(schemaSource, /required:\s*\['apiKey'\],\s*additionalProperties/);
 });

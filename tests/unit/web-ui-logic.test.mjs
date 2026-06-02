@@ -230,6 +230,14 @@ test('findDuplicateClaudeConfigName detects duplicates', () => {
     assert.strictEqual(findDuplicateClaudeConfigName(configs, duplicate), 'second');
 });
 
+test('findDuplicateClaudeConfigName keeps different target APIs distinct', () => {
+    const configs = {
+        anthropic: { apiKey: 'k', baseUrl: 'https://api.example.com', model: 'm', targetApi: 'responses' }
+    };
+    const ollama = { apiKey: 'k', baseUrl: 'https://api.example.com', model: 'm', targetApi: 'ollama' };
+    assert.strictEqual(findDuplicateClaudeConfigName(configs, ollama), '');
+});
+
 test('findDuplicateClaudeConfigName detects external credential duplicates', () => {
     const configs = {
         imported: { apiKey: '', baseUrl: 'https://example.com/anthropic/', model: 'm', externalCredentialType: 'auth-token' }

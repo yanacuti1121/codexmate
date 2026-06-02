@@ -916,6 +916,9 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         const host = typeof merged.host === 'string' ? merged.host.trim() : '';
         const port = parseInt(String(merged.port), 10);
         const provider = typeof merged.provider === 'string' ? merged.provider.trim() : '';
+        const upstreamProviderName = typeof merged.upstreamProviderName === 'string' ? merged.upstreamProviderName.trim() : '';
+        const upstreamBaseUrl = typeof merged.upstreamBaseUrl === 'string' ? merged.upstreamBaseUrl.trim() : '';
+        const upstreamApiKey = typeof merged.upstreamApiKey === 'string' ? merged.upstreamApiKey.trim() : '';
         const authSourceRaw = typeof merged.authSource === 'string' ? merged.authSource.trim().toLowerCase() : '';
         const targetApiRaw = typeof merged.targetApi === 'string' ? merged.targetApi.trim().toLowerCase() : '';
         const timeoutMs = parseInt(String(merged.timeoutMs), 10);
@@ -934,6 +937,9 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             host: host || DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.host,
             port: Number.isFinite(port) && port > 0 && port <= 65535 ? port : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.port,
             provider,
+            upstreamProviderName,
+            upstreamBaseUrl,
+            upstreamApiKey,
             authSource,
             targetApi,
             timeoutMs: Number.isFinite(timeoutMs) && timeoutMs >= 1000
@@ -969,6 +975,17 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
             ...merged,
             provider: finalProvider
         };
+        const payloadObject = isPlainObject(payload) ? payload : {};
+        const payloadHasDirectUpstream = Object.prototype.hasOwnProperty.call(payloadObject, 'upstreamBaseUrl');
+        const payloadSelectsProvider = Object.prototype.hasOwnProperty.call(payloadObject, 'provider')
+            || Object.prototype.hasOwnProperty.call(payloadObject, 'upstreamProviderName');
+        const payloadSelectsResponses = Object.prototype.hasOwnProperty.call(payloadObject, 'targetApi')
+            && normalized.targetApi === 'responses';
+        if (!payloadHasDirectUpstream && (payloadSelectsProvider || payloadSelectsResponses)) {
+            normalized.upstreamProviderName = '';
+            normalized.upstreamBaseUrl = '';
+            normalized.upstreamApiKey = '';
+        }
 
         if (!options.skipWrite) {
             writeJsonAtomic(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, normalized);
@@ -1066,21 +1083,27 @@ function createBuiltinClaudeProxyRuntimeController(deps = {}) {
         const targetApi = settings.targetApi === 'chat_completions'
             ? 'chat_completions'
             : (settings.targetApi === 'ollama' ? 'ollama' : 'responses');
-        const baseUrl = typeof payload.upstreamBaseUrl === 'string' ? payload.upstreamBaseUrl.trim() : '';
+        const baseUrl = typeof payload.upstreamBaseUrl === 'string' && payload.upstreamBaseUrl.trim()
+            ? payload.upstreamBaseUrl.trim()
+            : (typeof settings.upstreamBaseUrl === 'string' ? settings.upstreamBaseUrl.trim() : '');
         if (!baseUrl) {
             return null;
         }
         if (!isValidHttpUrl(baseUrl)) {
             return { error: 'Claude 兼容代理上游 base_url 无效' };
         }
-        const token = typeof payload.upstreamApiKey === 'string' ? payload.upstreamApiKey.trim() : '';
+        const token = typeof payload.upstreamApiKey === 'string' && payload.upstreamApiKey.trim()
+            ? payload.upstreamApiKey.trim()
+            : (typeof settings.upstreamApiKey === 'string' ? settings.upstreamApiKey.trim() : '');
         let authHeader = '';
         if (token) {
             authHeader = /^bearer\s+/i.test(token) ? token : `Bearer ${token}`;
         }
         const providerName = typeof payload.upstreamProviderName === 'string' && payload.upstreamProviderName.trim()
             ? payload.upstreamProviderName.trim()
-            : 'claude-config';
+            : (typeof settings.upstreamProviderName === 'string' && settings.upstreamProviderName.trim()
+                ? settings.upstreamProviderName.trim()
+                : 'claude-config');
         return {
             providerName,
             baseUrl: normalizeBaseUrl(baseUrl),

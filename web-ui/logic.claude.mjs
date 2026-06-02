@@ -164,7 +164,8 @@ export function findDuplicateClaudeConfigName(claudeConfigs = {}, config) {
             continue;
         }
         if (normalizeClaudeComparableUrl(normalizedExisting.baseUrl) !== comparableUrl
-            || normalizedExisting.model !== normalized.model) {
+            || normalizedExisting.model !== normalized.model
+            || normalizedExisting.targetApi !== normalized.targetApi) {
             continue;
         }
         if (normalized.apiKey && normalizedExisting.apiKey === normalized.apiKey) {

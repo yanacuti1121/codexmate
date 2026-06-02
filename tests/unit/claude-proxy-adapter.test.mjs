@@ -497,3 +497,100 @@ test('builtin Claude proxy sends Ollama traffic to /api paths without injecting 
         await closeServerForTest(upstream);
     }
 });
+
+test('builtin Claude proxy can restart Ollama direct upstream from saved share import settings', async () => {
+    const upstreamRequests = [];
+    const upstream = http.createServer((req, res) => {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => {
+            upstreamRequests.push({ method: req.method, url: req.url, body: Buffer.concat(chunks).toString('utf8') });
+            res.setHeader('content-type', 'application/json; charset=utf-8');
+            if (req.method === 'POST' && req.url === '/api/chat') {
+                res.end(JSON.stringify({
+                    model: 'qwen2.5-coder:7b',
+                    message: { role: 'assistant', content: 'restored ollama ok' },
+                    done: true,
+                    done_reason: 'stop'
+                }));
+                return;
+            }
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: `unexpected ${req.method} ${req.url}` }));
+        });
+    });
+
+    const upstreamAddress = await listenForTest(upstream);
+    const proxyPort = await findFreePortForTest();
+    const settingsFile = path.join(os.tmpdir(), `codexmate-claude-proxy-restart-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+    const baseOptions = {
+        BUILTIN_CLAUDE_PROXY_SETTINGS_FILE: settingsFile,
+        DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS: {
+            enabled: true,
+            host: '127.0.0.1',
+            port: proxyPort,
+            provider: '',
+            upstreamProviderName: '',
+            upstreamBaseUrl: '',
+            upstreamApiKey: '',
+            authSource: 'none',
+            targetApi: 'ollama',
+            timeoutMs: 30000
+        },
+        BUILTIN_PROXY_PROVIDER_NAME: 'codexmate-builtin-proxy',
+        MAX_API_BODY_SIZE: 1024 * 1024,
+        HTTP_KEEP_ALIVE_AGENT: new HttpAgent({ keepAlive: false }),
+        HTTPS_KEEP_ALIVE_AGENT: new HttpsAgent({ keepAlive: false }),
+        readConfigOrVirtualDefault: () => ({ config: { model_providers: {}, model_provider: '' } }),
+        resolveBuiltinProxyProviderName: () => '',
+        resolveAuthTokenFromCurrentProfile: () => '',
+        OPENAI_BRIDGE_SETTINGS_FILE: '',
+        resolveOpenaiBridgeUpstream: () => null
+    };
+
+    const firstController = createBuiltinClaudeProxyRuntimeController(baseOptions);
+    let secondController = null;
+    try {
+        const firstStart = await firstController.startBuiltinClaudeProxyRuntime({
+            host: '127.0.0.1',
+            port: proxyPort,
+            authSource: 'none',
+            targetApi: 'ollama',
+            upstreamBaseUrl: `http://127.0.0.1:${upstreamAddress.port}`,
+            upstreamProviderName: 'ollama-share-import'
+        });
+        assert.strictEqual(firstStart.success, true, JSON.stringify(firstStart));
+        await firstController.stopBuiltinClaudeProxyRuntime();
+
+        const saved = JSON.parse(require('fs').readFileSync(settingsFile, 'utf-8'));
+        assert.strictEqual(saved.targetApi, 'ollama');
+        assert.strictEqual(saved.upstreamBaseUrl, `http://127.0.0.1:${upstreamAddress.port}`);
+        assert.strictEqual(saved.upstreamProviderName, 'ollama-share-import');
+
+        secondController = createBuiltinClaudeProxyRuntimeController(baseOptions);
+        const restoredStart = await secondController.startBuiltinClaudeProxyRuntime({});
+        assert.strictEqual(restoredStart.success, true, JSON.stringify(restoredStart));
+        assert.strictEqual(restoredStart.upstreamProvider, 'ollama-share-import');
+        assert.strictEqual(restoredStart.mode, 'anthropic-to-ollama');
+
+        const messageRes = await fetch(`${restoredStart.listenUrl}/v1/messages`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                model: 'qwen2.5-coder:7b',
+                messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }]
+            })
+        });
+        assert.strictEqual(messageRes.status, 200);
+        const message = await messageRes.json();
+        assert.deepStrictEqual(message.content, [{ type: 'text', text: 'restored ollama ok' }]);
+        assert.deepStrictEqual(upstreamRequests.map((item) => `${item.method} ${item.url}`), ['POST /api/chat']);
+    } finally {
+        await firstController.stopBuiltinClaudeProxyRuntime();
+        if (secondController) {
+            await secondController.stopBuiltinClaudeProxyRuntime();
+        }
+        await closeServerForTest(upstream);
+        try { require('fs').rmSync(settingsFile, { force: true }); } catch (_) {}
+    }
+});

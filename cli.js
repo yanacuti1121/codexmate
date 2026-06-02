@@ -291,6 +291,9 @@ const DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS = Object.freeze({
     host: '127.0.0.1',
     port: 8328,
     provider: '',
+    upstreamProviderName: '',
+    upstreamBaseUrl: '',
+    upstreamApiKey: '',
     authSource: 'provider',
     targetApi: 'responses',
     timeoutMs: 30000
@@ -15897,7 +15900,7 @@ function createMcpTools(options = {}) {
                 if: {
                     not: {
                         type: 'object',
-                        properties: { targetApi: { const: 'ollama' } },
+                        properties: { targetApi: { type: 'string', pattern: '^[\\s]*[oO][lL][lL][aA][mM][aA][\\s]*$' } },
                         required: ['targetApi']
                     }
                 },
