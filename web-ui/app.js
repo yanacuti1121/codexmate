@@ -366,7 +366,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 codexDownloadProgress: 0,
                 codexDownloadTimer: null,
                 settingsTab: 'general',
-                toolConfigPermissions: { codex: false, claude: false },
+                toolConfigPermissions: (function() {
+                    try {
+                        const cached = localStorage.getItem('toolConfigPermissions');
+                        if (cached) return JSON.parse(cached);
+                    } catch (_) {}
+                    return { codex: false, claude: false };
+                })(),
                 toolConfigPermissionSaving: { codex: false, claude: false },
                 sessionTrashEnabled: true,
                 sessionTrashItems: [],

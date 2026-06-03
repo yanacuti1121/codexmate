@@ -1,5 +1,14 @@
 import assert from 'assert';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { readBundledWebUiScript, readProjectFile } from './helpers/web-ui-source.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const { createI18nMethods } = await import(
+    pathToFileURL(path.join(__dirname, '..', '..', 'web-ui', 'modules', 'i18n.mjs'))
+);
 
 const appSource = readBundledWebUiScript();
 const claudeConfigModuleSource = readProjectFile('web-ui/modules/app.methods.claude-config.mjs');
@@ -224,7 +233,10 @@ test('addClaudeConfig requires a visible model value before saving', () => {
     const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
     const messages = [];
     let saveCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Claude Test',
             apiKey: 'sk-test',
@@ -350,7 +362,10 @@ test('addClaudeConfig trims and persists the entered model', () => {
     let saveCount = 0;
     let closed = false;
     let refreshed = false;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Claude Test',
             apiKey: 'sk-test',

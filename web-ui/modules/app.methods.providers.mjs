@@ -206,7 +206,7 @@ export function createProvidersMethods(options = {}) {
                 };
                 this.providersList = [...this.providersList, newProvider];
 
-                this.showMessage('操作成功', 'success');
+                this.showMessage(this.t('toast.operation.success'), 'success');
                 this.closeAddModal();
 
                 if (suggestedModel) {
@@ -303,10 +303,10 @@ export function createProvidersMethods(options = {}) {
                     }));
                     this.showMessage(`已删除提供商，自动切换到 ${res.provider}${res.model ? ` / ${res.model}` : ''}`, 'success');
                 } else {
-                    this.showMessage('操作成功', 'success');
+                    this.showMessage(this.t('toast.operation.success'), 'success');
                 }
             } catch (_) {
-                this.showMessage('删除失败', 'error');
+                this.showMessage(this.t('toast.delete.fail'), 'error');
             }
         },
 
@@ -441,7 +441,7 @@ export function createProvidersMethods(options = {}) {
                 });
 
                 this.closeEditModal();
-                this.showMessage('操作成功', 'success');
+                this.showMessage(this.t('toast.operation.success'), 'success');
             } catch (e) {
                 this.showMessage('更新失败', 'error');
             }
@@ -501,7 +501,7 @@ export function createProvidersMethods(options = {}) {
                         }
                         return p;
                     });
-                    this.showMessage('操作成功', 'success');
+                    this.showMessage(this.t('toast.operation.success'), 'success');
                     this.closeModelModal();
                 }
             } catch (_) {
@@ -525,7 +525,7 @@ export function createProvidersMethods(options = {}) {
                         }
                         return p;
                     });
-                    this.showMessage('操作成功', 'success');
+                    this.showMessage(this.t('toast.operation.success'), 'success');
                 }
             } catch (_) {
                 this.showMessage('删除模型失败', 'error');

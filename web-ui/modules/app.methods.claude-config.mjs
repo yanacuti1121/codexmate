@@ -161,7 +161,7 @@ export function createClaudeConfigMethods(options = {}) {
             this.editingConfig.model = validation.model;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
-            this.showMessage('操作成功', 'success');
+            this.showMessage(this.t('toast.operation.success'), 'success');
             this.closeEditConfigModal();
             if (name === this.currentClaudeConfig) {
                 this.refreshClaudeModelContext();
@@ -204,7 +204,7 @@ export function createClaudeConfigMethods(options = {}) {
             try {
                 const res = await api('apply-claude-config', { config });
                 if (res.error || res.success === false) {
-                    this.showMessage(res.error || '应用配置失败', 'error');
+                    this.showMessage(res.error || this.t('toast.apply.fail'), 'error');
                 } else {
                     this.currentClaudeConfig = name;
                     if (this._lastAppliedClaudeKey !== _claudeKey) {
@@ -215,7 +215,7 @@ export function createClaudeConfigMethods(options = {}) {
                     this.refreshClaudeModelContext();
                 }
             } catch (_) {
-                this.showMessage('应用配置失败', 'error');
+                this.showMessage(this.t('toast.apply.fail'), 'error');
             }
         },
 
@@ -238,7 +238,7 @@ export function createClaudeConfigMethods(options = {}) {
 
             this.currentClaudeConfig = name;
             this.saveClaudeConfigs();
-            this.showMessage('操作成功', 'success');
+            this.showMessage(this.t('toast.operation.success'), 'success');
             this.closeClaudeConfigModal();
             this.refreshClaudeModelContext();
         },
@@ -261,7 +261,7 @@ export function createClaudeConfigMethods(options = {}) {
                 this.currentClaudeConfig = Object.keys(this.claudeConfigs)[0];
             }
             this.saveClaudeConfigs();
-            this.showMessage('操作成功', 'success');
+            this.showMessage(this.t('toast.operation.success'), 'success');
             this.refreshClaudeModelContext();
         },
 
@@ -282,15 +282,15 @@ export function createClaudeConfigMethods(options = {}) {
             try {
                 const res = await api('apply-claude-config', { config });
                 if (res.error || res.success === false) {
-                    this.showMessage(res.error || '应用配置失败', 'error');
+                    this.showMessage(res.error || this.t('toast.apply.fail'), 'error');
                 } else {
                     if (this._lastAppliedClaudeKey !== _claudeKey2) {
-                        this.showMessage('配置已应用', 'success');
+                        this.showMessage(this.t('toast.apply.success'), 'success');
                         this._lastAppliedClaudeKey = _claudeKey2;
                     }
                 }
             } catch (_) {
-                this.showMessage('应用配置失败', 'error');
+                this.showMessage(this.t('toast.apply.fail'), 'error');
             }
         },
 
