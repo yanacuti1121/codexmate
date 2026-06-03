@@ -369,7 +369,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 toolConfigPermissions: (function() {
                     try {
                         const cached = localStorage.getItem('toolConfigPermissions');
-                        if (cached) return JSON.parse(cached);
+                        if (cached) {
+                            const parsed = JSON.parse(cached);
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                return {
+                                    codex: parsed.codex === true,
+                                    claude: parsed.claude === true
+                                };
+                            }
+                        }
                     } catch (_) {}
                     return { codex: false, claude: false };
                 })(),
