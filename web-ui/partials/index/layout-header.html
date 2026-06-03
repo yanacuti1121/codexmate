@@ -98,21 +98,15 @@
                 <button
                     type="button"
                     class="lang-choice-btn"
-                    :aria-pressed="(lang || 'zh') === 'zh'"
-                    :class="{ active: (lang || 'zh') === 'zh' }"
-                    @click="setLang('zh')">ZH</button>
-                <button
-                    type="button"
-                    class="lang-choice-btn"
-                    :aria-pressed="(lang || 'zh') === 'en'"
-                    :class="{ active: (lang || 'zh') === 'en' }"
+                    :aria-pressed="(lang || 'vi') === 'en'"
+                    :class="{ active: (lang || 'vi') === 'en' }"
                     @click="setLang('en')">EN</button>
                 <button
                     type="button"
                     class="lang-choice-btn"
-                    :aria-pressed="(lang || 'zh') === 'ja'"
-                    :class="{ active: (lang || 'zh') === 'ja' }"
-                    @click="setLang('ja')">日本語</button>
+                    :aria-pressed="(lang || 'vi') === 'vi'"
+                    :class="{ active: (lang || 'vi') === 'vi' }"
+                    @click="setLang('vi')">VI</button>
             </div>
         </div>
 
@@ -326,21 +320,15 @@
                         <button
                             type="button"
                             class="lang-choice-btn"
-                            :aria-pressed="(lang || 'zh') === 'zh'"
-                            :class="{ active: (lang || 'zh') === 'zh' }"
-                            @click="setLang('zh')">ZH</button>
-                        <button
-                            type="button"
-                            class="lang-choice-btn"
-                            :aria-pressed="(lang || 'zh') === 'en'"
-                            :class="{ active: (lang || 'zh') === 'en' }"
+                            :aria-pressed="(lang || 'vi') === 'en'"
+                            :class="{ active: (lang || 'vi') === 'en' }"
                             @click="setLang('en')">EN</button>
                         <button
                             type="button"
                             class="lang-choice-btn"
-                            :aria-pressed="(lang || 'zh') === 'ja'"
-                            :class="{ active: (lang || 'zh') === 'ja' }"
-                            @click="setLang('ja')">日本語</button>
+                            :aria-pressed="(lang || 'vi') === 'vi'"
+                            :class="{ active: (lang || 'vi') === 'vi' }"
+                            @click="setLang('vi')">VI</button>
                     </div>
                 </div>
             </aside>

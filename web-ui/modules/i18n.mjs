@@ -1,12 +1,12 @@
 import { DICT } from './i18n.dict.mjs';
 
-const I18N_STORAGE_KEY = 'codexmateLang';
+const I18N_STORAGE_KEY = 'codexmateLang'; // VI_PATCH_COMPLETE
 
 function normalizeLang(value) {
     const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
     if (normalized === 'en') return 'en';
-    if (normalized === 'ja') return 'ja';
-    return 'zh';
+    if (normalized === 'vi') return 'vi';
+    return 'vi';
 }
 
 function interpolate(template, params) {
@@ -29,8 +29,8 @@ export function createI18nMethods() {
             try {
                 if (typeof document !== 'undefined' && document.documentElement) {
                     if (next === 'en') document.documentElement.lang = 'en';
-                    else if (next === 'ja') document.documentElement.lang = 'ja';
-                    else document.documentElement.lang = 'zh-CN';
+                    else if (next === 'vi') document.documentElement.lang = 'vi';
+                    else document.documentElement.lang = 'vi';
                 }
             } catch (_) {}
         },
@@ -45,17 +45,16 @@ export function createI18nMethods() {
             try {
                 if (typeof document !== 'undefined' && document.documentElement) {
                     if (next === 'en') document.documentElement.lang = 'en';
-                    else if (next === 'ja') document.documentElement.lang = 'ja';
-                    else document.documentElement.lang = 'zh-CN';
+                    else if (next === 'vi') document.documentElement.lang = 'vi';
+                    else document.documentElement.lang = 'vi';
                 }
             } catch (_) {}
         },
         t(key, params = null) {
             const lang = normalizeLang(this.lang);
-            const table = DICT[lang] || DICT.zh;
+            const table = DICT[lang] || DICT.vi;
             const fallbackEn = DICT.en;
-            const fallbackZh = DICT.zh;
-            const raw = (table && table[key]) || (fallbackEn && fallbackEn[key]) || (fallbackZh && fallbackZh[key]) || key;
+            const raw = (table && table[key]) || (fallbackEn && fallbackEn[key]) || key;
             return interpolate(raw, params);
         }
     };

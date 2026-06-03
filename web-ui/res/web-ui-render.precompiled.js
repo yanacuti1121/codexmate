@@ -138,22 +138,17 @@ return function render(_ctx, _cache) {
           }, [
             _createElementVNode("button", {
               type: "button",
-              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'zh' }]),
-              "aria-pressed": (_ctx.lang || 'zh') === 'zh',
-              onClick: $event => (_ctx.setLang('zh'))
-            }, "ZH", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
-            _createElementVNode("button", {
-              type: "button",
-              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'en' }]),
-              "aria-pressed": (_ctx.lang || 'zh') === 'en',
+              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'vi') === 'en' }]),
+              "aria-pressed": (_ctx.lang || 'vi') === 'en',
               onClick: $event => (_ctx.setLang('en'))
             }, "EN", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
             _createElementVNode("button", {
               type: "button",
-              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'ja' }]),
-              "aria-pressed": (_ctx.lang || 'zh') === 'ja',
-              onClick: $event => (_ctx.setLang('ja'))
-            }, "日本語", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"])
+              class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'vi') === 'vi' }]),
+              "aria-pressed": (_ctx.lang || 'vi') === 'vi',
+              onClick: $event => (_ctx.setLang('vi'))
+            }, "VI", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"])
+
           ], 8 /* PROPS */, ["aria-label"])
         ], 8 /* PROPS */, ["aria-label"]))
       : _createCommentVNode("v-if", true),
@@ -450,22 +445,17 @@ return function render(_ctx, _cache) {
               }, [
                 _createElementVNode("button", {
                   type: "button",
-                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'zh' }]),
-                  "aria-pressed": (_ctx.lang || 'zh') === 'zh',
-                  onClick: $event => (_ctx.setLang('zh'))
-                }, "ZH", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
-                _createElementVNode("button", {
-                  type: "button",
-                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'en' }]),
-                  "aria-pressed": (_ctx.lang || 'zh') === 'en',
+                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'vi') === 'en' }]),
+                  "aria-pressed": (_ctx.lang || 'vi') === 'en',
                   onClick: $event => (_ctx.setLang('en'))
                 }, "EN", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"]),
                 _createElementVNode("button", {
                   type: "button",
-                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'zh') === 'ja' }]),
-                  "aria-pressed": (_ctx.lang || 'zh') === 'ja',
-                  onClick: $event => (_ctx.setLang('ja'))
-                }, "日本語", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"])
+                  class: _normalizeClass(["lang-choice-btn", { active: (_ctx.lang || 'vi') === 'vi' }]),
+                  "aria-pressed": (_ctx.lang || 'vi') === 'vi',
+                  onClick: $event => (_ctx.setLang('vi'))
+                }, "VI", 10 /* CLASS, PROPS */, ["aria-pressed", "onClick"])
+
               ], 8 /* PROPS */, ["aria-label"])
             ], 8 /* PROPS */, ["aria-label"])
           ]))

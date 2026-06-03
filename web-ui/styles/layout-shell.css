@@ -284,6 +284,7 @@ body::after {
     transform: translateY(0);
 }
 
+.lang-switch-track[data-lang="vi"] .lang-switch-vi { opacity: 1; font-weight: 700; }
 .lang-switch-track[data-lang="zh"] .lang-switch-en {
     opacity: 0;
 }
