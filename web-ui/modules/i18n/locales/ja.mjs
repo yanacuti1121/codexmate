@@ -362,7 +362,7 @@ const ja = Object.freeze({
     'plugins.builtin.commentPolish.desc': '以下のコードコメントを軽く整えてください {{code}}',
     'plugins.builtin.commentPolish.line1': '以下のコードコメントを軽く整えてください',
     'plugins.builtin.ruleAck.name': 'ルール確認返信',
-    'plugins.builtin.ruleAck.desc': '【{{rule}}】に従って、受信確認を返してください',
+    'plugins.builtin.ruleAck.desc': 'ルールに従うよう確認返信を指示',
     'plugins.builtin.ruleAck.line1': '【{{rule}}】に従って、受信確認を返してください',
 
     // Toasts
@@ -393,6 +393,18 @@ const ja = Object.freeze({
     'toast.templates.deleteMessage': '「{name}」を削除しますか？この操作は取り消せません。',
     'toast.templates.deleteConfirm': '削除',
     'toast.templates.deleteCancel': 'キャンセル',
+    'toast.operation.success': '操作が成功しました',
+    'toast.load.fail': 'ファイルの読み込みに失敗しました',
+    'toast.apply.success': '設定が適用されました',
+    'toast.apply.fail': '設定の適用に失敗しました',
+    'toast.check.success': 'チェック成功',
+    'toast.check.fail': 'チェック失敗',
+    'toast.noChanges': '変更が検出されませんでした',
+    'toast.template.loadFail': 'テンプレートの読み込みに失敗しました',
+    'toast.template.empty': 'テンプレートは空にできません',
+    'toast.template.applied': 'テンプレートが適用されました',
+    'toast.template.appliedButRefreshFail': 'テンプレートは適用されましたが、UI の更新に失敗しました。手動で更新してください',
+    'toast.template.applyFail': 'テンプレートの適用に失敗しました',
 
     // Basic modals
     'modal.providerAdd.title': 'プロバイダー追加',

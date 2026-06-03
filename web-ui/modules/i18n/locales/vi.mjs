@@ -6,7 +6,7 @@ const vi = Object.freeze({
     'plugins.builtin.commentPolish.desc': 'Chỉnh nhẹ các chú thích mã sau {{code}}',
     'plugins.builtin.commentPolish.line1': 'Chỉnh nhẹ các chú thích mã sau',
     'plugins.builtin.ruleAck.name': 'Xác nhận quy tắc',
-    'plugins.builtin.ruleAck.desc': 'Hãy làm theo【{{rule}}】, nhận được thì phản hồi',
+    'plugins.builtin.ruleAck.desc': 'Tạo phản hồi xác nhận quy tắc',
     'plugins.builtin.ruleAck.line1': 'Hãy làm theo【{{rule}}】, nhận được thì phản hồi',
     // Global
     'lang.zh': 'Tiếng Trung',
@@ -235,7 +235,28 @@ const vi = Object.freeze({
     'dashboard.doctor.title': 'Doctor',
     'dashboard.doctor.runChecks': 'Chạy kiểm tra',
     'dashboard.doctor.checking': 'Đang kiểm tra...',
-    'dashboard.doctor.export': 'Xuất báo cáo'
+    'dashboard.doctor.export': 'Xuất báo cáo',
+
+    // Toasts
+    'toast.copy.empty': 'Không có gì để sao chép',
+    'toast.copy.ok': 'Đã sao chép',
+    'toast.copy.fail': 'Sao chép thất bại',
+    'toast.save.ok': 'Đã lưu',
+    'toast.save.fail': 'Lưu thất bại',
+    'toast.delete.ok': 'Đã xóa',
+    'toast.delete.fail': 'Xóa thất bại',
+    'toast.operation.success': 'Thao tác thành công',
+    'toast.load.fail': 'Tải tệp thất bại',
+    'toast.apply.success': 'Đã áp dụng cấu hình',
+    'toast.apply.fail': 'Áp dụng cấu hình thất bại',
+    'toast.check.success': 'Kiểm tra thành công',
+    'toast.check.fail': 'Kiểm tra thất bại',
+    'toast.noChanges': 'Không phát hiện thay đổi',
+    'toast.template.loadFail': 'Tải mẫu thất bại',
+    'toast.template.empty': 'Mẫu không được để trống',
+    'toast.template.applied': 'Đã áp dụng mẫu',
+    'toast.template.appliedButRefreshFail': 'Đã áp dụng mẫu, nhưng làm mới giao diện thất bại. Vui lòng làm mới thủ công',
+    'toast.template.applyFail': 'Áp dụng mẫu thất bại'
 });
 
 export { vi };

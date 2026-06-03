@@ -360,7 +360,7 @@ const zh = Object.freeze({
     'plugins.builtin.commentPolish.desc': '轻微收敛以下代码注释 {{code}}',
     'plugins.builtin.commentPolish.line1': '轻微收敛以下代码注释',
     'plugins.builtin.ruleAck.name': '规则确认回复',
-    'plugins.builtin.ruleAck.desc': '请根据【{{rule}}】，收到请回复',
+    'plugins.builtin.ruleAck.desc': '生成规则确认回复',
     'plugins.builtin.ruleAck.line1': '请根据【{{rule}}】，收到请回复',
 
     // Toasts
@@ -388,9 +388,21 @@ const zh = Object.freeze({
     'toast.templates.builtinNotDuplicable': '内置模板不可复制',
     'toast.templates.builtinNotDeletable': '内置模板不可删除',
     'toast.templates.deleteTitle': '删除模板',
-    'toast.templates.deleteMessage': '删除“{name}”？此操作无法撤销。',
+    'toast.templates.deleteMessage': '删除”{name}”？此操作无法撤销。',
     'toast.templates.deleteConfirm': '删除',
     'toast.templates.deleteCancel': '取消',
+    'toast.operation.success': '操作成功',
+    'toast.load.fail': '加载文件失败',
+    'toast.apply.success': '配置已应用',
+    'toast.apply.fail': '应用配置失败',
+    'toast.check.success': '检查通过',
+    'toast.check.fail': '检查失败',
+    'toast.noChanges': '未检测到改动',
+    'toast.template.loadFail': '加载模板失败',
+    'toast.template.empty': '模板不能为空',
+    'toast.template.applied': '模板已应用',
+    'toast.template.appliedButRefreshFail': '模板已应用，但界面刷新失败，请手动刷新',
+    'toast.template.applyFail': '应用模板失败',
 
     // Basic modals
     'modal.providerAdd.title': '添加提供商',
