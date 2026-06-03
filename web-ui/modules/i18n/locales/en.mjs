@@ -61,6 +61,8 @@ const en = Object.freeze({
     'common.notExistsWillCreateOnApply': 'Not found. Will be created on apply.',
     'common.notExistsWillCreateOnSave': 'Not found. Will be created on save.',
     'common.none': 'None',
+    'common.configured': 'Configured',
+    'common.notConfigured': 'Not configured',
     'cli.missing.title': '{name} CLI not installed',
     'cli.missing.subtitle': 'Install {name} CLI before using this page.',
     'cli.missing.openDocs': 'Open install guide',

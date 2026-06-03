@@ -61,6 +61,8 @@ const zh = Object.freeze({
     'common.notExistsWillCreateOnApply': '不存在，将在应用时创建',
     'common.notExistsWillCreateOnSave': '不存在，将在保存时创建',
     'common.none': '暂无',
+    'common.configured': '已配置',
+    'common.notConfigured': '未配置',
     'cli.missing.title': '{name} CLI 未安装',
     'cli.missing.subtitle': '请先安装 {name} CLI 后再继续使用此页面。',
     'cli.missing.openDocs': '打开安装指南',

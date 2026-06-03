@@ -62,6 +62,8 @@ const ja = Object.freeze({
     'common.notExistsWillCreateOnApply': '存在しません。適用時に作成されます',
     'common.notExistsWillCreateOnSave': '存在しません。保存時に作成されます',
     'common.none': 'なし',
+    'common.configured': '設定済み',
+    'common.notConfigured': '未設定',
     'cli.missing.title': '{name} CLI がインストールされていません',
     'cli.missing.subtitle': '{name} CLI をインストールしてからこのページをご利用ください。',
     'cli.missing.openDocs': 'インストールガイドを開く',

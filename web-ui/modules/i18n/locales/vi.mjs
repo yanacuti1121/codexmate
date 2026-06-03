@@ -71,6 +71,8 @@ const vi = Object.freeze({
     'common.notExistsWillCreateOnApply': 'Không tồn tại. Sẽ được tạo khi áp dụng.',
     'common.notExistsWillCreateOnSave': 'Không tồn tại. Sẽ được tạo khi lưu.',
     'common.none': 'Không có',
+    'common.configured': 'Đã cấu hình',
+    'common.notConfigured': 'Chưa cấu hình',
     'common.notSelected': 'Chưa chọn',
 
     // Roles / labels
