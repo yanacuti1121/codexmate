@@ -106,6 +106,17 @@ const vi = Object.freeze({
     'side.overview.doctor.meta': 'Tổng quan / Chẩn đoán',
     'side.docs.cliInstall': 'Cài CLI',
     'side.docs.cliInstall.meta': 'Cài đặt / Cập nhật / Gỡ',
+    'side.update.available': 'Có bản cập nhật',
+    'side.update.availableWithVersion': 'Có bản cập nhật v{version}',
+    'side.update.meta': 'Mở lệnh cập nhật',
+    'side.update.metaVersions': 'Hiện tại v{current} → mới nhất v{latest}',
+    'side.update.checkFailed': 'Không thể kiểm tra phiên bản mới nhất',
+    'side.update.check': 'Kiểm tra cập nhật',
+    'side.update.checking': 'Đang kiểm tra cập nhật…',
+    'side.update.checkingMeta': 'Đang kết nối npm registry',
+    'side.update.upToDate': 'Đã là phiên bản mới nhất',
+    'side.update.currentOnly': 'Hiện tại v{current}',
+    'side.update.retry': 'Thử kiểm tra phiên bản lại',
     'side.config.codex': 'Codex',
     'side.config.codex.meta': 'Provider / Model',
     'side.config.claude': 'Claude Code',
@@ -236,6 +247,15 @@ const vi = Object.freeze({
     'dashboard.doctor.runChecks': 'Chạy kiểm tra',
     'dashboard.doctor.checking': 'Đang kiểm tra...',
     'dashboard.doctor.export': 'Xuất báo cáo',
+
+    // Claude target API
+    'claude.targetApi.label': 'API đích',
+    'claude.targetApi.responses': 'Anthropic',
+    'claude.targetApi.chatCompletions': 'OpenAI Chat Completions (/v1/chat/completions)',
+    'claude.targetApi.ollama': 'Ollama Chat (/api/chat)',
+    'claude.targetApi.chatCompletionsBadge': 'OpenAI Chat Completions',
+    'claude.targetApi.ollamaBadge': 'Ollama',
+    'claude.targetApi.hint': 'Khi chọn Chat Completions hoặc Ollama, proxy tương thích Claude sẽ chuyển đổi nội bộ mà không thay đổi wire_api của Codex provider; Ollama không cần API key.',
 
     // Toasts
     'toast.copy.empty': 'Không có gì để sao chép',

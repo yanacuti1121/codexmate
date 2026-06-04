@@ -336,6 +336,12 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
     const missingCurrentKeys = headDataKeys.filter((key) => !currentDataKeys.includes(key)).sort();
     const allowedExtraCurrentKeys = parityAgainstHead ? [
         'appVersion',
+        'appLatestVersion',
+        'appVersionStatusError',
+        'appVersionStatusLoading',
+        'appVersionStatusChecked',
+        'appVersionStatusCheckedAt',
+        'appVersionStatusSource',
         'sessionListInitialBatchSize',
         'sessionListLoadStep',
         'sessionListVisibleCount',
@@ -369,6 +375,12 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'toolConfigPermissions'
     ] : [
         'appVersion',
+        'appLatestVersion',
+        'appVersionStatusError',
+        'appVersionStatusLoading',
+        'appVersionStatusChecked',
+        'appVersionStatusCheckedAt',
+        'appVersionStatusSource',
         '__mainTabSwitchState',
         'openclawAuthProfilesByProvider',
         'openclawPendingAuthProfileUpdates',
@@ -588,6 +600,17 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'setToolConfigPermission'
     ];
     allowedExtraCurrentMethodKeys.push(
+        'normalizePackageVersion',
+        'comparePackageVersions',
+        'isAppUpdateAvailable',
+        'isAppVersionStatusVisible',
+        'appVersionStatusKind',
+        'appUpdateNoticeText',
+        'appUpdateNoticeMeta',
+        'appVersionStatusTitle',
+        'handleAppVersionStatusClick',
+        'loadAppVersionStatus',
+        'openAppUpdateDocs',
         'hasActiveSessionFilters',
         'getSessionFilterChips',
         'clearSessionFilterChip',
@@ -651,6 +674,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'getClaudeConfigValidation',
         'claudeConfigFieldError',
         'canSubmitClaudeConfig',
+        'matchBuiltinClaudeProxyConfigFromSettings',
+        'shouldSuppressClaudeSettingsImport',
         'toggleAccordionStep',
         'nextAccordionStep',
         'prevAccordionStep',

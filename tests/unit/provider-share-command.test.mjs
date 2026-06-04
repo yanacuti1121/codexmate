@@ -374,6 +374,44 @@ test('buildProviderShareCommand adds bridge flag when present', () => {
     );
 });
 
+test('buildClaudeSharePayload allows ollama share without api key and preserves target api', () => {
+    const normalizeClaudeTargetApiSource = extractBlockBySignature(cliSource, 'function normalizeClaudeTargetApi(value) {');
+    const normalizeClaudeTargetApi = instantiateFunction(normalizeClaudeTargetApiSource, 'normalizeClaudeTargetApi');
+    const buildClaudeSharePayloadSource = extractBlockBySignature(cliSource, 'function buildClaudeSharePayload(config = {}) {');
+    const buildClaudeSharePayload = instantiateFunction(buildClaudeSharePayloadSource, 'buildClaudeSharePayload', {
+        normalizeClaudeTargetApi,
+        DEFAULT_CLAUDE_MODEL: 'glm-4.7'
+    });
+
+    const result = buildClaudeSharePayload({
+        baseUrl: 'http://127.0.0.1:11434',
+        apiKey: '',
+        model: 'llama3.1:8b',
+        targetApi: 'ollama'
+    });
+
+    assert(result && result.payload, 'ollama share payload should exist without api key');
+    assert.strictEqual(result.payload.baseUrl, 'http://127.0.0.1:11434');
+    assert.strictEqual(result.payload.apiKey, '');
+    assert.strictEqual(result.payload.model, 'llama3.1:8b');
+    assert.strictEqual(result.payload.targetApi, 'ollama');
+});
+
+test('buildClaudeSharePayload still requires api key for non-ollama targets', () => {
+    const normalizeClaudeTargetApiSource = extractBlockBySignature(cliSource, 'function normalizeClaudeTargetApi(value) {');
+    const normalizeClaudeTargetApi = instantiateFunction(normalizeClaudeTargetApiSource, 'normalizeClaudeTargetApi');
+    const buildClaudeSharePayloadSource = extractBlockBySignature(cliSource, 'function buildClaudeSharePayload(config = {}) {');
+    const buildClaudeSharePayload = instantiateFunction(buildClaudeSharePayloadSource, 'buildClaudeSharePayload', {
+        normalizeClaudeTargetApi,
+        DEFAULT_CLAUDE_MODEL: 'glm-4.7'
+    });
+
+    assert.deepStrictEqual(
+        buildClaudeSharePayload({ baseUrl: 'https://claude.example.com', apiKey: '', targetApi: 'responses' }),
+        { error: 'Claude API 密钥未设置' }
+    );
+});
+
 test('buildClaudeShareCommand respects the configured share prefix', () => {
     const buildClaudeShareCommand = createClaudeShareCommandBuilder(appSource);
     const command = buildClaudeShareCommand({
@@ -385,6 +423,40 @@ test('buildClaudeShareCommand respects the configured share prefix', () => {
     assert.strictEqual(
         command,
         "npm start -- claude https://claude.example.com sk-claude claude-3-7-sonnet"
+    );
+});
+
+test('buildClaudeShareCommand keeps ollama target api and empty api key in import command', () => {
+    const buildClaudeShareCommand = createClaudeShareCommandBuilder(appSource, 'codexmate');
+    const command = buildClaudeShareCommand({
+        baseUrl: 'http://127.0.0.1:11434',
+        apiKey: '',
+        model: 'llama3.1:8b',
+        targetApi: 'ollama'
+    });
+
+    assert.strictEqual(
+        command,
+        "codexmate claude http://127.0.0.1:11434 '' llama3.1:8b --target-api ollama"
+    );
+});
+
+test('parseClaudeCommandArgs preserves ollama target api from shared import command', () => {
+    const normalizeClaudeTargetApiSource = extractBlockBySignature(cliSource, 'function normalizeClaudeTargetApi(value) {');
+    const normalizeClaudeTargetApi = instantiateFunction(normalizeClaudeTargetApiSource, 'normalizeClaudeTargetApi');
+    const parseClaudeCommandArgsSource = extractBlockBySignature(cliSource, 'function parseClaudeCommandArgs(argv = []) {');
+    const parseClaudeCommandArgs = instantiateFunction(parseClaudeCommandArgsSource, 'parseClaudeCommandArgs', {
+        normalizeClaudeTargetApi
+    });
+
+    assert.deepStrictEqual(
+        parseClaudeCommandArgs(['http://127.0.0.1:11434', '', 'llama3.1:8b', '--target-api', 'ollama']),
+        {
+            baseUrl: 'http://127.0.0.1:11434',
+            apiKey: '',
+            model: 'llama3.1:8b',
+            targetApi: 'ollama'
+        }
     );
 });
 

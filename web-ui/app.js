@@ -270,6 +270,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 installRegistryPreset: 'default',
                 installRegistryCustom: '',
                 installStatusTargets: null,
+                appLatestVersion: '',
+                appVersionStatusLoading: false,
+                appVersionStatusError: '',
+                appVersionStatusChecked: false,
+                appVersionStatusCheckedAt: '',
+                appVersionStatusSource: '',
                 newProvider: { name: '', url: '', key: '', model: '', useTransform: false },
                 resetConfigLoading: false,
                 editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
@@ -277,12 +283,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentClaudeConfig: '',
                 currentClaudeModel: '',
                 claudeCustomModelDraft: '',
-                editingConfig: { name: '', apiKey: '', baseUrl: '', model: '' },
+                editingConfig: { name: '', apiKey: '', baseUrl: '', model: '', targetApi: 'responses' },
                 claudeConfigs: {
                     '智谱GLM': {
                         apiKey: '',
                         baseUrl: 'https://open.bigmodel.cn/api/anthropic',
                         model: 'glm-4.7',
+                        targetApi: 'responses',
                         hasKey: false
                     }
                 },
@@ -290,7 +297,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: '',
                     apiKey: '',
                     baseUrl: '',
-                    model: ''
+                    model: '',
+                    targetApi: 'responses'
                 },
                 currentOpenclawConfig: '',
                 openclawConfigs: {
@@ -554,6 +562,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             config.apiKey = '';
                             config.hasKey = false;
                         }
+                        const targetApiRaw = typeof config.targetApi === 'string' ? config.targetApi.trim().toLowerCase() : '';
+                        if (targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions') {
+                            config.targetApi = 'chat_completions';
+                        } else if (targetApiRaw === 'ollama') {
+                            config.targetApi = 'ollama';
+                        } else {
+                            config.targetApi = 'responses';
+                        }
                     }
                     localStorage.setItem('claudeConfigs', JSON.stringify(this.claudeConfigs));
                 } catch (e) {
@@ -629,6 +645,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 void this.runProvidersHealthCheck({ remote: true });
                             }
                         }
+                    }
+                    if (typeof this.loadAppVersionStatus === 'function') {
+                        void this.loadAppVersionStatus({ silent: true });
                     }
                     void this.refreshClaudeSelectionFromSettings({ silent: true });
                     void this.syncDefaultOpenclawConfigEntry({ silent: true });

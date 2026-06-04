@@ -23,6 +23,10 @@ function getClaudeConfigValidationForContext(vm, mode = 'add') {
     const externalCredentialType = normalizeClaudeText(draft && draft.externalCredentialType);
     const baseUrl = normalizeClaudeBaseUrl(draft && draft.baseUrl);
     const model = normalizeClaudeText(draft && draft.model);
+    const targetApiRaw = normalizeClaudeText(draft && draft.targetApi).toLowerCase();
+    const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+        ? 'chat_completions'
+        : (targetApiRaw === 'ollama' ? 'ollama' : 'responses');
     const errors = {
         name: '',
         apiKey: '',
@@ -36,7 +40,7 @@ function getClaudeConfigValidationForContext(vm, mode = 'add') {
         errors.name = vm.t('validation.claude.nameExists');
     }
 
-    if (!apiKey && !externalCredentialType) {
+    if (!apiKey && !externalCredentialType && targetApi !== 'ollama') {
         errors.apiKey = vm.t('validation.claude.apiKeyRequired');
     }
 
@@ -57,6 +61,7 @@ function getClaudeConfigValidationForContext(vm, mode = 'add') {
         externalCredentialType,
         baseUrl,
         model,
+        targetApi,
         errors,
         ok: !errors.name && !errors.apiKey && !errors.baseUrl && !errors.model
     };
@@ -88,7 +93,7 @@ export function createClaudeConfigMethods(options = {}) {
             this.claudeConfigs[name] = this.mergeClaudeConfig(existing, { model });
             this.saveClaudeConfigs();
             this.updateClaudeModelsCurrent();
-            if (!this.claudeConfigs[name].apiKey && !this.claudeConfigs[name].externalCredentialType) {
+            if (!this.claudeConfigs[name].apiKey && !this.claudeConfigs[name].externalCredentialType && this.claudeConfigs[name].targetApi !== 'ollama') {
                 this.showMessage(this.t('toast.claude.apiKeyRequired'), 'error');
                 return;
             }
@@ -115,8 +120,10 @@ export function createClaudeConfigMethods(options = {}) {
             this.newClaudeConfig = {
                 name: '',
                 apiKey: config.apiKey || '',
+                externalCredentialType: config.externalCredentialType || '',
                 baseUrl: config.baseUrl || '',
-                model: config.model || ''
+                model: config.model || '',
+                targetApi: config.targetApi || 'responses'
             };
             this.showAddClaudeConfigKey = false;
             this.showClaudeConfigModal = true;
@@ -144,7 +151,8 @@ export function createClaudeConfigMethods(options = {}) {
                 apiKey: config.apiKey || '',
                 externalCredentialType: config.externalCredentialType || '',
                 baseUrl: config.baseUrl || '',
-                model: config.model || ''
+                model: config.model || '',
+                targetApi: config.targetApi || 'responses'
             };
             this.showEditClaudeConfigKey = false;
             this.showEditConfigModal = true;
@@ -157,8 +165,10 @@ export function createClaudeConfigMethods(options = {}) {
             }
             const name = validation.name;
             this.editingConfig.apiKey = validation.apiKey;
+            this.editingConfig.externalCredentialType = validation.externalCredentialType;
             this.editingConfig.baseUrl = validation.baseUrl;
             this.editingConfig.model = validation.model;
+            this.editingConfig.targetApi = validation.targetApi;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
             this.showMessage(this.t('toast.operation.success'), 'success');
@@ -171,7 +181,7 @@ export function createClaudeConfigMethods(options = {}) {
         closeEditConfigModal() {
             this.showEditConfigModal = false;
             this.showEditClaudeConfigKey = false;
-            this.editingConfig = { name: '', apiKey: '', externalCredentialType: '', baseUrl: '', model: '' };
+            this.editingConfig = { name: '', apiKey: '', externalCredentialType: '', baseUrl: '', model: '', targetApi: 'responses' };
         },
 
         toggleEditClaudeConfigKey() {
@@ -185,13 +195,15 @@ export function createClaudeConfigMethods(options = {}) {
             }
             const name = validation.name;
             this.editingConfig.apiKey = validation.apiKey;
+            this.editingConfig.externalCredentialType = validation.externalCredentialType;
             this.editingConfig.baseUrl = validation.baseUrl;
             this.editingConfig.model = validation.model;
+            this.editingConfig.targetApi = validation.targetApi;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
 
             const config = this.claudeConfigs[name];
-            if (!config.apiKey) {
+            if (!config.apiKey && config.targetApi !== 'ollama') {
                 this.showMessage(this.t('toast.claude.savedWithoutKey'), 'info');
                 this.closeEditConfigModal();
                 if (name === this.currentClaudeConfig) {
@@ -200,9 +212,9 @@ export function createClaudeConfigMethods(options = {}) {
                 return;
             }
 
-            const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}`;
+            const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
-                const res = await api('apply-claude-config', { config });
+                const res = await api('apply-claude-config', { config: { ...config, name } });
                 if (res.error || res.success === false) {
                     this.showMessage(res.error || this.t('toast.apply.fail'), 'error');
                 } else {
@@ -226,8 +238,10 @@ export function createClaudeConfigMethods(options = {}) {
             }
             this.newClaudeConfig.name = validation.name;
             this.newClaudeConfig.apiKey = validation.apiKey;
+            this.newClaudeConfig.externalCredentialType = validation.externalCredentialType;
             this.newClaudeConfig.baseUrl = validation.baseUrl;
             this.newClaudeConfig.model = validation.model;
+            this.newClaudeConfig.targetApi = validation.targetApi;
             const name = validation.name;
             const duplicateName = this.findDuplicateClaudeConfigName(this.newClaudeConfig);
             if (duplicateName) {
@@ -271,16 +285,16 @@ export function createClaudeConfigMethods(options = {}) {
             this.refreshClaudeModelContext();
             const config = this.claudeConfigs[name];
 
-            if (!config.apiKey) {
+            if (!config.apiKey && config.targetApi !== 'ollama') {
                 if (config.externalCredentialType) {
                     return this.showMessage(this.t('toast.claude.externalAuth'), 'info');
                 }
                 return this.showMessage(this.t('toast.claude.apiKeyRequired'), 'error');
             }
 
-            const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}`;
+            const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
-                const res = await api('apply-claude-config', { config });
+                const res = await api('apply-claude-config', { config: { ...config, name } });
                 if (res.error || res.success === false) {
                     this.showMessage(res.error || this.t('toast.apply.fail'), 'error');
                 } else {
@@ -300,8 +314,10 @@ export function createClaudeConfigMethods(options = {}) {
             this.newClaudeConfig = {
                 name: '',
                 apiKey: '',
+                externalCredentialType: '',
                 baseUrl: '',
-                model: ''
+                model: '',
+                targetApi: 'responses'
             };
         },
 

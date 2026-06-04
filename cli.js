@@ -148,7 +148,7 @@ const {
     deleteCodexSkills
 } = require('./cli/skills');
 const { cmdImportSkills: cmdImportSkillsFromUrl } = require('./cli/import-skills-url');
-const { cmdToolUpdate } = require('./cli/update');
+const { cmdToolUpdate, fetchLatestVersionStatus } = require('./cli/update');
 const {
     getFileStatSafe,
     isBootstrapLikeText,
@@ -291,7 +291,11 @@ const DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS = Object.freeze({
     host: '127.0.0.1',
     port: 8328,
     provider: '',
+    upstreamProviderName: '',
+    upstreamBaseUrl: '',
+    upstreamApiKey: '',
     authSource: 'provider',
+    targetApi: 'responses',
     timeoutMs: 30000
 });
 const CLI_INSTALL_TARGETS = Object.freeze([
@@ -5740,7 +5744,9 @@ const {
     HTTPS_KEEP_ALIVE_AGENT,
     readConfigOrVirtualDefault,
     resolveBuiltinProxyProviderName,
-    resolveAuthTokenFromCurrentProfile
+    resolveAuthTokenFromCurrentProfile,
+    OPENAI_BRIDGE_SETTINGS_FILE,
+    resolveOpenaiBridgeUpstream
 });
 
 function applyBuiltinProxyProvider(params = {}) {
@@ -8082,15 +8088,17 @@ function buildClaudeSharePayload(config = {}) {
     const apiKey = typeof config.apiKey === 'string' ? config.apiKey : '';
     const baseUrl = typeof config.baseUrl === 'string' ? config.baseUrl : '';
     const model = typeof config.model === 'string' ? config.model : '';
+    const targetApi = normalizeClaudeTargetApi(config.targetApi);
 
     if (!baseUrl) return { error: 'Claude Base URL 未设置' };
-    if (!apiKey) return { error: 'Claude API 密钥未设置' };
+    if (!apiKey && targetApi !== 'ollama') return { error: 'Claude API 密钥未设置' };
 
     return {
         payload: {
             baseUrl: baseUrl.trim(),
             apiKey: apiKey.trim(),
-            model: (model && model.trim()) || DEFAULT_CLAUDE_MODEL
+            model: (model && model.trim()) || DEFAULT_CLAUDE_MODEL,
+            targetApi
         }
     };
 }
@@ -9404,19 +9412,93 @@ function maskKey(key) {
     return key.substring(0, 4) + '...' + key.substring(key.length - 4);
 }
 
+function normalizeClaudeTargetApi(value) {
+    const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (raw === 'chat_completions' || raw === 'chat-completions' || raw === 'chat/completions') {
+        return 'chat_completions';
+    }
+    if (raw === 'ollama') {
+        return 'ollama';
+    }
+    return 'responses';
+}
+
+function resetBuiltinClaudeProxySavedSettingsToResponses() {
+    const proxySettingsResult = readJsonObjectFromFile(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS);
+    const proxySettings = proxySettingsResult.ok && proxySettingsResult.data && typeof proxySettingsResult.data === 'object' && !Array.isArray(proxySettingsResult.data)
+        ? proxySettingsResult.data
+        : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS;
+    writeJsonAtomic(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, {
+        ...DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS,
+        ...proxySettings,
+        enabled: false,
+        targetApi: 'responses'
+    });
+}
+
 // 应用到 Claude Code settings.json（跨平台）
-function applyToClaudeSettings(config = {}) {
-    assertToolConfigWriteAllowed('claude');
+async function applyToClaudeSettings(config = {}) {
+    let proxyStarted = false;
     try {
+        assertToolConfigWriteAllowed('claude');
         const apiKey = (config.apiKey || '').trim();
-        if (!apiKey) {
+        const targetApi = normalizeClaudeTargetApi(config.targetApi);
+        if (!apiKey && targetApi !== 'ollama') {
             return { success: false, mode: 'settings-file', error: '请先输入 API Key' };
         }
 
-        const baseUrl = (config.baseUrl || 'https://open.bigmodel.cn/api/anthropic').trim();
+        const configuredBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
+        const baseUrl = (configuredBaseUrl || (targetApi === 'ollama' ? 'http://127.0.0.1:11434' : 'https://open.bigmodel.cn/api/anthropic')).trim();
         const model = (config.model || DEFAULT_CLAUDE_MODEL).trim();
+        let settingsBaseUrl = baseUrl;
+        let settingsApiKey = apiKey;
+        let proxyResult = null;
+
+        if (targetApi === 'chat_completions' || targetApi === 'ollama') {
+            const upstreamProviderName = typeof config.name === 'string' ? config.name.trim() : '';
+            if (targetApi === 'chat_completions' && !configuredBaseUrl && !upstreamProviderName) {
+                return {
+                    success: false,
+                    mode: 'claude-proxy',
+                    error: 'chat_completions 模式需要显式的上游 Base URL 或可解析的 provider 名称'
+                };
+            }
+            await stopBuiltinClaudeProxyRuntime();
+            const proxyToken = crypto.randomBytes(24).toString('hex');
+            proxyResult = await startBuiltinClaudeProxyRuntime({
+                enabled: true,
+                host: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.host,
+                provider: upstreamProviderName,
+                authSource: 'provider',
+                targetApi,
+                timeoutMs: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.timeoutMs,
+                upstreamProviderName,
+                ...(configuredBaseUrl ? { upstreamBaseUrl: configuredBaseUrl } : {}),
+                upstreamApiKey: apiKey
+            });
+            if (!proxyResult || proxyResult.error || proxyResult.success === false || !proxyResult.listenUrl) {
+                await stopBuiltinClaudeProxyRuntime();
+                resetBuiltinClaudeProxySavedSettingsToResponses();
+                return {
+                    success: false,
+                    mode: 'claude-proxy',
+                    error: (proxyResult && proxyResult.error) || '启动 Claude 兼容代理失败'
+                };
+            }
+            proxyStarted = true;
+            settingsBaseUrl = proxyResult.listenUrl;
+            settingsApiKey = proxyToken;
+        } else {
+            await stopBuiltinClaudeProxyRuntime();
+            resetBuiltinClaudeProxySavedSettingsToResponses();
+        }
+
         const readResult = readJsonObjectFromFile(CLAUDE_SETTINGS_FILE, {});
         if (!readResult.ok) {
+            if (proxyStarted) {
+                await stopBuiltinClaudeProxyRuntime();
+                resetBuiltinClaudeProxySavedSettingsToResponses();
+            }
             return { success: false, mode: 'settings-file', error: readResult.error };
         }
 
@@ -9427,8 +9509,8 @@ function applyToClaudeSettings(config = {}) {
 
         const nextEnv = {
             ...currentEnv,
-            ANTHROPIC_API_KEY: apiKey,
-            ANTHROPIC_BASE_URL: baseUrl,
+            ANTHROPIC_API_KEY: settingsApiKey,
+            ANTHROPIC_BASE_URL: settingsBaseUrl,
             ANTHROPIC_MODEL: model
         };
         delete nextEnv.ANTHROPIC_AUTH_TOKEN;
@@ -9445,7 +9527,8 @@ function applyToClaudeSettings(config = {}) {
 
         const result = {
             success: true,
-            mode: 'settings-file',
+            mode: targetApi === 'responses' ? 'settings-file' : 'claude-proxy',
+            targetApi,
             targetPath: CLAUDE_SETTINGS_FILE,
             updatedKeys: [
                 'env.ANTHROPIC_API_KEY',
@@ -9453,11 +9536,23 @@ function applyToClaudeSettings(config = {}) {
                 'env.ANTHROPIC_MODEL'
             ]
         };
+        if (proxyResult) {
+            result.proxy = {
+                running: true,
+                listenUrl: proxyResult.listenUrl,
+                upstreamProvider: proxyResult.upstreamProvider || '',
+                mode: proxyResult.mode || (targetApi === 'ollama' ? 'anthropic-to-ollama' : 'anthropic-to-chat-completions')
+            };
+        }
         if (backupPath) {
             result.backupPath = backupPath;
         }
         return result;
     } catch (e) {
+        if (proxyStarted) {
+            try { await stopBuiltinClaudeProxyRuntime(); } catch (_) {}
+            try { resetBuiltinClaudeProxySavedSettingsToResponses(); } catch (_) {}
+        }
         return {
             success: false,
             mode: 'settings-file',
@@ -9570,6 +9665,40 @@ async function restoreCodexDir(payload) {
 }
 
 // CLI: 一行写入 Claude Code 配置
+function parseClaudeCommandArgs(argv = []) {
+    const positionals = [];
+    let targetApi = 'responses';
+    for (let i = 0; i < argv.length; i += 1) {
+        const token = String(argv[i] ?? '');
+        if (token === '--target-api' || token === '--targetApi') {
+            const nextValue = String(argv[i + 1] ?? '');
+            if (!nextValue || nextValue.startsWith('--')) {
+                throw new Error('错误: --target-api 需要一个值（responses、chat_completions 或 ollama）');
+            }
+            targetApi = normalizeClaudeTargetApi(nextValue);
+            i += 1;
+            continue;
+        }
+        positionals.push(token);
+    }
+
+    const baseUrl = positionals[0];
+    if (targetApi === 'ollama' && positionals.length === 2) {
+        return {
+            baseUrl,
+            apiKey: '',
+            model: positionals[1],
+            targetApi
+        };
+    }
+    return {
+        baseUrl,
+        apiKey: positionals[1],
+        model: positionals[2],
+        targetApi
+    };
+}
+
 async function cmdClaude(args = []) {
     const argv = Array.isArray(args) ? args : [];
     // 无参数 → 代理启动
@@ -9577,7 +9706,7 @@ async function cmdClaude(args = []) {
         return runProxyCommand('Claude', 'claude', [], '', { autoFlag: '--dangerously-skip-permissions' });
     }
     // 有参数 → 配置写入
-    const [baseUrl, apiKey, model] = argv;
+    const { baseUrl, apiKey, model, targetApi } = parseClaudeCommandArgs(argv);
     const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
     const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     const normalizedModel = typeof model === 'string' && model.trim()
@@ -9586,19 +9715,21 @@ async function cmdClaude(args = []) {
 
     const silent = false;
 
-    if (!normalizedBaseUrl || !normalizedKey) {
+    if (!normalizedBaseUrl || (!normalizedKey && targetApi !== 'ollama')) {
         if (!silent) {
-            console.error('用法: codexmate claude <BaseURL> <API密钥> [模型]');
+            console.error('用法: codexmate claude <BaseURL> <API密钥> [模型] [--target-api responses|chat_completions|ollama]');
             console.log('\n示例:');
             console.log('  codexmate claude https://open.bigmodel.cn/api/anthropic sk-ant-xxx glm-4.7');
+            console.log("  codexmate claude http://127.0.0.1:11434 '' llama3.1:8b --target-api ollama");
         }
-        throw new Error('BaseURL 和 API 密钥必填');
+        throw new Error(targetApi === 'ollama' ? 'BaseURL 必填' : 'BaseURL 和 API 密钥必填');
     }
 
-    const result = applyToClaudeSettings({
+    const result = await applyToClaudeSettings({
         baseUrl: normalizedBaseUrl,
         apiKey: normalizedKey,
-        model: normalizedModel
+        model: normalizedModel,
+        targetApi
     });
 
     if (!result || result.success === false) {
@@ -11105,6 +11236,31 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                         case 'install-status':
                             result = buildInstallStatusReport();
                             break;
+                        case 'version-status': {
+                            const currentVersion = (() => {
+                                try {
+                                    const pkg = require('./package.json');
+                                    return pkg && pkg.version ? pkg.version : '';
+                                } catch (_) {
+                                    return '';
+                                }
+                            })();
+                            try {
+                                const force = !!(params && params.force);
+                                result = await fetchLatestVersionStatus({ currentVersion, timeoutMs: 2000, cacheTtlMs: force ? 0 : undefined });
+                            } catch (e) {
+                                result = {
+                                    currentVersion,
+                                    latestVersion: '',
+                                    updateAvailable: false,
+                                    source: 'npm',
+                                    checkedAt: new Date().toISOString(),
+                                    cached: false,
+                                    error: e && e.message ? e.message : '获取最新版本失败'
+                                };
+                            }
+                            break;
+                        }
                         case 'list':
                             result = buildMcpProviderListPayload();
                             break;
@@ -11297,7 +11453,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             result = applyClaudeSettingsRaw(params || {});
                             break;
                         case 'apply-claude-config':
-                            result = applyToClaudeSettings(params.config);
+                            result = await applyToClaudeSettings(params.config);
                             if (result && !result.error) {
                                 const cfgName = (params && params.config && typeof params.config.name === 'string') ? params.config.name : '';
                                 const cfgFrom = (params && typeof params.previousName === 'string') ? params.previousName : '';
@@ -15894,9 +16050,20 @@ function createMcpTools(options = {}) {
             properties: {
                 apiKey: { type: 'string' },
                 baseUrl: { type: 'string' },
-                model: { type: 'string' }
+                model: { type: 'string' },
+                name: { type: 'string' },
+                targetApi: { type: 'string' }
             },
-            required: ['apiKey'],
+            allOf: [{
+                if: {
+                    not: {
+                        type: 'object',
+                        properties: { targetApi: { type: 'string', pattern: '^[\\s]*[oO][lL][lL][aA][mM][aA][\\s]*$' } },
+                        required: ['targetApi']
+                    }
+                },
+                then: { required: ['apiKey'] }
+            }],
             additionalProperties: false
         },
         handler: async (args = {}) => applyToClaudeSettings(args || {})
@@ -16352,7 +16519,7 @@ function printMainHelp() {
     console.log('  codexmate add <名称> <URL> [密钥] [--bridge <openai>]');
     console.log('  codexmate delete <名称>    删除提供商');
     console.log('  codexmate claude            等同于 claude --dangerously-skip-permissions');
-    console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
+    console.log('  codexmate claude <BaseURL> <API密钥> [模型] [--target-api responses|chat_completions|ollama]  写入 Claude Code 配置');
     console.log('  codexmate auth <list|import|switch|delete|status>  认证管理');
     console.log('  codexmate add-model <模型> 添加模型');
     console.log('  codexmate delete-model <模型> 删除模型');

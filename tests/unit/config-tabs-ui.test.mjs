@@ -135,6 +135,9 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.doesNotMatch(sideGhostTab, /@keydown/);
     assert.ok(html.indexOf('id="side-tab-trash"') < html.indexOf('id="side-tab-new"'), 'ghost side tab should remain after trash tab to reserve end scroll space');
     assert.match(html, /<div class="brand-kicker">Codex Mate<span v-if="appVersion" class="brand-version"> v\{\{ appVersion \}\}<\/span><\/div>/);
+    assert.match(html, /v-if="isAppVersionStatusVisible\(\)"[\s\S]*side-update-notice--'[\s\S]*appVersionStatusKind\(\)[\s\S]*@click="handleAppVersionStatusClick"/);
+    assert.match(html, /<span class="side-update-title">\{\{\s*appUpdateNoticeText\(\)\s*\}\}<\/span>/);
+    assert.match(html, /<span class="side-update-meta">\{\{\s*appUpdateNoticeMeta\(\)\s*\}\}<\/span>/);
     assert.doesNotMatch(html, /class="brand-block" tabindex="0"/);
     assert.doesNotMatch(html, /appVersion && brandHovered/);
     assert.doesNotMatch(html, /brandHovered = true/);
@@ -142,6 +145,8 @@ test('config template keeps expected config tabs in top and side navigation', ()
         assert.match(styles, /\.side-item-ghost\s*\{[\s\S]*opacity:\s*0;[\s\S]*pointer-events:\s*none;[\s\S]*user-select:\s*none;/);
         assert.match(styles, /\.brand-kicker\s*\{[\s\S]*font-size:\s*15px;/);
         assert.match(styles, /\.brand-version\s*\{[\s\S]*font-size:\s*13px;/);
+        assert.match(styles, /\.side-update-notice\s*\{[\s\S]*margin-top:\s*12px;[\s\S]*background:\s*rgba\(255, 255, 255, 0\.52\);/);
+        assert.match(styles, /\.side-update-meta\s*\{[\s\S]*text-overflow:\s*ellipsis;/);
     }
     assert.match(html, /id="side-tab-market"/);
     assert.match(html, /id="tab-market"/);
@@ -281,6 +286,22 @@ test('config template keeps expected config tabs in top and side navigation', ()
     assert.match(
         html,
         /:class="\['card', \{ active: currentClaudeConfig === name \}\]"[\s\S]*@click="applyClaudeConfig\(name\)"[\s\S]*@keydown\.enter\.self\.prevent="applyClaudeConfig\(name\)"[\s\S]*@keydown\.space\.self\.prevent="applyClaudeConfig\(name\)"[\s\S]*tabindex="0"[\s\S]*role="button"[\s\S]*:aria-current="currentClaudeConfig === name \? 'true' : null"/
+    );
+    assert.match(
+        html,
+        /<div class="card-icon">\{\{\s*name\.charAt\(0\)\.toUpperCase\(\)\s*\}\}<span v-if="config\.targetApi === 'chat_completions' \|\| config\.targetApi === 'ollama'" class="card-icon-dot" :title="t\('config\.transformProvider\.title'\)"><\/span><\/div>/
+    );
+    assert.match(
+        html,
+        /<option value="ollama">\{\{\s*t\('claude\.targetApi\.ollama'\)\s*\}\}<\/option>/
+    );
+    assert.match(
+        html,
+        /type="checkbox"\s+autocomplete="off"\s+:checked="isToolConfigWriteAllowed\('codex'\)"[\s\S]*@change="setToolConfigPermission\('codex', \$event\.target\.checked\)"/
+    );
+    assert.match(
+        html,
+        /type="checkbox"\s+autocomplete="off"\s+:checked="isToolConfigWriteAllowed\('claude'\)"[\s\S]*@change="setToolConfigPermission\('claude', \$event\.target\.checked\)"/
     );
     assert.match(
         html,

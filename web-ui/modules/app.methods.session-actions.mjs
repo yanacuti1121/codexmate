@@ -412,11 +412,16 @@ export function createSessionActionMethods(options = {}) {
             const model = typeof payload.model === 'string' && payload.model.trim()
                 ? payload.model.trim()
                 : 'glm-4.7';
-            if (!baseUrl || !apiKey) return '';
+            const targetApiRaw = typeof payload.targetApi === 'string' ? payload.targetApi.trim().toLowerCase() : '';
+            const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+                ? 'chat_completions'
+                : (targetApiRaw === 'ollama' ? 'ollama' : 'responses');
+            if (!baseUrl || (!apiKey && targetApi !== 'ollama')) return '';
             const urlArg = this.quoteShellArg(baseUrl);
             const keyArg = this.quoteShellArg(apiKey);
             const modelArg = this.quoteShellArg(model);
-            return `${this.getShareCommandPrefixInvocation()} claude ${urlArg} ${keyArg} ${modelArg}`;
+            const targetArg = targetApi !== 'responses' ? ` --target-api ${this.quoteShellArg(targetApi)}` : '';
+            return `${this.getShareCommandPrefixInvocation()} claude ${urlArg} ${keyArg} ${modelArg}${targetArg}`;
         },
 
         async copyProviderShareCommand(provider) {

@@ -34,6 +34,7 @@
                     <label class="settings-toggle-row tool-config-write-toggle">
                         <input
                             type="checkbox"
+                            autocomplete="off"
                             :checked="isToolConfigWriteAllowed('codex')"
                             :disabled="toolConfigPermissionSaving.codex"
                             @change="setToolConfigPermission('codex', $event.target.checked)">
