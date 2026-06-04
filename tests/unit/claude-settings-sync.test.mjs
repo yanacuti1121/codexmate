@@ -1,5 +1,14 @@
 import assert from 'assert';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { readBundledWebUiScript, readProjectFile } from './helpers/web-ui-source.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const { createI18nMethods } = await import(
+    pathToFileURL(path.join(__dirname, '..', '..', 'web-ui', 'modules', 'i18n.mjs'))
+);
 
 const appSource = readBundledWebUiScript();
 const claudeConfigModuleSource = readProjectFile('web-ui/modules/app.methods.claude-config.mjs');
@@ -224,7 +233,10 @@ test('addClaudeConfig requires a visible model value before saving', () => {
     const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
     const messages = [];
     let saveCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Claude Test',
             apiKey: 'sk-test',
@@ -256,7 +268,10 @@ ${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
 ${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
     const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
     const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Existing',
             apiKey: '',
@@ -297,7 +312,10 @@ ${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
 ${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
     const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
     const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: { name: '', apiKey: '', baseUrl: '', model: '' },
         editingConfig: {
             name: 'Imported Auth Token',
@@ -350,7 +368,10 @@ test('addClaudeConfig trims and persists the entered model', () => {
     let saveCount = 0;
     let closed = false;
     let refreshed = false;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Claude Test',
             apiKey: 'sk-test',
@@ -548,7 +569,10 @@ test('saveAndApplyConfig writes the edited Claude model through apply api', asyn
     let saveCount = 0;
     let closed = false;
     let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         editingConfig: {
             name: 'UI Claude Use',
             apiKey: 'sk-test',
@@ -607,7 +631,10 @@ test('saveAndApplyConfig saves external credential config without api key', asyn
     let saveCount = 0;
     let closed = false;
     let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         editingConfig: {
             name: 'Imported Auth Token',
             apiKey: '',
@@ -654,7 +681,10 @@ test('applyClaudeConfig reports informative message for external credential only
 
     const messages = [];
     let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         claudeConfigs: {
             imported: {
                 apiKey: '',
@@ -689,7 +719,10 @@ test('onClaudeModelChange applies external credential config without api key', (
     let updateCount = 0;
     const applyCalls = [];
     const messages = [];
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         currentClaudeConfig: 'imported',
         currentClaudeModel: ' claude-opus-4-6 ',
         claudeConfigs: {
@@ -735,7 +768,10 @@ test('onClaudeModelChange still requires api key when no external credential is 
     let updateCount = 0;
     const applyCalls = [];
     const messages = [];
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         currentClaudeConfig: 'local',
         currentClaudeModel: ' claude-opus-4-6 ',
         claudeConfigs: {

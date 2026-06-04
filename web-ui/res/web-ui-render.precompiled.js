@@ -1926,7 +1926,7 @@ return function render(_ctx, _cache) {
                                 : _createCommentVNode("v-if", true),
                               _createElementVNode("span", {
                                 class: _normalizeClass(['pill', config.hasKey ? 'configured' : 'empty'])
-                              }, _toDisplayString(config.hasKey ? _ctx.t('claude.configured') : _ctx.t('claude.notConfigured')), 3 /* TEXT, CLASS */),
+                              }, _toDisplayString(config.hasKey ? _ctx.t('common.configured') : _ctx.t('common.notConfigured')), 3 /* TEXT, CLASS */),
                               _createElementVNode("div", {
                                 class: "card-actions",
                                 onClick: _withModifiers(() => {}, ["stop"])

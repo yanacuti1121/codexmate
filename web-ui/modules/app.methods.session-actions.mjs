@@ -126,7 +126,7 @@ export function createSessionActionMethods(options = {}) {
                     return;
                 }
             } catch (_) {}
-            this.showMessage('复制失败', 'error');
+            this.showMessage(this.t('toast.copy.fail'), 'error');
         },
 
         getSessionFilePath(session) {
@@ -152,7 +152,7 @@ export function createSessionActionMethods(options = {}) {
                     return;
                 }
             } catch (_) {}
-            this.showMessage('复制失败', 'error');
+            this.showMessage(this.t('toast.copy.fail'), 'error');
         },
 
         getSessionExportKey(session) {
@@ -312,15 +312,15 @@ export function createSessionActionMethods(options = {}) {
         copyAgentsContent() {
             const text = typeof this.agentsContent === 'string' ? this.agentsContent : '';
             if (!text) {
-                this.showMessage('没有可复制内容', 'info');
+                this.showMessage(this.t('toast.copy.empty'), 'info');
                 return;
             }
             const ok = this.fallbackCopyText(text);
             if (ok) {
-                this.showMessage('已复制', 'success');
+                this.showMessage(this.t('toast.copy.ok'), 'success');
                 return;
             }
-            this.showMessage('复制失败', 'error');
+            this.showMessage(this.t('toast.copy.fail'), 'error');
         },
 
         exportAgentsContent() {
@@ -344,7 +344,7 @@ export function createSessionActionMethods(options = {}) {
         async copyInstallCommand(cmd) {
             const text = typeof cmd === 'string' ? cmd.trim() : '';
             if (!text) {
-                this.showMessage('没有可复制内容', 'info');
+                this.showMessage(this.t('toast.copy.empty'), 'info');
                 return;
             }
             try {
@@ -359,7 +359,7 @@ export function createSessionActionMethods(options = {}) {
                 this.showMessage('已复制命令', 'success');
                 return;
             }
-            this.showMessage('复制失败', 'error');
+            this.showMessage(this.t('toast.copy.fail'), 'error');
         },
 
         async copyResumeCommand(session) {
@@ -370,17 +370,17 @@ export function createSessionActionMethods(options = {}) {
             const command = this.buildResumeCommand(session);
             const ok = this.fallbackCopyText(command);
             if (ok) {
-                this.showMessage('已复制', 'success');
+                this.showMessage(this.t('toast.copy.ok'), 'success');
                 return;
             }
             try {
                 if (navigator.clipboard && window.isSecureContext) {
                     await navigator.clipboard.writeText(command);
-                    this.showMessage('已复制', 'success');
+                    this.showMessage(this.t('toast.copy.ok'), 'success');
                     return;
                 }
             } catch (_) {}
-            this.showMessage('复制失败', 'error');
+            this.showMessage(this.t('toast.copy.fail'), 'error');
         },
 
         buildProviderShareCommand(payload) {
@@ -446,17 +446,17 @@ export function createSessionActionMethods(options = {}) {
                 }
                 const ok = this.fallbackCopyText(command);
                 if (ok) {
-                    this.showMessage('已复制', 'success');
+                    this.showMessage(this.t('toast.copy.ok'), 'success');
                     return;
                 }
                 try {
                     if (navigator.clipboard && window.isSecureContext) {
                         await navigator.clipboard.writeText(command);
-                        this.showMessage('已复制', 'success');
+                        this.showMessage(this.t('toast.copy.ok'), 'success');
                         return;
                     }
                 } catch (_) {}
-                this.showMessage('复制失败', 'error');
+                this.showMessage(this.t('toast.copy.fail'), 'error');
             } catch (_) {
                 this.showMessage('生成命令失败', 'error');
             } finally {
@@ -485,17 +485,17 @@ export function createSessionActionMethods(options = {}) {
                 }
                 const ok = this.fallbackCopyText(command);
                 if (ok) {
-                    this.showMessage('已复制', 'success');
+                    this.showMessage(this.t('toast.copy.ok'), 'success');
                     return;
                 }
                 try {
                     if (navigator.clipboard && window.isSecureContext) {
                         await navigator.clipboard.writeText(command);
-                        this.showMessage('已复制', 'success');
+                        this.showMessage(this.t('toast.copy.ok'), 'success');
                         return;
                     }
                 } catch (_) {}
-                this.showMessage('复制失败', 'error');
+                this.showMessage(this.t('toast.copy.fail'), 'error');
             } catch (_) {
                 this.showMessage('生成命令失败', 'error');
             } finally {
@@ -524,7 +524,7 @@ export function createSessionActionMethods(options = {}) {
                     return;
                 }
 
-                this.showMessage('操作成功', 'success');
+                this.showMessage(this.t('toast.operation.success'), 'success');
                 if (typeof this.invalidateSessionsUsageData === 'function') {
                     this.invalidateSessionsUsageData({ preserveList: true });
                 }
@@ -608,7 +608,7 @@ export function createSessionActionMethods(options = {}) {
                     // The delete already succeeded remotely; keep the success result.
                 }
             } catch (_) {
-                this.showMessage('删除失败', 'error');
+                this.showMessage(this.t('toast.delete.fail'), 'error');
             } finally {
                 this.sessionDeleting[key] = false;
             }
