@@ -4235,6 +4235,8 @@ const DICT = Object.freeze({
         'claude.localBridge.enabled': 'Đã bật',
 
         // OpenClaw config panel
+        'openclaw.workspace.title': 'Không gian làm việc OpenClaw',
+        'openclaw.configs.hint': 'Chọn cấu hình đã lưu, hoặc mở editor để chỉnh sửa JSON5 đầy đủ.',
         'openclaw.applyHint': 'Ghi vào ~/.openclaw/openclaw.json (hỗ trợ JSON5).',
         'openclaw.agents.hint': 'Đọc/ghi AGENTS.md không gian làm việc. Mặc định: ~/.openclaw/workspace/AGENTS.md.',
         'openclaw.agents.open': 'Mở AGENTS.md',
