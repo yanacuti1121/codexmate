@@ -140,6 +140,18 @@ return function render(_ctx, _cache) {
           }, _toDisplayString(_ctx.t('tab.plugins')), 43 /* TEXT, CLASS, PROPS, NEED_HYDRATION */, ["tabindex", "aria-selected", "onPointerdown", "onClick"]),
           _createElementVNode("button", {
             type: "button",
+            class: _normalizeClass(["top-tab", { active: _ctx.isMainTabNavActive('prompts') }]),
+            id: "tab-prompts",
+            role: "tab",
+            "data-main-tab": "prompts",
+            tabindex: _ctx.mainTab === 'prompts' ? 0 : -1,
+            "aria-selected": _ctx.mainTab === 'prompts',
+            "aria-controls": "panel-prompts",
+            onPointerdown: $event => (_ctx.onMainTabPointerDown('prompts', $event)),
+            onClick: $event => (_ctx.onMainTabClick('prompts', $event))
+          }, _toDisplayString(_ctx.t('tab.prompts')), 43 /* TEXT, CLASS, PROPS, NEED_HYDRATION */, ["tabindex", "aria-selected", "onPointerdown", "onClick"]),
+          _createElementVNode("button", {
+            type: "button",
             class: _normalizeClass(["top-tab", { active: _ctx.isMainTabNavActive('settings') }]),
             id: "tab-settings",
             role: "tab",
@@ -306,6 +318,41 @@ return function render(_ctx, _cache) {
                     (_ctx.currentOpenclawConfig)
                       ? (_openBlock(), _createElementBlock("span", { key: 0 }, _toDisplayString(_ctx.t('common.current', { value: _ctx.currentOpenclawConfig })), 1 /* TEXT */))
                       : _createCommentVNode("v-if", true)
+                  ])
+                ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"])
+              ], 8 /* PROPS */, ["aria-label"]),
+              _createElementVNode("div", {
+                class: "side-section",
+                role: "navigation",
+                "aria-label": _ctx.t('side.prompts')
+              }, [
+                _createElementVNode("div", { class: "side-section-title" }, _toDisplayString(_ctx.t('side.prompts')), 1 /* TEXT */),
+                _createElementVNode("button", {
+                  id: "side-tab-prompts-agents",
+                  "data-main-tab": "prompts",
+                  "data-prompts-sub-tab": "codex",
+                  "aria-current": _ctx.mainTab === 'prompts' && _ctx.promptsSubTab === 'codex' ? 'page' : null,
+                  class: _normalizeClass(['side-item', { active: _ctx.isMainTabNavActive('prompts') && _ctx.promptsSubTab === 'codex' }]),
+                  onPointerdown: $event => (_ctx.onMainTabPointerDown('prompts', $event)),
+                  onClick: $event => {_ctx.switchPromptsSubTab('codex'); _ctx.onMainTabClick('prompts')}
+                }, [
+                  _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('side.prompts.agents')), 1 /* TEXT */),
+                  _createElementVNode("div", { class: "side-item-meta" }, [
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('side.prompts.agents.meta')), 1 /* TEXT */)
+                  ])
+                ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"]),
+                _createElementVNode("button", {
+                  id: "side-tab-prompts-claude",
+                  "data-main-tab": "prompts",
+                  "data-prompts-sub-tab": "claude-md",
+                  "aria-current": _ctx.mainTab === 'prompts' && _ctx.promptsSubTab === 'claude-md' ? 'page' : null,
+                  class: _normalizeClass(['side-item', { active: _ctx.isMainTabNavActive('prompts') && _ctx.promptsSubTab === 'claude-md' }]),
+                  onPointerdown: $event => (_ctx.onMainTabPointerDown('prompts', $event)),
+                  onClick: $event => {_ctx.switchPromptsSubTab('claude-md'); _ctx.onMainTabClick('prompts')}
+                }, [
+                  _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('side.prompts.claude')), 1 /* TEXT */),
+                  _createElementVNode("div", { class: "side-item-meta" }, [
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('side.prompts.claude.meta')), 1 /* TEXT */)
                   ])
                 ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"])
               ], 8 /* PROPS */, ["aria-label"]),
@@ -1060,16 +1107,6 @@ return function render(_ctx, _cache) {
                         : _createCommentVNode("v-if", true),
                       _createElementVNode("div", { class: "selector-section" }, [
                         _createElementVNode("div", { class: "selector-header" }, [
-                          _createElementVNode("span", { class: "selector-title" }, "AGENTS.md")
-                        ]),
-                        _createElementVNode("button", {
-                          class: "btn-tool",
-                          onClick: _ctx.openAgentsEditor,
-                          disabled: _ctx.loading || !!_ctx.initError || _ctx.agentsLoading
-                        }, _toDisplayString(_ctx.agentsLoading ? _ctx.t('config.modelLoading') : _ctx.t('config.agents.open')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
-                      ]),
-                      _createElementVNode("div", { class: "selector-section" }, [
-                        _createElementVNode("div", { class: "selector-header" }, [
                           _createElementVNode("span", { class: "selector-title" }, _toDisplayString(_ctx.t('config.models')), 1 /* TEXT */),
                           _createElementVNode("div", { class: "selector-actions" }, [
                             (_ctx.modelsSource === 'legacy')
@@ -1820,17 +1857,6 @@ return function render(_ctx, _cache) {
                           onClick: _ctx.openClaudeConfigTemplateEditor,
                           disabled: _ctx.loading || !!_ctx.initError
                         }, _toDisplayString(_ctx.t('config.template.openEditor')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
-                      ]),
-                      _createElementVNode("div", { class: "selector-section" }, [
-                        _createElementVNode("div", { class: "selector-header" }, [
-                          _createElementVNode("span", { class: "selector-title" }, "CLAUDE.md")
-                        ]),
-                        _createElementVNode("button", {
-                          class: "btn-tool",
-                          onClick: _ctx.openClaudeMdEditor,
-                          disabled: _ctx.loading || !!_ctx.initError || _ctx.agentsLoading
-                        }, _toDisplayString(_ctx.agentsLoading ? _ctx.t('config.modelLoading') : _ctx.t('claude.md.open')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
-                        _createElementVNode("div", { class: "config-template-hint" }, _toDisplayString(_ctx.t('claude.md.hint')), 1 /* TEXT */)
                       ]),
                       _createElementVNode("div", { class: "selector-section" }, [
                         _createElementVNode("div", { class: "selector-header" }, [
@@ -2650,31 +2676,163 @@ return function render(_ctx, _cache) {
                                         _createElementVNode("button", {
                                           class: "btn-session-refresh",
                                           onClick: _ctx.loadActiveSessionDetail,
-                                          disabled: _ctx.sessionDetailLoading || !_ctx.activeSession
-                                        }, _toDisplayString(_ctx.sessionDetailLoading ? _ctx.t('sessions.preview.loading') : _ctx.t('sessions.preview.refresh')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                                          disabled: _ctx.sessionDetailLoading || !_ctx.activeSession,
+                                          title: _ctx.sessionDetailLoading ? _ctx.t('sessions.preview.loading') : _ctx.t('sessions.preview.refresh'),
+                                          "aria-label": _ctx.sessionDetailLoading ? _ctx.t('sessions.preview.loading') : _ctx.t('sessions.preview.refresh')
+                                        }, [
+                                          (_openBlock(), _createElementBlock("svg", {
+                                            viewBox: "0 0 16 16",
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            "stroke-width": "1.8",
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round"
+                                          }, [
+                                            _createElementVNode("path", { d: "M2.5 8a5.5 5.5 0 0 1 9.4-3.8" }),
+                                            _createElementVNode("path", { d: "M13.5 8a5.5 5.5 0 0 1-9.4 3.8" }),
+                                            _createElementVNode("polyline", { points: "2.5 2 2.5 5 5.5 5" }),
+                                            _createElementVNode("polyline", { points: "13.5 14 13.5 11 10.5 11" })
+                                          ]))
+                                        ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"]),
                                         (_ctx.isDeleteAvailable(_ctx.activeSession))
                                           ? (_openBlock(), _createElementBlock("button", {
                                               key: 0,
                                               class: "btn-session-delete",
                                               onClick: $event => (_ctx.deleteSession(_ctx.activeSession)),
-                                              disabled: !_ctx.activeSession || _ctx.sessionsLoading || _ctx.sessionDeleting[_ctx.getSessionExportKey(_ctx.activeSession)]
-                                            }, _toDisplayString((_ctx.activeSession && _ctx.sessionDeleting[_ctx.getSessionExportKey(_ctx.activeSession)]) ? (_ctx.sessionTrashEnabled === false ? _ctx.t('sessions.preview.deleting') : _ctx.t('sessions.preview.moving')) : (_ctx.sessionTrashEnabled === false ? _ctx.t('sessions.preview.deleteHard') : _ctx.t('sessions.preview.moveToTrash'))), 9 /* TEXT, PROPS */, ["onClick", "disabled"]))
+                                              disabled: !_ctx.activeSession || _ctx.sessionsLoading || _ctx.sessionDeleting[_ctx.getSessionExportKey(_ctx.activeSession)],
+                                              title: (_ctx.activeSession && _ctx.sessionDeleting[_ctx.getSessionExportKey(_ctx.activeSession)]) ? (_ctx.sessionTrashEnabled === false ? _ctx.t('sessions.preview.deleting') : _ctx.t('sessions.preview.moving')) : (_ctx.sessionTrashEnabled === false ? _ctx.t('sessions.preview.deleteHard') : _ctx.t('sessions.preview.moveToTrash')),
+                                              "aria-label": (_ctx.activeSession && _ctx.sessionDeleting[_ctx.getSessionExportKey(_ctx.activeSession)]) ? (_ctx.sessionTrashEnabled === false ? _ctx.t('sessions.preview.deleting') : _ctx.t('sessions.preview.moving')) : (_ctx.sessionTrashEnabled === false ? _ctx.t('sessions.preview.deleteHard') : _ctx.t('sessions.preview.moveToTrash'))
+                                            }, [
+                                              (_openBlock(), _createElementBlock("svg", {
+                                                viewBox: "0 0 16 16",
+                                                fill: "none",
+                                                stroke: "currentColor",
+                                                "stroke-width": "1.8",
+                                                "stroke-linecap": "round",
+                                                "stroke-linejoin": "round"
+                                              }, [
+                                                _createElementVNode("polyline", { points: "3 4 4 4 13 4" }),
+                                                _createElementVNode("path", { d: "M5.5 4V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V4" }),
+                                                _createElementVNode("path", { d: "M12 4v9.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 4 13.5V4" })
+                                              ]))
+                                            ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"]))
                                           : _createCommentVNode("v-if", true),
                                         _createElementVNode("button", {
                                           class: "btn-session-export",
                                           onClick: $event => (_ctx.exportSession(_ctx.activeSession)),
-                                          disabled: !_ctx.activeSession || _ctx.sessionExporting[_ctx.getSessionExportKey(_ctx.activeSession)]
-                                        }, _toDisplayString((_ctx.activeSession && _ctx.sessionExporting[_ctx.getSessionExportKey(_ctx.activeSession)]) ? _ctx.t('sessions.preview.exporting') : _ctx.t('sessions.preview.export')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
-                                        _createElementVNode("button", {
-                                          class: "btn-session-open",
-                                          onClick: $event => (_ctx.copySessionLink(_ctx.activeSession)),
-                                          disabled: !_ctx.activeSession
-                                        }, _toDisplayString(_ctx.t('sessions.preview.copyLink')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                                          disabled: !_ctx.activeSession || _ctx.sessionExporting[_ctx.getSessionExportKey(_ctx.activeSession)],
+                                          title: (_ctx.activeSession && _ctx.sessionExporting[_ctx.getSessionExportKey(_ctx.activeSession)]) ? _ctx.t('sessions.preview.exporting') : _ctx.t('sessions.preview.export'),
+                                          "aria-label": (_ctx.activeSession && _ctx.sessionExporting[_ctx.getSessionExportKey(_ctx.activeSession)]) ? _ctx.t('sessions.preview.exporting') : _ctx.t('sessions.preview.export')
+                                        }, [
+                                          (_openBlock(), _createElementBlock("svg", {
+                                            viewBox: "0 0 16 16",
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            "stroke-width": "1.8",
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round"
+                                          }, [
+                                            _createElementVNode("path", { d: "M8 2v8" }),
+                                            _createElementVNode("polyline", { points: "4 7 8 10.5 12 7" }),
+                                            _createElementVNode("path", { d: "M2.5 12v1.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V12" })
+                                          ]))
+                                        ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"]),
+                                        _createElementVNode("div", { class: "session-link-group" }, [
+                                          _createElementVNode("button", {
+                                            class: "btn-session-open",
+                                            onClick: $event => (_ctx.copySessionLink(_ctx.activeSession)),
+                                            disabled: !_ctx.activeSession || !_ctx.canBuildStandaloneUrl(_ctx.activeSession),
+                                            title: _ctx.t('sessions.preview.copyLink'),
+                                            "aria-label": _ctx.t('sessions.preview.copyLink')
+                                          }, [
+                                            (_openBlock(), _createElementBlock("svg", {
+                                              viewBox: "0 0 16 16",
+                                              fill: "none",
+                                              stroke: "currentColor",
+                                              "stroke-width": "1.8",
+                                              "stroke-linecap": "round",
+                                              "stroke-linejoin": "round"
+                                            }, [
+                                              _createElementVNode("rect", {
+                                                x: "6",
+                                                y: "2.5",
+                                                width: "4",
+                                                height: "2",
+                                                rx: "1"
+                                              }),
+                                              _createElementVNode("path", { d: "M4.5 4h7a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5" }),
+                                              _createElementVNode("line", {
+                                                x1: "6",
+                                                y1: "7.5",
+                                                x2: "10",
+                                                y2: "7.5"
+                                              }),
+                                              _createElementVNode("line", {
+                                                x1: "6",
+                                                y1: "10",
+                                                x2: "10",
+                                                y2: "10"
+                                              })
+                                            ]))
+                                          ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"]),
+                                          _createElementVNode("button", {
+                                            class: "btn-session-open",
+                                            onClick: $event => (_ctx.openSessionLink(_ctx.activeSession)),
+                                            disabled: !_ctx.activeSession || !_ctx.canBuildStandaloneUrl(_ctx.activeSession),
+                                            title: _ctx.t('sessions.preview.openLink'),
+                                            "aria-label": _ctx.t('sessions.preview.openLink')
+                                          }, [
+                                            (_openBlock(), _createElementBlock("svg", {
+                                              viewBox: "0 0 16 16",
+                                              fill: "none",
+                                              stroke: "currentColor",
+                                              "stroke-width": "1.8",
+                                              "stroke-linecap": "round",
+                                              "stroke-linejoin": "round"
+                                            }, [
+                                              _createElementVNode("path", { d: "M12 2h-8.5A1.5 1.5 0 0 0 2 3.5v8A1.5 1.5 0 0 0 3.5 13h8a1.5 1.5 0 0 0 1.5-1.5v-3" }),
+                                              _createElementVNode("path", { d: "M13 2v4h-4" }),
+                                              _createElementVNode("path", { d: "M13 2L7 8" })
+                                            ]))
+                                          ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"])
+                                        ]),
                                         _createElementVNode("button", {
                                           class: "btn-session-open",
                                           onClick: $event => (_ctx.copySessionPath(_ctx.activeSession)),
-                                          disabled: !_ctx.activeSession || !_ctx.getSessionFilePath(_ctx.activeSession)
-                                        }, _toDisplayString(_ctx.t('sessions.preview.copyPath')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                                          disabled: !_ctx.activeSession || !_ctx.getSessionFilePath(_ctx.activeSession),
+                                          title: _ctx.t('sessions.preview.copyPath'),
+                                          "aria-label": _ctx.t('sessions.preview.copyPath')
+                                        }, [
+                                          (_openBlock(), _createElementBlock("svg", {
+                                            viewBox: "0 0 16 16",
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            "stroke-width": "1.8",
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round"
+                                          }, [
+                                            _createElementVNode("rect", {
+                                              x: "6",
+                                              y: "2.5",
+                                              width: "4",
+                                              height: "2",
+                                              rx: "1"
+                                            }),
+                                            _createElementVNode("path", { d: "M4.5 4h7a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5" }),
+                                            _createElementVNode("line", {
+                                              x1: "6",
+                                              y1: "7.5",
+                                              x2: "10",
+                                              y2: "7.5"
+                                            }),
+                                            _createElementVNode("line", {
+                                              x1: "6",
+                                              y1: "10",
+                                              x2: "10",
+                                              y2: "10"
+                                            })
+                                          ]))
+                                        ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"])
                                       ])
                                     ], 512 /* NEED_PATCH */),
                                     (_ctx.sessionDetailLoading && !_ctx.sessionPreviewLoadingMore)
@@ -2980,80 +3138,106 @@ return function render(_ctx, _cache) {
                           }, [
                             _createElementVNode("div", { class: "usage-card-title" }, _toDisplayString(_ctx.t('usage.daily.title')), 1 /* TEXT */),
                             _createElementVNode("div", { class: "usage-wave-container" }, [
-                              (_openBlock(), _createElementBlock("svg", {
-                                class: "usage-wave-chart",
-                                viewBox: "0 0 800 140",
-                                preserveAspectRatio: "none"
-                              }, [
-                                _createElementVNode("defs", null, [
-                                  _createElementVNode("linearGradient", {
-                                    id: 'wave-gradient-' + _ctx.sessionsUsageTimeRange,
-                                    x1: "0",
-                                    y1: "0",
-                                    x2: "0",
-                                    y2: "1"
-                                  }, [
-                                    _createElementVNode("stop", {
-                                      offset: "0%",
-                                      "stop-color": 'var(--color-brand)',
-                                      "stop-opacity": "0.35"
-                                    }),
-                                    _createElementVNode("stop", {
-                                      offset: "100%",
-                                      "stop-color": 'var(--color-brand)',
-                                      "stop-opacity": "0"
-                                    })
-                                  ], 8 /* PROPS */, ["id"])
-                                ]),
-                                _createElementVNode("path", {
-                                  d: _ctx.sessionUsageWave.areaPath,
-                                  fill: 'url(#wave-gradient-' + _ctx.sessionsUsageTimeRange + ')',
-                                  class: "usage-wave-area"
-                                }, null, 8 /* PROPS */, ["d", "fill"]),
-                                _createElementVNode("path", {
-                                  d: _ctx.sessionUsageWave.linePath,
-                                  fill: "none",
-                                  stroke: 'var(--color-brand)',
-                                  "stroke-width": "2.5",
-                                  "stroke-linecap": "round",
-                                  "stroke-linejoin": "round",
-                                  class: "usage-wave-line"
-                                }, null, 8 /* PROPS */, ["d"]),
-                                (_ctx.sessionsUsageSelectedDay)
-                                  ? (_openBlock(), _createElementBlock("line", {
-                                      key: 0,
+                              _createElementVNode("div", { class: "usage-wave-yaxis" }, [
+                                (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionUsageWave.yTicks, (tick) => {
+                                  return (_openBlock(), _createElementBlock("span", {
+                                    key: tick.value,
+                                    class: "usage-wave-ytick",
+                                    style: _normalizeStyle({ bottom: tick.percent + '%' })
+                                  }, _toDisplayString(tick.label), 5 /* TEXT, STYLE */))
+                                }), 128 /* KEYED_FRAGMENT */))
+                              ]),
+                              _createElementVNode("div", { class: "usage-wave-chart-area" }, [
+                                (_openBlock(), _createElementBlock("svg", {
+                                  class: "usage-wave-chart",
+                                  viewBox: "0 0 800 140",
+                                  preserveAspectRatio: "none"
+                                }, [
+                                  _createElementVNode("defs", null, [
+                                    _createElementVNode("linearGradient", {
+                                      id: 'wave-gradient-' + _ctx.sessionsUsageTimeRange,
+                                      x1: "0",
+                                      y1: "0",
+                                      x2: "0",
+                                      y2: "1"
+                                    }, [
+                                      _createElementVNode("stop", {
+                                        offset: "0%",
+                                        "stop-color": 'var(--color-brand)',
+                                        "stop-opacity": "0.35"
+                                      }),
+                                      _createElementVNode("stop", {
+                                        offset: "100%",
+                                        "stop-color": 'var(--color-brand)',
+                                        "stop-opacity": "0"
+                                      })
+                                    ], 8 /* PROPS */, ["id"])
+                                  ]),
+                                  (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionUsageWave.yTicks, (tick) => {
+                                    return (_openBlock(), _createElementBlock("line", {
+                                      key: 'g-' + tick.value,
                                       x1: "0",
                                       x2: _ctx.sessionUsageWave.width,
-                                      y1: _ctx.sessionUsageWave.hoverY,
-                                      y2: _ctx.sessionUsageWave.hoverY,
+                                      y1: tick.y,
+                                      y2: tick.y,
                                       stroke: "currentColor",
-                                      "stroke-width": "1",
-                                      "stroke-dasharray": "4 4",
-                                      opacity: "0.5",
-                                      class: "usage-wave-hover-line"
+                                      "stroke-width": "0.5",
+                                      opacity: "0.12",
+                                      class: "usage-wave-gridline"
                                     }, null, 8 /* PROPS */, ["x2", "y1", "y2"]))
-                                  : _createCommentVNode("v-if", true),
-                                (_ctx.sessionsUsageSelectedDay)
-                                  ? (_openBlock(), _createElementBlock("circle", {
-                                      key: 1,
-                                      cx: _ctx.sessionUsageWave.hoverX,
-                                      cy: _ctx.sessionUsageWave.hoverY,
-                                      r: "5",
-                                      fill: 'var(--color-surface)',
-                                      stroke: 'var(--color-brand)',
-                                      "stroke-width": "2.5",
-                                      class: "usage-wave-hover-point"
-                                    }, null, 8 /* PROPS */, ["cx", "cy"]))
-                                  : _createCommentVNode("v-if", true)
-                              ])),
-                              _createElementVNode("div", { class: "usage-wave-labels" }, [
-                                (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionUsageWave.labels, (label) => {
-                                  return (_openBlock(), _createElementBlock("span", {
-                                    key: label.key,
-                                    class: _normalizeClass(["usage-wave-label", { active: _ctx.sessionsUsageSelectedDay === label.key }]),
-                                    onClick: $event => (_ctx.selectSessionsUsageDay(label.key))
-                                  }, _toDisplayString(label.text), 11 /* TEXT, CLASS, PROPS */, ["onClick"]))
-                                }), 128 /* KEYED_FRAGMENT */))
+                                  }), 128 /* KEYED_FRAGMENT */)),
+                                  _createElementVNode("path", {
+                                    d: _ctx.sessionUsageWave.areaPath,
+                                    fill: 'url(#wave-gradient-' + _ctx.sessionsUsageTimeRange + ')',
+                                    class: "usage-wave-area"
+                                  }, null, 8 /* PROPS */, ["d", "fill"]),
+                                  _createElementVNode("path", {
+                                    d: _ctx.sessionUsageWave.linePath,
+                                    fill: "none",
+                                    stroke: 'var(--color-brand)',
+                                    "stroke-width": "2.5",
+                                    "stroke-linecap": "round",
+                                    "stroke-linejoin": "round",
+                                    class: "usage-wave-line"
+                                  }, null, 8 /* PROPS */, ["d"]),
+                                  (_ctx.sessionsUsageSelectedDay)
+                                    ? (_openBlock(), _createElementBlock("line", {
+                                        key: 0,
+                                        x1: "0",
+                                        x2: _ctx.sessionUsageWave.width,
+                                        y1: _ctx.sessionUsageWave.hoverY,
+                                        y2: _ctx.sessionUsageWave.hoverY,
+                                        stroke: "currentColor",
+                                        "stroke-width": "1",
+                                        "stroke-dasharray": "4 4",
+                                        opacity: "0.5",
+                                        class: "usage-wave-hover-line"
+                                      }, null, 8 /* PROPS */, ["x2", "y1", "y2"]))
+                                    : _createCommentVNode("v-if", true),
+                                  (_ctx.sessionsUsageSelectedDay)
+                                    ? (_openBlock(), _createElementBlock("circle", {
+                                        key: 1,
+                                        cx: _ctx.sessionUsageWave.hoverX,
+                                        cy: _ctx.sessionUsageWave.hoverY,
+                                        r: "5",
+                                        fill: 'var(--color-surface)',
+                                        stroke: 'var(--color-brand)',
+                                        "stroke-width": "2.5",
+                                        class: "usage-wave-hover-point"
+                                      }, null, 8 /* PROPS */, ["cx", "cy"]))
+                                    : _createCommentVNode("v-if", true)
+                                ])),
+                                _createElementVNode("div", { class: "usage-wave-labels" }, [
+                                  (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionUsageWave.labels, (label) => {
+                                    return (_openBlock(), _createElementBlock("button", {
+                                      key: label.key,
+                                      type: "button",
+                                      class: _normalizeClass(["usage-wave-label", { active: _ctx.sessionsUsageSelectedDay === label.key }]),
+                                      "aria-pressed": _ctx.sessionsUsageSelectedDay === label.key,
+                                      onClick: $event => (_ctx.selectSessionsUsageDay(label.key))
+                                    }, _toDisplayString(label.text), 11 /* TEXT, CLASS, PROPS */, ["aria-pressed", "onClick"]))
+                                  }), 128 /* KEYED_FRAGMENT */))
+                                ])
                               ])
                             ]),
                             (_ctx.sessionsUsageSelectedDaySummary)
@@ -5364,15 +5548,169 @@ return function render(_ctx, _cache) {
             style: {"display":"none"},
             onChange: _ctx.handlePromptTemplatesImportChange
           }, null, 40 /* PROPS, NEED_HYDRATION */, ["onChange"]),
-          _createCommentVNode(" 加载状态 "),
-          (_ctx.loading)
+          _createCommentVNode(" Prompts editor "),
+          (_ctx.mainTab === 'prompts')
             ? (_openBlock(), _createElementBlock("div", {
                 key: 1,
+                class: "mode-content mode-cards",
+                id: "panel-prompts",
+                role: "tabpanel",
+                "aria-labelledby": "tab-prompts"
+              }, [
+                _createElementVNode("div", { class: "segmented-control" }, [
+                  _createElementVNode("button", {
+                    type: "button",
+                    class: _normalizeClass(['segment', { active: _ctx.promptsSubTab === 'codex' }]),
+                    onClick: $event => (_ctx.switchPromptsSubTab('codex'))
+                  }, _toDisplayString(_ctx.t('prompts.subTab.codex')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
+                  _createElementVNode("button", {
+                    type: "button",
+                    class: _normalizeClass(['segment', { active: _ctx.promptsSubTab === 'claude-md' }]),
+                    onClick: $event => (_ctx.switchPromptsSubTab('claude-md'))
+                  }, _toDisplayString(_ctx.t('prompts.subTab.claude')), 11 /* TEXT, CLASS, PROPS */, ["onClick"])
+                ]),
+                _createElementVNode("div", { class: "prompts-editor" }, [
+                  _createElementVNode("div", { class: "prompts-editor-toolbar" }, [
+                    _createElementVNode("div", { class: "form-hint" }, [
+                      _createTextVNode(_toDisplayString(_ctx.agentsPath || _ctx.t('common.notLoaded')) + " ", 1 /* TEXT */),
+                      (_ctx.agentsPath)
+                        ? (_openBlock(), _createElementBlock("span", { key: 0 }, " （" + _toDisplayString(_ctx.agentsExists ? _ctx.t('common.exists') : _ctx.t('common.notExistsWillCreateOnSave')) + "） ", 1 /* TEXT */))
+                        : _createCommentVNode("v-if", true)
+                    ]),
+                    _createElementVNode("div", { class: "prompts-editor-actions" }, [
+                      _createElementVNode("div", { class: "prompts-editor-group prompts-editor-group--secondary" }, [
+                        _createElementVNode("button", {
+                          class: "btn-mini",
+                          onClick: _ctx.exportAgentsContent,
+                          disabled: _ctx.agentsLoading
+                        }, _toDisplayString(_ctx.t('modal.agents.export')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                        _createElementVNode("button", {
+                          class: "btn-mini",
+                          onClick: _ctx.copyAgentsContent,
+                          disabled: _ctx.agentsLoading
+                        }, _toDisplayString(_ctx.t('modal.agents.copy')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                        _createElementVNode("button", {
+                          class: "btn-mini",
+                          onClick: _ctx.pasteAgentsContent,
+                          disabled: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible
+                        }, _toDisplayString(_ctx.t('common.paste')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                      ]),
+                      _createElementVNode("div", { class: "prompts-editor-group prompts-editor-group--workflow" }, [
+                        _createElementVNode("button", {
+                          class: "btn-mini",
+                          onClick: _ctx.loadPromptsContent,
+                          disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
+                        }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                        (_ctx.agentsDiffVisible)
+                          ? (_openBlock(), _createElementBlock("button", {
+                              key: 0,
+                              class: "btn-mini",
+                              onClick: _ctx.resetAgentsDiffState,
+                              disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
+                            }, _toDisplayString(_ctx.t('common.backToEdit')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]))
+                          : _createCommentVNode("v-if", true),
+                        _createElementVNode("button", {
+                          class: "btn-mini btn-confirm-mini",
+                          onClick: _ctx.applyAgentsContent,
+                          disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (!_ctx.agentsDiffVisible && !_ctx.hasAgentsContentChanged()) || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges)
+                        }, _toDisplayString(_ctx.agentsSaving ? (_ctx.agentsDiffVisible ? _ctx.t('common.saving') : _ctx.t('common.previewing')) : (_ctx.agentsDiffVisible ? _ctx.t('common.save') : _ctx.t('common.preview'))), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                      ])
+                    ])
+                  ]),
+                  _createElementVNode("div", { class: "form-group" }, [
+                    (_ctx.agentsDiffVisible)
+                      ? (_openBlock(), _createElementBlock("div", { key: 0 }, [
+                          (!_ctx.agentsDiffLoading && !_ctx.agentsDiffError && !_ctx.agentsDiffTruncated && (_ctx.agentsDiffStats.added || _ctx.agentsDiffStats.removed))
+                            ? (_openBlock(), _createElementBlock("div", {
+                                key: 0,
+                                class: "agents-diff-summary"
+                              }, [
+                                _createElementVNode("span", { class: "agents-diff-stat add" }, "+" + _toDisplayString(_ctx.agentsDiffStats.added), 1 /* TEXT */),
+                                _createElementVNode("span", { class: "agents-diff-stat del" }, "-" + _toDisplayString(_ctx.agentsDiffStats.removed), 1 /* TEXT */)
+                              ]))
+                            : _createCommentVNode("v-if", true),
+                          (_ctx.agentsDiffLoading)
+                            ? (_openBlock(), _createElementBlock("div", {
+                                key: 1,
+                                class: "state-message"
+                              }, _toDisplayString(_ctx.t('diff.generating')), 1 /* TEXT */))
+                            : (_ctx.agentsDiffError)
+                              ? (_openBlock(), _createElementBlock("div", {
+                                  key: 2,
+                                  class: "state-message error"
+                                }, _toDisplayString(_ctx.agentsDiffError), 1 /* TEXT */))
+                              : (_ctx.agentsDiffTruncated)
+                                ? (_openBlock(), _createElementBlock("div", {
+                                    key: 3,
+                                    class: "agents-diff-empty"
+                                  }, _toDisplayString(_ctx.t('diff.tooLargeSkip')), 1 /* TEXT */))
+                                : (!_ctx.agentsDiffHasChanges)
+                                  ? (_openBlock(), _createElementBlock("div", {
+                                      key: 4,
+                                      class: "agents-diff-empty"
+                                    }, _toDisplayString(_ctx.t('diff.noChanges')), 1 /* TEXT */))
+                                  : (_openBlock(), _createElementBlock("div", {
+                                      key: 5,
+                                      class: "agents-diff-view agents-diff-editor"
+                                    }, [
+                                      (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.agentsDiffLines, (line, index) => {
+                                        return (_openBlock(), _createElementBlock("div", {
+                                          key: line.key || (line.type + '-' + index),
+                                          class: _normalizeClass(['agents-diff-line', line.type])
+                                        }, [
+                                          _createElementVNode("span", { class: "agents-diff-line-sign" }, _toDisplayString(line.type === 'add' ? '+' : (line.type === 'del' ? '-' : ' ')), 1 /* TEXT */),
+                                          _createElementVNode("span", { class: "agents-diff-line-text" }, _toDisplayString(line.value), 1 /* TEXT */)
+                                        ], 2 /* CLASS */))
+                                      }), 128 /* KEYED_FRAGMENT */))
+                                    ]))
+                        ]))
+                      : _createCommentVNode("v-if", true),
+                    _createElementVNode("div", {
+                      class: _normalizeClass(['editor-frame', { 'editor-frame--loading': _ctx.agentsLoading }])
+                    }, [
+                      (_ctx.agentsLoading)
+                        ? (_openBlock(), _createElementBlock("div", {
+                            key: 0,
+                            class: "editor-skeleton"
+                          }, [
+                            (_openBlock(), _createElementBlock(_Fragment, null, _renderList(6, (i) => {
+                              return _createElementVNode("div", {
+                                class: "skeleton-line",
+                                key: i
+                              })
+                            }), 64 /* STABLE_FRAGMENT */))
+                          ]))
+                        : _createCommentVNode("v-if", true),
+                      _withDirectives(_createElementVNode("textarea", {
+                        "onUpdate:modelValue": $event => ((_ctx.agentsContent) = $event),
+                        class: "form-input template-editor",
+                        spellcheck: "false",
+                        readonly: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible,
+                        onInput: _ctx.onAgentsContentInput,
+                        placeholder: _ctx.t(_ctx.promptsSubTab === 'claude-md' ? 'modal.agents.placeholder.claudeMd' : 'modal.agents.placeholder')
+                      }, null, 40 /* PROPS, NEED_HYDRATION */, ["onUpdate:modelValue", "readonly", "onInput", "placeholder"]), [
+                        [_vModelText, _ctx.agentsContent]
+                      ])
+                    ], 2 /* CLASS */),
+                    (_ctx.promptsContextHint)
+                      ? (_openBlock(), _createElementBlock("div", {
+                          key: 1,
+                          class: _normalizeClass(['prompts-context-hint', { 'prompts-context-hint--warn': _ctx.promptsContextHint.warn }])
+                        }, _toDisplayString(_ctx.promptsContextHint.text), 3 /* TEXT, CLASS */))
+                      : _createCommentVNode("v-if", true)
+                  ])
+                ])
+              ]))
+            : _createCommentVNode("v-if", true),
+          _createCommentVNode(" 加载状态 "),
+          (_ctx.loading && _ctx.mainTab !== 'usage')
+            ? (_openBlock(), _createElementBlock("div", {
+                key: 2,
                 class: "state-message"
               }, _toDisplayString(_ctx.t('app.loadingConfig')), 1 /* TEXT */))
             : (_ctx.initError)
               ? (_openBlock(), _createElementBlock("div", {
-                  key: 2,
+                  key: 3,
                   class: "state-message error"
                 }, [
                   _createCommentVNode(" 错误状态 "),
@@ -7187,7 +7525,26 @@ return function render(_ctx, _cache) {
                   class: "btn-mini btn-modal-copy",
                   onClick: _ctx.pasteAgentsContent,
                   disabled: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible
-                }, _toDisplayString(_ctx.t('common.paste')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                }, _toDisplayString(_ctx.t('common.paste')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                _createElementVNode("span", { class: "prompts-editor-actions-sep" }),
+                _createElementVNode("button", {
+                  class: "btn-mini",
+                  onClick: _ctx.closeAgentsModal,
+                  disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
+                }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                (_ctx.agentsDiffVisible)
+                  ? (_openBlock(), _createElementBlock("button", {
+                      key: 0,
+                      class: "btn-mini",
+                      onClick: _ctx.resetAgentsDiffState,
+                      disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
+                    }, _toDisplayString(_ctx.t('common.backToEdit')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]))
+                  : _createCommentVNode("v-if", true),
+                _createElementVNode("button", {
+                  class: "btn-mini btn-confirm-mini",
+                  onClick: _ctx.applyAgentsContent,
+                  disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges)
+                }, _toDisplayString(_ctx.agentsSaving ? (_ctx.agentsDiffVisible ? _ctx.t('common.saving') : _ctx.t('common.previewing')) : (_ctx.agentsDiffVisible ? _ctx.t('common.save') : _ctx.t('common.preview'))), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
               ])
             ]),
             _createElementVNode("div", { class: "modal-editor-body" }, [
@@ -7299,26 +7656,6 @@ return function render(_ctx, _cache) {
                               }, _toDisplayString(_ctx.t('diff.viewHint.preview')), 1 /* TEXT */))
                 ])
               ])
-            ]),
-            _createElementVNode("div", { class: "btn-group modal-editor-footer" }, [
-              _createElementVNode("button", {
-                class: "btn btn-cancel",
-                onClick: _ctx.closeAgentsModal,
-                disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
-              }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
-              (_ctx.agentsDiffVisible)
-                ? (_openBlock(), _createElementBlock("button", {
-                    key: 0,
-                    class: "btn",
-                    onClick: _ctx.resetAgentsDiffState,
-                    disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
-                  }, _toDisplayString(_ctx.t('common.backToEdit')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]))
-                : _createCommentVNode("v-if", true),
-              _createElementVNode("button", {
-                class: "btn btn-confirm",
-                onClick: _ctx.applyAgentsContent,
-                disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges)
-              }, _toDisplayString(_ctx.agentsSaving ? (_ctx.agentsDiffVisible ? _ctx.t('common.applying') : _ctx.t('common.confirming')) : (_ctx.agentsDiffVisible ? _ctx.t('common.apply') : _ctx.t('common.confirm'))), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
             ])
           ])
         ], 8 /* PROPS */, ["onClick"]))

@@ -372,7 +372,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'showEditClaudeConfigKey',
         'showEditProviderKey',
         'toolConfigPermissionSaving',
-        'toolConfigPermissions'
+        'toolConfigPermissions',
+        'promptsHint',
+        'promptsSubTab'
     ] : [
         'appVersion',
         'appLatestVersion',
@@ -413,7 +415,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'showAddClaudeConfigKey',
         'showAddProviderKey',
         'showEditClaudeConfigKey',
-        'showEditProviderKey'
+        'showEditProviderKey',
+        'promptsHint',
+        'promptsSubTab'
     ];
     const allowedMissingCurrentKeys = [
         'localProxyRunning',
@@ -438,6 +442,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'promptTemplateVarDraftName',
         'showPromptTemplateVarModal',
         'brandHovered',
+        'promptsHint',
     ];
     allowedExtraCurrentKeys.push(
         'lang',
@@ -579,6 +584,9 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'resetTaskOrchestrationDraft',
         'appendTaskWorkflowId',
         'openClaudeMdEditor',
+        'switchPromptsSubTab',
+        'loadPromptsContent',
+        'openSessionLink',
         'saveNavState',
         'isLocalBridgeExcluded',
         'loadLocalBridgeExcluded',
@@ -683,7 +691,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'validateProviderName',
         'validateModelId',
         'getSessionFilePath',
-        'copySessionPath'
+        'copySessionPath',
+        'canBuildStandaloneUrl'
     );
     const allowedMissingCurrentMethodKeys = [
         'convertSession',
@@ -765,6 +774,7 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'promptComposerRendered',
         'promptComposerPickerList',
         'promptComposerMissingVars',
+        'promptsContextHint',
         'sessionUsageDaily',
         'sessionUsageHeatmap',
         'sessionUsageHourlyHeatmap',

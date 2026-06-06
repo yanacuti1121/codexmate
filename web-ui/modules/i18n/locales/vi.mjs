@@ -58,6 +58,8 @@ const vi = Object.freeze({
     'common.apply': 'Áp dụng',
     'common.applying': 'Đang áp dụng...',
     'common.confirming': 'Đang xác nhận...',
+    'common.preview': 'Xem trước',
+    'common.previewing': 'Đang xem trước...',
     'common.writeToEditor': 'Ghi vào trình soạn thảo',
     'common.refreshFromText': 'Làm mới từ văn bản',
     'common.backToEdit': 'Quay lại chỉnh sửa',
@@ -90,12 +92,14 @@ const vi = Object.freeze({
     'tab.market': 'Skills',
     'tab.plugins': 'Plugin',
     'tab.settings': 'Cài đặt',
+    'tab.prompts': 'Prompts',
 
     // Side rail section titles
     'side.overview': 'Tổng quan',
     'side.docs': 'Tài liệu',
     'side.config': 'Cấu hình',
     'side.sessions': 'Phiên',
+    'side.prompts': 'Prompts',
     'side.plugins': 'Plugin',
     'side.system': 'Hệ thống',
     'side.orchestration': 'Tác vụ',
@@ -125,6 +129,10 @@ const vi = Object.freeze({
     'side.config.openclaw.meta': 'JSON5 / AGENTS',
     'side.sessions.browser': 'Trình duyệt phiên',
     'side.sessions.browser.meta': 'Duyệt / Xuất / Dọn dẹp',
+    'side.prompts.agents': 'AGENTS.md',
+    'side.prompts.agents.meta': 'Tệp lệnh Codex',
+    'side.prompts.claude': 'CLAUDE.md',
+    'side.prompts.claude.meta': 'Tệp lệnh Claude',
     'side.plugins.tools': 'Công cụ prompt',
     'side.plugins.tools.meta': 'Mẫu / Biến',
     'side.system.settings': 'Cài đặt runtime',
@@ -162,6 +170,7 @@ const vi = Object.freeze({
     'kicker.plugins': 'Plugin',
     'kicker.docs': 'Tài liệu',
     'kicker.settings': 'Cài đặt',
+    'kicker.prompts': 'Prompts',
     'kicker.trash': 'Thùng rác',
 
     'title.dashboard': 'Dashboard / Doctor',
@@ -173,6 +182,7 @@ const vi = Object.freeze({
     'title.plugins': 'Plugin & Mẫu',
     'title.docs': 'Cài CLI & Tài liệu',
     'title.settings': 'Hệ thống & Dữ liệu',
+    'title.prompts': 'Trình chỉnh sửa tệp lệnh',
 
     'subtitle.dashboard': 'Tổng hợp trạng thái và chẩn đoán.',
     'subtitle.config': 'Quản lý cấu hình và mô hình cục bộ.',
@@ -183,6 +193,9 @@ const vi = Object.freeze({
     'subtitle.plugins': 'Quản lý plugin và mẫu tái sử dụng.',
     'subtitle.docs': 'Lệnh cài CLI và hướng dẫn.',
     'subtitle.settings': 'Quản lý tải xuống, thư mục và dữ liệu.',
+    'subtitle.prompts': 'Chỉnh sửa AGENTS.md và CLAUDE.md.',
+    'prompts.subTab.codex': 'AGENTS.md (Codex)',
+    'prompts.subTab.claude': 'CLAUDE.md (Claude)',
 
 
     // Task orchestration readiness
@@ -261,8 +274,13 @@ const vi = Object.freeze({
     'toast.copy.empty': 'Không có gì để sao chép',
     'toast.copy.ok': 'Đã sao chép',
     'toast.copy.fail': 'Sao chép thất bại',
+    'toast.link.fail': 'Không thể tạo liên kết',
     'toast.save.ok': 'Đã lưu',
     'toast.save.fail': 'Lưu thất bại',
+    'toast.agents.saved.agents': 'AGENTS.md đã lưu',
+    'toast.agents.saved.claudeMd': 'CLAUDE.md đã lưu',
+    'toast.agents.saved.openclaw': 'OpenClaw AGENTS.md đã lưu',
+    'toast.agents.saved.workspace': 'Tệp workspace đã lưu: {name}',
     'toast.delete.ok': 'Đã xóa',
     'toast.delete.fail': 'Xóa thất bại',
     'toast.operation.success': 'Thao tác thành công',
@@ -309,6 +327,19 @@ const vi = Object.freeze({
     'modal.claudeDelete.message': 'Xóa cấu hình "{name}"?',
     'modal.claudeDelete.confirm': 'Xóa',
     'modal.claudeDelete.cancel': 'Hủy',
+
+    // Sessions
+    'sessions.preview.openLink': 'Mở liên kết',
+
+    // Diff / Agents hints
+    'diff.hint.busy': 'Đang tạo diff hoặc áp dụng. Thao tác tạm thời bị vô hiệu hóa.',
+    'diff.hint.failedBack': 'Xem trước diff thất bại. Hãy quay lại chỉnh sửa và thử lại.',
+    'diff.hint.noChangesBack': 'Không phát hiện thay đổi. Quay lại chỉnh sửa hoặc hủy.',
+    'diff.hint.previewMode': 'Đang xem trước. Nhấp "Lưu" để ghi hoặc "Quay lại chỉnh sửa" để tiếp tục.',
+    'modal.agents.unsaved.detectedHint': 'Phát hiện thay đổi chưa lưu: lưu trước khi đóng hoặc áp dụng.',
+    'modal.agents.hint.twoStepSave': 'Lưu hai bước: "Xem trước" để kiểm tra diff, rồi "Lưu" để ghi.',
+    'diff.viewHint.preview': 'Đang xem trước. Nhấp "Lưu" để ghi hoặc "Quay lại chỉnh sửa" để tiếp tục.',
+    'diff.viewHint.truncated': 'Bỏ qua xem trước do nội dung quá lớn. Nhấp "Lưu" để ghi hoặc "Quay lại chỉnh sửa" để tiếp tục.',
 });
 
 export { vi };

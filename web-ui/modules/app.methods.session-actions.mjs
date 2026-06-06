@@ -90,6 +90,10 @@ export function createSessionActionMethods(options = {}) {
             this.loadSessionStandalonePlain();
         },
 
+        canBuildStandaloneUrl(session) {
+            return !!this.buildSessionStandaloneUrl(session);
+        },
+
         buildSessionStandaloneUrl(session) {
             if (!session) return '';
             const source = typeof session.source === 'string' ? session.source.trim().toLowerCase() : '';
@@ -127,6 +131,12 @@ export function createSessionActionMethods(options = {}) {
                 }
             } catch (_) {}
             this.showMessage(this.t('toast.copy.fail'), 'error');
+        },
+
+        openSessionLink(session) {
+            const url = this.buildSessionStandaloneUrl(session);
+            if (!url) { this.showMessage(this.t('toast.link.fail'), 'error'); return; }
+            window.open(url, '_blank', 'noopener,noreferrer');
         },
 
         getSessionFilePath(session) {
