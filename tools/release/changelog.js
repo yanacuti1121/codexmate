@@ -88,25 +88,46 @@ function readCommits(previousTag, currentRef) {
 }
 
 function groupCommits(commits) {
-    const prs = [];
-    const seenPrs = new Set();
-    const directCommits = [];
-    for (const commit of commits) {
-        if (commit.pr) {
-            if (!seenPrs.has(commit.pr)) {
-                seenPrs.add(commit.pr);
-                prs.push(commit);
-            }
-        } else {
-            directCommits.push(commit);
-        }
-    }
-    return { prs, directCommits };
+    return { directCommits: commits };
 }
 
 function formatContributorName(author) {
     const value = String(author || '').trim();
     return value || 'Unknown contributor';
+}
+
+const CONTRIBUTOR_PROFILES = new Map([
+    ['awsl', { login: 'awsl233777', displayName: 'Awsl' }],
+    ['awsl233777', { login: 'awsl233777', displayName: 'Awsl' }]
+]);
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function contributorProfile(author) {
+    const displayName = formatContributorName(author);
+    const mapped = CONTRIBUTOR_PROFILES.get(displayName.toLowerCase());
+    if (mapped) return mapped;
+    return { login: displayName, displayName };
+}
+
+function formatContributorCard(author) {
+    const { login, displayName } = contributorProfile(author);
+    const safeLogin = encodeURIComponent(login);
+    const safeDisplayName = escapeHtml(displayName);
+    const githubAvatarUrl = `https://github.com/${safeLogin}.png?size=96`;
+    const roundedAvatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(githubAvatarUrl)}&w=96&h=96&fit=cover&mask=circle`;
+    return [
+        `<a href="https://github.com/${safeLogin}" title="${safeDisplayName}">`,
+        `  <img src="${roundedAvatarUrl}" width="64" height="64" alt="${safeDisplayName}" />`,
+        `</a>`
+    ].join('\n');
 }
 
 function listContributors(commits) {
@@ -128,15 +149,40 @@ function compareUrl(repository, previousTag, currentTag, currentRef) {
     return `https://github.com/${repository}/compare/${previousTag}...${right}`;
 }
 
-function formatChangelog({ repository = '', previousTag = '', currentTag = '', currentRef = 'HEAD', commits = [] }) {
-    const currentLabel = currentTag || currentRef || 'HEAD';
+function stripPullRequestSuffix(subject) {
+    return String(subject || '').replace(/\s*\(#\d+\)\s*$/, '').trim();
+}
+
+function formatChangeSummaryLine(commit) {
+    const subject = stripPullRequestSuffix(commit?.subject || '');
+    if (!subject) return '';
+    if (/^chore:\s*bump version\b/i.test(subject)) return '';
+
+    const conventional = subject.match(/^(\w+)(?:\(([^)]+)\))?:\s*(.+)$/);
+    const summary = conventional
+        ? `${conventional[2] ? `${conventional[2]}: ` : ''}${conventional[3]}`
+        : subject;
+    return `- ${summary}${commit.pr ? ` (#${commit.pr})` : ''}`;
+}
+
+function formatChangeSummary(commits) {
     const lines = [];
-    const releaseName = repository ? repository.split('/').pop() : 'Release';
-    lines.push(`## ${releaseName} ${currentLabel}`);
-    lines.push('');
+    const seen = new Set();
+    for (const commit of commits) {
+        const line = formatChangeSummaryLine(commit);
+        if (!line) continue;
+        const key = line.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        lines.push(line);
+    }
+    return lines;
+}
+
+function formatChangelog({ repository = '', previousTag = '', currentTag = '', currentRef = 'HEAD', commits = [] }) {
+    const lines = [];
 
     if (!previousTag) {
-        lines.push(`### Changes`);
         lines.push('No previous semver tag was found. Treating this as the initial release.');
         lines.push('');
         lines.push('### Contributors');
@@ -144,23 +190,19 @@ function formatChangelog({ repository = '', previousTag = '', currentTag = '', c
         return `${lines.join('\n')}\n`;
     }
 
-    lines.push(`### Changes since ${previousTag}`);
-    lines.push('');
-
-    const { prs, directCommits } = groupCommits(commits);
+    const { directCommits } = groupCommits(commits);
     if (!commits.length) {
         lines.push('No commits found in this range.');
     } else {
-        if (prs.length) {
-            lines.push('PRs:');
-            for (const commit of prs) {
-                lines.push(`- #${commit.pr} ${commit.subject.replace(/\s*\(#\d+\)\s*$/, '')} (${commit.hash})`);
-            }
+        const changeSummary = formatChangeSummary([...commits].reverse());
+        if (changeSummary.length) {
+            lines.push('### Changes');
+            lines.push(...changeSummary);
             lines.push('');
         }
 
         if (directCommits.length) {
-            lines.push('Commits without PR:');
+            lines.push('### Commits without PR');
             for (const commit of directCommits) {
                 lines.push(`- ${commit.hash} ${commit.subject}${commit.author ? ` — ${commit.author}` : ''}`);
             }
@@ -179,9 +221,7 @@ function formatChangelog({ repository = '', previousTag = '', currentTag = '', c
     if (!contributors.length) {
         lines.push('- Unknown contributor');
     } else {
-        for (const contributor of contributors) {
-            lines.push(`- ${contributor}`);
-        }
+        lines.push(contributors.map(formatContributorCard).join('\n&nbsp;&nbsp;\n'));
     }
     return `${lines.join('\n').replace(/\n{3,}/g, '\n\n')}\n`;
 }
@@ -233,6 +273,11 @@ module.exports = {
     parseLogLine,
     groupCommits,
     listContributors,
+    contributorProfile,
+    formatContributorCard,
+    stripPullRequestSuffix,
+    formatChangeSummaryLine,
+    formatChangeSummary,
     compareUrl,
     formatChangelog,
     main

@@ -9,6 +9,9 @@ const {
     parseLogLine,
     groupCommits,
     listContributors,
+    contributorProfile,
+    formatContributorCard,
+    formatChangeSummary,
     compareUrl,
     formatChangelog
 } = require('../../tools/release/changelog.js');
@@ -33,8 +36,7 @@ test('release changelog groups PR commits and direct commits for action logs', (
     ];
     const grouped = groupCommits(commits);
 
-    assert.deepStrictEqual(grouped.prs.map((commit) => commit.pr), [180]);
-    assert.deepStrictEqual(grouped.directCommits.map((commit) => commit.hash), ['abc1234']);
+    assert.deepStrictEqual(grouped.directCommits.map((commit) => commit.hash), ['f5700cf', 'abc1234']);
     assert.deepStrictEqual(listContributors(commits), ['awsl233777']);
 
     const changelog = formatChangelog({
@@ -45,15 +47,43 @@ test('release changelog groups PR commits and direct commits for action logs', (
         commits
     });
 
-    assert.match(changelog, /## codexmate v0\.0\.39/);
-    assert.match(changelog, /Changes since v0\.0\.38/);
-    assert.match(changelog, /PRs:/);
-    assert.match(changelog, /#180 fix\(proxy\): bypass responses probe for streaming codex tasks \(f5700cf\)/);
-    assert.match(changelog, /Commits without PR:/);
+    assert.doesNotMatch(changelog, /## codexmate v0\.0\.39/);
+    assert.doesNotMatch(changelog, /Changes since v0\.0\.38/);
+    assert.match(changelog, /### Changes/);
+    assert.match(changelog, /- proxy: bypass responses probe for streaming codex tasks \(#180\)/);
+    assert.match(changelog, /- update generated assets/);
+    assert.doesNotMatch(changelog, /### PRs/);
+    assert.match(changelog, /### Commits without PR/);
+    assert.match(changelog, /f5700cf fix\(proxy\): bypass responses probe for streaming codex tasks \(#180\)/);
     assert.match(changelog, /abc1234 chore: update generated assets/);
     assert.match(changelog, /https:\/\/github\.com\/SakuraByteCore\/codexmate\/compare\/v0\.0\.38\.\.\.v0\.0\.39/);
-    assert.match(changelog, /### Contributors\n- awsl233777/);
-    assert.ok(changelog.trimEnd().endsWith('- awsl233777'));
+    assert.match(changelog, /### Contributors\n<a href="https:\/\/github\.com\/awsl233777" title="Awsl">/);
+    assert.match(changelog, /<img src="https:\/\/wsrv\.nl\/\?url=https%3A%2F%2Fgithub\.com%2Fawsl233777\.png%3Fsize%3D96&w=96&h=96&fit=cover&mask=circle" width="64" height="64" alt="Awsl" \/>/);
+    assert.doesNotMatch(changelog, /<sub><b>Awsl<\/b><\/sub>/);
+    assert.ok(changelog.trimEnd().endsWith('</a>'));
+});
+
+test('release changelog summarizes actual commit changes without release housekeeping', () => {
+    const commits = [
+        parseLogLine('628d451\u001ffeat: add Claude proxy target APIs with Ollama support (#171)\u001fAwsl'),
+        parseLogLine('5b92004\u001ffeat(web-ui): add Prompts tab for inline AGENTS.md and CLAUDE.md editing\u001fymkiux'),
+        parseLogLine('1587cce\u001fchore: bump version to 0.0.45\u001fymkiux')
+    ];
+
+    assert.deepStrictEqual(formatChangeSummary(commits), [
+        '- add Claude proxy target APIs with Ollama support (#171)',
+        '- web-ui: add Prompts tab for inline AGENTS.md and CLAUDE.md editing'
+    ]);
+});
+
+test('release changelog maps contributor display names to GitHub avatar cards', () => {
+    assert.deepStrictEqual(contributorProfile('Awsl'), { login: 'awsl233777', displayName: 'Awsl' });
+    assert.deepStrictEqual(contributorProfile('ymkiux'), { login: 'ymkiux', displayName: 'ymkiux' });
+
+    const card = formatContributorCard('ymkiux');
+    assert.match(card, /href="https:\/\/github\.com\/ymkiux"/);
+    assert.match(card, /src="https:\/\/wsrv\.nl\/\?url=https%3A%2F%2Fgithub\.com%2Fymkiux\.png%3Fsize%3D96&w=96&h=96&fit=cover&mask=circle"/);
+    assert.doesNotMatch(card, /<sub><b>ymkiux<\/b><\/sub>/);
 });
 
 test('release changelog reports initial release when no previous tag exists', () => {
@@ -65,7 +95,7 @@ test('release changelog reports initial release when no previous tag exists', ()
         commits: []
     });
 
-    assert.match(changelog, /## codexmate v0\.0\.1/);
+    assert.doesNotMatch(changelog, /## codexmate v0\.0\.1/);
     assert.match(changelog, /No previous semver tag was found/);
     assert.match(changelog, /### Contributors\n- Unknown contributor/);
     assert.equal(compareUrl('SakuraByteCore/codexmate', '', 'v0.0.1', 'HEAD'), '');
@@ -75,6 +105,7 @@ test('release workflow uses generated changelog as release body', () => {
     const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
 
     assert.match(workflow, /RELEASE_CHANGELOG_FILE:\s*release-changelog\.md/);
+    assert.match(workflow, /Generate release notes from actual commit range/);
     assert.match(workflow, /node tools\/release\/changelog\.js/);
     assert.match(workflow, /test -s "\$\{RELEASE_CHANGELOG_FILE\}"/);
     assert.match(workflow, /body_path:\s*\$\{\{ env\.RELEASE_CHANGELOG_FILE \}\}/);
