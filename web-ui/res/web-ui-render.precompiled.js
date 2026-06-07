@@ -1,5 +1,5 @@
 window.__CODEXMATE_WEB_UI_RENDER__ = (() => {
-const { toDisplayString: _toDisplayString, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode, createTextVNode: _createTextVNode, createElementVNode: _createElementVNode, normalizeClass: _normalizeClass, Fragment: _Fragment, renderList: _renderList, vShow: _vShow, withDirectives: _withDirectives, vModelSelect: _vModelSelect, vModelText: _vModelText, withKeys: _withKeys, withModifiers: _withModifiers, isMemoSame: _isMemoSame, withMemo: _withMemo, normalizeStyle: _normalizeStyle, vModelDynamic: _vModelDynamic, vModelCheckbox: _vModelCheckbox } = Vue
+const { toDisplayString: _toDisplayString, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode, createTextVNode: _createTextVNode, createElementVNode: _createElementVNode, normalizeClass: _normalizeClass, Fragment: _Fragment, renderList: _renderList, vShow: _vShow, withDirectives: _withDirectives, vModelSelect: _vModelSelect, vModelText: _vModelText, withKeys: _withKeys, withModifiers: _withModifiers, vModelDynamic: _vModelDynamic, vModelCheckbox: _vModelCheckbox, isMemoSame: _isMemoSame, withMemo: _withMemo, normalizeStyle: _normalizeStyle } = Vue
 
 return function render(_ctx, _cache) {
   return (_openBlock(), _createElementBlock(_Fragment, null, [
@@ -71,7 +71,7 @@ return function render(_ctx, _cache) {
             "data-config-mode": _ctx.configMode,
             tabindex: _ctx.mainTab === 'config' ? 0 : -1,
             "aria-selected": _ctx.mainTab === 'config',
-            "aria-controls": _ctx.configMode === 'claude' ? 'panel-config-claude' : (_ctx.configMode === 'openclaw' ? 'panel-config-openclaw' : 'panel-config-provider'),
+            "aria-controls": _ctx.configMode === 'claude' ? 'panel-config-claude' : (_ctx.configMode === 'openclaw' ? 'panel-config-openclaw' : (_ctx.configMode === 'opencode' ? 'panel-config-opencode' : 'panel-config-provider')),
             onPointerdown: $event => (_ctx.onMainTabPointerDown('config', $event)),
             onClick: $event => (_ctx.onMainTabClick('config', $event))
           }, _toDisplayString(_ctx.t('tab.config')), 43 /* TEXT, CLASS, PROPS, NEED_HYDRATION */, ["data-config-mode", "tabindex", "aria-selected", "aria-controls", "onPointerdown", "onClick"]),
@@ -317,6 +317,23 @@ return function render(_ctx, _cache) {
                     _createElementVNode("span", null, _toDisplayString(_ctx.t('side.config.openclaw.meta')), 1 /* TEXT */),
                     (_ctx.currentOpenclawConfig)
                       ? (_openBlock(), _createElementBlock("span", { key: 0 }, _toDisplayString(_ctx.t('common.current', { value: _ctx.currentOpenclawConfig })), 1 /* TEXT */))
+                      : _createCommentVNode("v-if", true)
+                  ])
+                ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"]),
+                _createElementVNode("button", {
+                  id: "side-tab-config-opencode",
+                  "data-main-tab": "config",
+                  "data-config-mode": "opencode",
+                  "aria-current": _ctx.mainTab === 'config' && _ctx.configMode === 'opencode' ? 'page' : null,
+                  class: _normalizeClass(['side-item', { active: _ctx.isConfigModeNavActive('opencode') }]),
+                  onPointerdown: $event => (_ctx.onConfigTabPointerDown('opencode', $event)),
+                  onClick: $event => (_ctx.onConfigTabClick('opencode', $event))
+                }, [
+                  _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('side.config.opencode')), 1 /* TEXT */),
+                  _createElementVNode("div", { class: "side-item-meta" }, [
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('side.config.opencode.meta')), 1 /* TEXT */),
+                    (_ctx.opencodeModel)
+                      ? (_openBlock(), _createElementBlock("span", { key: 0 }, _toDisplayString(_ctx.t('common.current', { value: _ctx.opencodeModel })), 1 /* TEXT */))
                       : _createCommentVNode("v-if", true)
                   ])
                 ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"])
@@ -570,13 +587,28 @@ return function render(_ctx, _cache) {
                             _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.openclawWorkspaceFileName || _ctx.t('common.notSelected')), 1 /* TEXT */)
                           ])
                         ], 64 /* STABLE_FRAGMENT */))
-                      : (_openBlock(), _createElementBlock("div", {
-                          key: 3,
-                          class: "status-chip"
-                        }, [
-                          _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.configMode')), 1 /* TEXT */),
-                          _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.t('common.notSelected')), 1 /* TEXT */)
-                        ]))
+                      : (_ctx.configMode === 'opencode')
+                        ? (_openBlock(), _createElementBlock(_Fragment, { key: 3 }, [
+                            _createElementVNode("div", { class: "status-chip" }, [
+                              _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.opencodeProvider')), 1 /* TEXT */),
+                              _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.opencodeProvider || _ctx.t('common.notSelected')), 1 /* TEXT */)
+                            ]),
+                            _createElementVNode("div", { class: "status-chip" }, [
+                              _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.opencodeModel')), 1 /* TEXT */),
+                              _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.opencodeModel || _ctx.t('common.notSelected')), 1 /* TEXT */)
+                            ]),
+                            _createElementVNode("div", { class: "status-chip" }, [
+                              _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.opencodeConfig')), 1 /* TEXT */),
+                              _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.opencodeConfigPath || _ctx.t('common.notSelected')), 1 /* TEXT */)
+                            ])
+                          ], 64 /* STABLE_FRAGMENT */))
+                        : (_openBlock(), _createElementBlock("div", {
+                            key: 4,
+                            class: "status-chip"
+                          }, [
+                            _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.configMode')), 1 /* TEXT */),
+                            _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.t('common.notSelected')), 1 /* TEXT */)
+                          ]))
               ]))
             : (!_ctx.sessionStandalone && _ctx.mainTab === 'sessions')
               ? (_openBlock(), _createElementBlock("div", {
@@ -2279,6 +2311,394 @@ return function render(_ctx, _cache) {
             ])
           ], 8 /* PROPS */, ["aria-labelledby"]), [
             [_vShow, _ctx.mainTab === 'config' && _ctx.configMode === 'openclaw']
+          ]),
+          _createCommentVNode(" OpenCode 配置 "),
+          _withDirectives(_createElementVNode("div", {
+            class: "mode-content mode-cards",
+            id: "panel-config-opencode",
+            role: "tabpanel",
+            "aria-labelledby": _ctx.forceCompactLayout ? 'tab-config' : 'side-tab-config-opencode'
+          }, [
+            (_ctx.forceCompactLayout && !_ctx.sessionStandalone)
+              ? (_openBlock(), _createElementBlock("div", {
+                  key: 0,
+                  class: "segmented-control"
+                }, [
+                  _createElementVNode("button", {
+                    type: "button",
+                    class: _normalizeClass(['segment', { active: _ctx.configMode === 'codex' }]),
+                    onClick: $event => (_ctx.switchConfigMode('codex'))
+                  }, _toDisplayString(_ctx.t('tab.config.codex')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
+                  _createElementVNode("button", {
+                    type: "button",
+                    class: _normalizeClass(['segment', { active: _ctx.configMode === 'claude' }]),
+                    onClick: $event => (_ctx.switchConfigMode('claude'))
+                  }, _toDisplayString(_ctx.t('tab.config.claude')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
+                  _createElementVNode("button", {
+                    type: "button",
+                    class: _normalizeClass(['segment', { active: _ctx.configMode === 'openclaw' }]),
+                    onClick: $event => (_ctx.switchConfigMode('openclaw'))
+                  }, _toDisplayString(_ctx.t('tab.config.openclaw')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
+                  _createElementVNode("button", {
+                    type: "button",
+                    class: _normalizeClass(['segment', { active: _ctx.configMode === 'opencode' }]),
+                    onClick: $event => (_ctx.switchConfigMode('opencode'))
+                  }, _toDisplayString(_ctx.t('tab.config.opencode')), 11 /* TEXT, CLASS, PROPS */, ["onClick"])
+                ]))
+              : _createCommentVNode("v-if", true),
+            _createElementVNode("section", {
+              class: "tool-config-write-card",
+              "aria-label": _ctx.t('opencode.writeAria')
+            }, [
+              _createElementVNode("div", { class: "tool-config-write-copy" }, [
+                _createElementVNode("div", { class: "tool-config-write-title" }, _toDisplayString(_ctx.t('toolConfig.opencode.title')), 1 /* TEXT */),
+                _createElementVNode("p", { class: "tool-config-write-desc" }, _toDisplayString(_ctx.t('toolConfig.opencode.desc')), 1 /* TEXT */)
+              ]),
+              _createElementVNode("label", { class: "settings-toggle-row tool-config-write-toggle" }, [
+                _createElementVNode("input", {
+                  type: "checkbox",
+                  autocomplete: "off",
+                  checked: _ctx.isToolConfigWriteAllowed('opencode'),
+                  disabled: _ctx.toolConfigPermissionSaving.opencode,
+                  onChange: $event => (_ctx.setToolConfigPermission('opencode', $event.target.checked))
+                }, null, 40 /* PROPS, NEED_HYDRATION */, ["checked", "disabled", "onChange"]),
+                _createElementVNode("span", { class: "toggle-track" }, [
+                  _createElementVNode("span", { class: "toggle-thumb" })
+                ]),
+                _createElementVNode("span", null, _toDisplayString(_ctx.toolConfigPermissionStatusLabel('opencode')), 1 /* TEXT */)
+              ])
+            ], 8 /* PROPS */, ["aria-label"]),
+            _createElementVNode("div", {
+              class: _normalizeClass(["tool-config-write-scope", { locked: !_ctx.isToolConfigWriteAllowed('opencode') }])
+            }, [
+              _createElementVNode("div", { class: "tool-config-write-body" }, [
+                _createElementVNode("section", { class: "selector-section" }, [
+                  _createElementVNode("div", { class: "selector-header" }, [
+                    _createElementVNode("span", { class: "selector-title" }, _toDisplayString(_ctx.t('opencode.providerModel.title')), 1 /* TEXT */),
+                    _createElementVNode("div", { class: "selector-actions opencode-provider-actions" }, [
+                      _createElementVNode("button", {
+                        type: "button",
+                        class: "btn-tool btn-tool-compact",
+                        onClick: $event => (_ctx.loadOpencodeConfig({ toast: true })),
+                        disabled: _ctx.opencodeLoading
+                      }, _toDisplayString(_ctx.opencodeLoading ? _ctx.t('common.refreshing') : _ctx.t('common.refresh')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                      _createElementVNode("button", {
+                        type: "button",
+                        class: "btn-tool btn-tool-compact",
+                        onClick: _ctx.applyOpencodeSelection,
+                        disabled: _ctx.opencodeApplying || _ctx.opencodeLoading || !_ctx.isToolConfigWriteAllowed('opencode')
+                      }, _toDisplayString(_ctx.opencodeApplying ? _ctx.t('common.applying') : _ctx.t('opencode.applySelection')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                    ])
+                  ]),
+                  _createElementVNode("div", { class: "config-template-hint" }, _toDisplayString(_ctx.t('opencode.targetFile', { path: _ctx.opencodeConfigPath || '~/.config/opencode/opencode.jsonc', status: _ctx.opencodeConfigExists ? _ctx.t('common.exists') : _ctx.t('common.notExistsWillCreateOnSave') })), 1 /* TEXT */),
+                  _createElementVNode("div", { class: "config-template-hint" }, _toDisplayString(_ctx.t('opencode.providerStoreFile', { path: _ctx.opencodeProviderStorePath || '~/.codexmate/opencode/providers.json' })), 1 /* TEXT */),
+                  _createElementVNode("div", { class: "codex-config-grid" }, [
+                    _createElementVNode("div", { class: "form-group codex-config-field" }, [
+                      _createElementVNode("label", {
+                        class: "form-label",
+                        for: "opencode-provider"
+                      }, _toDisplayString(_ctx.t('field.provider')), 1 /* TEXT */),
+                      _withDirectives(_createElementVNode("input", {
+                        id: "opencode-provider",
+                        class: "form-input",
+                        "onUpdate:modelValue": $event => ((_ctx.opencodeProvider) = $event),
+                        list: "opencode-provider-options",
+                        autocomplete: "off",
+                        spellcheck: "false",
+                        onChange: $event => (_ctx.fillOpencodeProvider(_ctx.opencodeProvider)),
+                        onBlur: $event => (_ctx.fillOpencodeProvider(_ctx.opencodeProvider)),
+                        placeholder: "anthropic / openai / gemini"
+                      }, null, 40 /* PROPS, NEED_HYDRATION */, ["onUpdate:modelValue", "onChange", "onBlur"]), [
+                        [_vModelText, _ctx.opencodeProvider]
+                      ]),
+                      _createElementVNode("datalist", { id: "opencode-provider-options" }, [
+                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.opencodeProviderCatalog(), (provider) => {
+                          return (_openBlock(), _createElementBlock("option", {
+                            key: provider,
+                            value: provider
+                          }, null, 8 /* PROPS */, ["value"]))
+                        }), 128 /* KEYED_FRAGMENT */))
+                      ])
+                    ]),
+                    _createElementVNode("div", { class: "form-group codex-config-field" }, [
+                      _createElementVNode("label", {
+                        class: "form-label",
+                        for: "opencode-model"
+                      }, _toDisplayString(_ctx.t('field.model')), 1 /* TEXT */),
+                      _withDirectives(_createElementVNode("input", {
+                        id: "opencode-model",
+                        class: "form-input",
+                        "onUpdate:modelValue": $event => ((_ctx.opencodeModel) = $event),
+                        list: "opencode-model-options",
+                        autocomplete: "off",
+                        spellcheck: "false",
+                        placeholder: "claude-3.7-sonnet / gpt-4.1"
+                      }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                        [_vModelText, _ctx.opencodeModel]
+                      ]),
+                      _createElementVNode("datalist", { id: "opencode-model-options" }, [
+                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.opencodeModelCatalogForProvider(_ctx.opencodeProvider), (model) => {
+                          return (_openBlock(), _createElementBlock("option", {
+                            key: model,
+                            value: model
+                          }, null, 8 /* PROPS */, ["value"]))
+                        }), 128 /* KEYED_FRAGMENT */))
+                      ])
+                    ]),
+                    _createElementVNode("div", { class: "form-group codex-config-field" }, [
+                      _createElementVNode("label", {
+                        class: "form-label",
+                        for: "opencode-agent"
+                      }, _toDisplayString(_ctx.t('opencode.field.agent')), 1 /* TEXT */),
+                      _withDirectives(_createElementVNode("input", {
+                        id: "opencode-agent",
+                        class: "form-input",
+                        "onUpdate:modelValue": $event => ((_ctx.opencodeAgent) = $event),
+                        list: "opencode-agent-options",
+                        autocomplete: "off",
+                        spellcheck: "false",
+                        placeholder: "build"
+                      }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                        [_vModelText, _ctx.opencodeAgent]
+                      ]),
+                      _createElementVNode("datalist", { id: "opencode-agent-options" }, [
+                        _createElementVNode("option", { value: "build" }),
+                        _createElementVNode("option", { value: "plan" }),
+                        _createElementVNode("option", { value: "general" }),
+                        _createElementVNode("option", { value: "summary" }),
+                        _createElementVNode("option", { value: "compaction" }),
+                        _createElementVNode("option", { value: "title" }),
+                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.opencodeAgents, (agent) => {
+                          return (_openBlock(), _createElementBlock("option", {
+                            key: agent.name,
+                            value: agent.name
+                          }, null, 8 /* PROPS */, ["value"]))
+                        }), 128 /* KEYED_FRAGMENT */))
+                      ])
+                    ]),
+                    _createElementVNode("div", { class: "form-group codex-config-field" }, [
+                      _createElementVNode("label", {
+                        class: "form-label",
+                        for: "opencode-api-key"
+                      }, _toDisplayString(_ctx.t('opencode.field.apiKeyKeep')), 1 /* TEXT */),
+                      _createElementVNode("div", { class: "input-with-toggle" }, [
+                        _withDirectives(_createElementVNode("input", {
+                          id: "opencode-api-key",
+                          class: "form-input",
+                          "onUpdate:modelValue": $event => ((_ctx.opencodeApiKey) = $event),
+                          type: _ctx.opencodeShowKey ? 'text' : 'password',
+                          autocomplete: "off",
+                          spellcheck: "false",
+                          placeholder: "sk-..."
+                        }, null, 8 /* PROPS */, ["onUpdate:modelValue", "type"]), [
+                          [_vModelDynamic, _ctx.opencodeApiKey]
+                        ]),
+                        _createElementVNode("button", {
+                          type: "button",
+                          class: "input-toggle-btn",
+                          onClick: $event => (_ctx.opencodeShowKey = !_ctx.opencodeShowKey),
+                          title: _ctx.opencodeShowKey ? _ctx.t('common.hide') : _ctx.t('common.show')
+                        }, _toDisplayString(_ctx.opencodeShowKey ? _ctx.t('common.hide') : _ctx.t('common.show')), 9 /* TEXT, PROPS */, ["onClick", "title"])
+                      ])
+                    ]),
+                    _createElementVNode("div", { class: "form-group codex-config-field" }, [
+                      _createElementVNode("label", {
+                        class: "form-label",
+                        for: "opencode-max-tokens"
+                      }, _toDisplayString(_ctx.t('opencode.field.maxTokens')), 1 /* TEXT */),
+                      _withDirectives(_createElementVNode("input", {
+                        id: "opencode-max-tokens",
+                        class: "form-input",
+                        "onUpdate:modelValue": $event => ((_ctx.opencodeMaxTokens) = $event),
+                        inputmode: "numeric",
+                        autocomplete: "off",
+                        placeholder: "5000"
+                      }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                        [_vModelText, _ctx.opencodeMaxTokens]
+                      ])
+                    ]),
+                    _createElementVNode("div", { class: "form-group codex-config-field" }, [
+                      _createElementVNode("label", {
+                        class: "form-label",
+                        for: "opencode-reasoning-effort"
+                      }, _toDisplayString(_ctx.t('opencode.field.reasoningEffort')), 1 /* TEXT */),
+                      _withDirectives(_createElementVNode("select", {
+                        id: "opencode-reasoning-effort",
+                        class: "model-select",
+                        "onUpdate:modelValue": $event => ((_ctx.opencodeReasoningEffort) = $event)
+                      }, [
+                        _createElementVNode("option", { value: "" }, _toDisplayString(_ctx.t('opencode.option.keepUnchanged')), 1 /* TEXT */),
+                        _createElementVNode("option", { value: "low" }, _toDisplayString(_ctx.t('opencode.option.reasoningLow')), 1 /* TEXT */),
+                        _createElementVNode("option", { value: "medium" }, _toDisplayString(_ctx.t('opencode.option.reasoningMedium')), 1 /* TEXT */),
+                        _createElementVNode("option", { value: "high" }, _toDisplayString(_ctx.t('opencode.option.reasoningHigh')), 1 /* TEXT */)
+                      ], 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                        [_vModelSelect, _ctx.opencodeReasoningEffort]
+                      ])
+                    ])
+                  ]),
+                  _createElementVNode("label", {
+                    class: "settings-toggle-row",
+                    style: {"margin-top":"12px"}
+                  }, [
+                    _withDirectives(_createElementVNode("input", {
+                      type: "checkbox",
+                      "onUpdate:modelValue": $event => ((_ctx.opencodeApplyToCoreAgents) = $event)
+                    }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                      [_vModelCheckbox, _ctx.opencodeApplyToCoreAgents]
+                    ]),
+                    _createElementVNode("span", { class: "toggle-track" }, [
+                      _createElementVNode("span", { class: "toggle-thumb" })
+                    ]),
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('opencode.applyToCoreAgents')), 1 /* TEXT */)
+                  ]),
+                  _createElementVNode("label", {
+                    class: "settings-toggle-row",
+                    style: {"margin-top":"8px"}
+                  }, [
+                    _withDirectives(_createElementVNode("input", {
+                      type: "checkbox",
+                      "onUpdate:modelValue": $event => ((_ctx.opencodeAutoCompact) = $event)
+                    }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                      [_vModelCheckbox, _ctx.opencodeAutoCompact]
+                    ]),
+                    _createElementVNode("span", { class: "toggle-track" }, [
+                      _createElementVNode("span", { class: "toggle-thumb" })
+                    ]),
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('opencode.enableAutoCompaction')), 1 /* TEXT */)
+                  ]),
+                  _createElementVNode("label", {
+                    class: "settings-toggle-row",
+                    style: {"margin-top":"8px"}
+                  }, [
+                    _withDirectives(_createElementVNode("input", {
+                      type: "checkbox",
+                      "onUpdate:modelValue": $event => ((_ctx.opencodeProviderDisabled) = $event)
+                    }, null, 8 /* PROPS */, ["onUpdate:modelValue"]), [
+                      [_vModelCheckbox, _ctx.opencodeProviderDisabled]
+                    ]),
+                    _createElementVNode("span", { class: "toggle-track" }, [
+                      _createElementVNode("span", { class: "toggle-thumb" })
+                    ]),
+                    _createElementVNode("span", null, _toDisplayString(_ctx.t('opencode.disableProvider')), 1 /* TEXT */)
+                  ])
+                ]),
+                _createElementVNode("section", { class: "selector-section" }, [
+                  _createElementVNode("div", { class: "selector-header" }, [
+                    _createElementVNode("span", { class: "selector-title" }, _toDisplayString(_ctx.t('opencode.configFile.title')), 1 /* TEXT */),
+                    _createElementVNode("div", { class: "selector-actions" }, [
+                      _createElementVNode("button", {
+                        type: "button",
+                        class: "btn-tool btn-tool-compact",
+                        onClick: $event => (_ctx.$refs.opencodeImportInput && _ctx.$refs.opencodeImportInput.click())
+                      }, _toDisplayString(_ctx.t('opencode.importParse')), 9 /* TEXT, PROPS */, ["onClick"]),
+                      _createElementVNode("button", {
+                        type: "button",
+                        class: "btn-tool btn-tool-compact",
+                        onClick: _ctx.saveOpencodeConfig,
+                        disabled: _ctx.opencodeSaving || _ctx.opencodeLoading || !_ctx.isToolConfigWriteAllowed('opencode')
+                      }, _toDisplayString(_ctx.opencodeSaving ? _ctx.t('common.saving') : _ctx.t('opencode.saveConfig')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                    ])
+                  ]),
+                  _createElementVNode("input", {
+                    ref: "opencodeImportInput",
+                    class: "sr-only",
+                    type: "file",
+                    accept: ".json,.jsonc,.opencode",
+                    onChange: _ctx.handleOpencodeImportChange
+                  }, null, 40 /* PROPS, NEED_HYDRATION */, ["onChange"]),
+                  (_ctx.opencodeImportFileName)
+                    ? (_openBlock(), _createElementBlock("div", {
+                        key: 0,
+                        class: "config-template-hint"
+                      }, _toDisplayString(_ctx.t('opencode.parsedFile', { file: _ctx.opencodeImportFileName })), 1 /* TEXT */))
+                    : _createCommentVNode("v-if", true),
+                  (_ctx.opencodeError || _ctx.opencodeImportError)
+                    ? (_openBlock(), _createElementBlock("div", {
+                        key: 1,
+                        class: "config-template-hint error-text"
+                      }, _toDisplayString(_ctx.opencodeError || _ctx.opencodeImportError), 1 /* TEXT */))
+                    : _createCommentVNode("v-if", true),
+                  _withDirectives(_createElementVNode("textarea", {
+                    class: "template-textarea",
+                    "onUpdate:modelValue": $event => ((_ctx.opencodeContent) = $event),
+                    spellcheck: "false",
+                    readonly: _ctx.opencodeSaving || _ctx.opencodeLoading,
+                    placeholder: _ctx.t('opencode.textarea.placeholder')
+                  }, null, 8 /* PROPS */, ["onUpdate:modelValue", "readonly", "placeholder"]), [
+                    [_vModelText, _ctx.opencodeContent]
+                  ]),
+                  _createElementVNode("div", { class: "config-template-hint" }, _toDisplayString(_ctx.t('opencode.configFile.hint')), 1 /* TEXT */)
+                ]),
+                (_ctx.opencodeProviders.length || _ctx.opencodeAgents.length)
+                  ? (_openBlock(), _createElementBlock("section", {
+                      key: 0,
+                      class: "selector-section"
+                    }, [
+                      _createElementVNode("div", { class: "selector-header" }, [
+                        _createElementVNode("span", { class: "selector-title" }, _toDisplayString(_ctx.t('opencode.summary.title')), 1 /* TEXT */)
+                      ]),
+                      _createElementVNode("div", { class: "card-list" }, [
+                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.opencodeProviders, (provider) => {
+                          return (_openBlock(), _createElementBlock("div", {
+                            key: provider.name,
+                            class: "card"
+                          }, [
+                            _createElementVNode("div", { class: "card-leading" }, [
+                              _createElementVNode("div", { class: "card-icon" }, _toDisplayString(provider.name.charAt(0).toUpperCase()), 1 /* TEXT */),
+                              _createElementVNode("div", { class: "card-content" }, [
+                                _createElementVNode("div", { class: "card-title" }, _toDisplayString(provider.name), 1 /* TEXT */),
+                                _createElementVNode("div", { class: "card-subtitle" }, _toDisplayString(provider.hasKey ? provider.apiKey : _ctx.t('opencode.summary.noApiKey')), 1 /* TEXT */)
+                              ])
+                            ]),
+                            _createElementVNode("div", { class: "card-trailing" }, [
+                              _createElementVNode("span", {
+                                class: _normalizeClass(['pill', provider.disabled ? 'empty' : 'configured'])
+                              }, _toDisplayString(provider.disabled ? _ctx.t('common.disabled') : _ctx.t('common.enabled')), 3 /* TEXT, CLASS */),
+                              _createElementVNode("span", { class: "pill empty" }, _toDisplayString(provider.source === 'codexmate' ? _ctx.t('opencode.summary.sourceCodexMate') : _ctx.t('opencode.summary.sourceOpenCode')), 1 /* TEXT */)
+                            ])
+                          ]))
+                        }), 128 /* KEYED_FRAGMENT */)),
+                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.opencodeAgents, (agent) => {
+                          return (_openBlock(), _createElementBlock("div", {
+                            key: agent.name,
+                            class: "card"
+                          }, [
+                            _createElementVNode("div", { class: "card-leading" }, [
+                              _createElementVNode("div", { class: "card-icon" }, "A"),
+                              _createElementVNode("div", { class: "card-content" }, [
+                                _createElementVNode("div", { class: "card-title" }, _toDisplayString(agent.name), 1 /* TEXT */),
+                                _createElementVNode("div", { class: "card-subtitle" }, _toDisplayString(agent.model || _ctx.t('opencode.summary.noModel')), 1 /* TEXT */)
+                              ])
+                            ]),
+                            _createElementVNode("div", { class: "card-trailing" }, [
+                              _createElementVNode("span", { class: "pill configured" }, _toDisplayString(_ctx.t('opencode.summary.agentType')), 1 /* TEXT */)
+                            ])
+                          ]))
+                        }), 128 /* KEYED_FRAGMENT */))
+                      ])
+                    ]))
+                  : _createCommentVNode("v-if", true)
+              ]),
+              (!_ctx.isToolConfigWriteAllowed('opencode'))
+                ? (_openBlock(), _createElementBlock("div", {
+                    key: 0,
+                    class: "tool-config-write-overlay"
+                  }, [
+                    _createElementVNode("div", { class: "tool-config-write-overlay-card" }, [
+                      _createElementVNode("div", { class: "tool-config-write-overlay-title" }, _toDisplayString(_ctx.t('toolConfig.opencode.lockedTitle')), 1 /* TEXT */),
+                      _createElementVNode("p", null, _toDisplayString(_ctx.t('toolConfig.opencode.lockedDesc')), 1 /* TEXT */),
+                      _createElementVNode("button", {
+                        type: "button",
+                        class: "btn-tool",
+                        onClick: $event => (_ctx.setToolConfigPermission('opencode', true)),
+                        disabled: _ctx.toolConfigPermissionSaving.opencode
+                      }, _toDisplayString(_ctx.t('toolConfig.enableWrite')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                    ])
+                  ]))
+                : _createCommentVNode("v-if", true)
+            ], 2 /* CLASS */)
+          ], 8 /* PROPS */, ["aria-labelledby"]), [
+            [_vShow, _ctx.mainTab === 'config' && _ctx.configMode === 'opencode']
           ]),
           _createCommentVNode(" 会话浏览模式 "),
           _withDirectives(_createElementVNode("div", {

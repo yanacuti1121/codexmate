@@ -104,6 +104,30 @@
     flex: 0 0 auto;
 }
 
+.selector-actions.opencode-provider-actions {
+    display: inline-flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.selector-actions.opencode-provider-actions > .btn-tool,
+.selector-actions.opencode-provider-actions > .btn-tool-compact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 0;
+    height: 28px;
+    min-height: 28px;
+    margin: 0;
+    padding: 0 10px;
+    line-height: 1;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 .sessions-header-actions {
     display: flex !important;
     flex-direction: row !important;
@@ -275,6 +299,32 @@
     line-height: 1.35;
 }
 
+.config-template-hint.error-text {
+    color: #8f2d21;
+}
+
+.template-textarea {
+    width: 100%;
+    min-height: 300px;
+    resize: vertical;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.55;
+    outline: none;
+    box-shadow: var(--shadow-subtle);
+}
+
+.template-textarea:focus {
+    background: var(--color-surface);
+    border-color: var(--color-brand);
+    box-shadow: var(--shadow-input-focus);
+}
+
 .codex-config-grid {
     display: grid;
     gap: 10px;
@@ -361,6 +411,13 @@
 .selector-section .btn-tool + .btn-tool {
     margin-left: 0;
     margin-top: var(--spacing-xs);
+}
+
+.selector-section .opencode-provider-actions > .btn-tool + .btn-tool,
+.selector-section .opencode-provider-actions > .btn-tool-compact + .btn-tool,
+.selector-section .opencode-provider-actions > .btn-tool + .btn-tool-compact,
+.selector-section .opencode-provider-actions > .btn-tool-compact + .btn-tool-compact {
+    margin-top: 0;
 }
 
 .selector-header .settings-tab-actions > .btn-tool + .btn-tool,

@@ -185,6 +185,11 @@ const DEFAULT_WEB_OPEN_HOST = '127.0.0.1';
 const CONFIG_DIR = path.join(os.homedir(), '.codex');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.toml');
 const AUTH_FILE = path.join(CONFIG_DIR, 'auth.json');
+const OPENCODE_CONFIG_DIR = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'opencode');
+const OPENCODE_CONFIG_ENV_FILE = process.env.OPENCODE_CONFIG ? path.resolve(process.env.OPENCODE_CONFIG) : '';
+const OPENCODE_GLOBAL_JSONC_CONFIG_FILE = path.join(OPENCODE_CONFIG_DIR, 'opencode.jsonc');
+const OPENCODE_GLOBAL_JSON_CONFIG_FILE = path.join(OPENCODE_CONFIG_DIR, 'opencode.json');
+const OPENCODE_LEGACY_CONFIG_FILE = path.join(OPENCODE_CONFIG_DIR, 'config.json');
 const AUTH_PROFILES_DIR = path.join(CONFIG_DIR, 'auth-profiles');
 const AUTH_REGISTRY_FILE = path.join(AUTH_PROFILES_DIR, 'registry.json');
 const MODELS_FILE = path.join(CONFIG_DIR, 'models.json');
@@ -214,6 +219,8 @@ const CODEBUDDY_DIR = path.join(os.homedir(), '.codebuddy');
 const CODEBUDDY_PROJECTS_DIR = path.join(CODEBUDDY_DIR, 'projects');
 const CODEXMATE_DIR = path.join(os.homedir(), '.codexmate');
 const CODEXMATE_PREFERENCES_FILE = path.join(CODEXMATE_DIR, 'preferences.json');
+const CODEXMATE_OPENCODE_DIR = path.join(CODEXMATE_DIR, 'opencode');
+const CODEXMATE_OPENCODE_PROVIDER_STORE_FILE = path.join(CODEXMATE_OPENCODE_DIR, 'providers.json');
 const CODEXMATE_SESSIONS_DIR = path.join(CODEXMATE_DIR, 'sessions');
 const CODEXMATE_DERIVED_SESSIONS_DIR = path.join(CODEXMATE_SESSIONS_DIR, 'derived');
 const CODEXMATE_DERIVED_CODEX_DIR = path.join(CODEXMATE_DERIVED_SESSIONS_DIR, 'codex');
@@ -860,8 +867,8 @@ function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-const TOOL_CONFIG_PERMISSION_TARGETS = new Set(['codex', 'claude']);
-const TOOL_CONFIG_PERMISSION_DEFAULTS = Object.freeze({ codex: false, claude: false });
+const TOOL_CONFIG_PERMISSION_TARGETS = new Set(['codex', 'claude', 'opencode']);
+const TOOL_CONFIG_PERMISSION_DEFAULTS = Object.freeze({ codex: false, claude: false, opencode: false });
 let toolConfigWriteGuardDepth = 0;
 
 function enterToolConfigWriteGuard() {
@@ -887,7 +894,8 @@ function normalizeToolConfigPermissions(value) {
     const source = isPlainObject(value) ? value : {};
     return {
         codex: source.codex === true,
-        claude: source.claude === true
+        claude: source.claude === true,
+        opencode: source.opencode === true
     };
 }
 
@@ -967,8 +975,13 @@ function getApiToolConfigWriteTarget(action) {
         'claude-local-bridge-set-excluded',
         'claude-local-bridge-sync-providers'
     ]);
+    const opencodeWriteActions = new Set([
+        'apply-opencode-config',
+        'update-opencode-selection'
+    ]);
     if (codexWriteActions.has(name)) return 'codex';
     if (claudeWriteActions.has(name)) return 'claude';
+    if (opencodeWriteActions.has(name)) return 'opencode';
     return '';
 }
 
@@ -9628,6 +9641,454 @@ function applyClaudeSettingsRaw(params = {}) {
     }
 }
 
+function getOpencodeConfigCandidates() {
+    const candidates = [
+        OPENCODE_CONFIG_ENV_FILE,
+        OPENCODE_GLOBAL_JSONC_CONFIG_FILE,
+        OPENCODE_GLOBAL_JSON_CONFIG_FILE,
+        OPENCODE_LEGACY_CONFIG_FILE
+    ]
+        .filter(Boolean)
+        .map(item => path.resolve(item));
+    return [...new Set(candidates)];
+}
+
+function resolveOpencodeConfigFile() {
+    const candidates = getOpencodeConfigCandidates();
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+    return OPENCODE_CONFIG_ENV_FILE || OPENCODE_GLOBAL_JSONC_CONFIG_FILE;
+}
+
+function readOpencodeConfigObject(content) {
+    const raw = typeof content === 'string' ? content : '';
+    if (!raw.trim()) {
+        return {};
+    }
+    const parsed = JSON5.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('OpenCode config must be a JSON/JSONC object');
+    }
+    return parsed;
+}
+
+function normalizeOpencodeAgentName(value) {
+    const name = typeof value === 'string' ? value.trim() : '';
+    return /^[a-zA-Z0-9_.-]+$/.test(name) ? name : '';
+}
+
+function normalizeOpencodeProviderName(value) {
+    const name = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return /^[a-z0-9_.-]+$/.test(name) ? name : '';
+}
+
+function splitOpencodeModelRef(modelRef) {
+    const raw = typeof modelRef === 'string' ? modelRef.trim() : '';
+    const slash = raw.indexOf('/');
+    if (slash <= 0 || slash === raw.length - 1) {
+        return { provider: '', model: raw };
+    }
+    return {
+        provider: normalizeOpencodeProviderName(raw.slice(0, slash)),
+        model: raw.slice(slash + 1).trim()
+    };
+}
+
+function joinOpencodeModelRef(providerName, model) {
+    const provider = normalizeOpencodeProviderName(providerName);
+    const modelName = typeof model === 'string' ? model.trim().replace(/^\/+/, '') : '';
+    return provider && modelName ? `${provider}/${modelName}` : '';
+}
+
+function getRecord(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function stableOpencodeJson(value) {
+    if (Array.isArray(value)) {
+        return `[${value.map(item => stableOpencodeJson(item)).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableOpencodeJson(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+function hashOpencodeManagedValue(value) {
+    return crypto.createHash('sha256').update(stableOpencodeJson(value === undefined ? null : value)).digest('hex');
+}
+
+function normalizeOpencodeProviderStore(raw) {
+    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const providers = {};
+    const sourceProviders = getRecord(source.providers);
+    for (const [rawName, rawProvider] of Object.entries(sourceProviders)) {
+        const name = normalizeOpencodeProviderName(rawName);
+        const provider = getRecord(rawProvider);
+        if (!name) continue;
+        const apiKey = typeof provider.apiKey === 'string' ? provider.apiKey : '';
+        const model = typeof provider.model === 'string' ? provider.model.trim() : '';
+        const maxTokens = Number.isFinite(Number(provider.maxTokens)) && Number(provider.maxTokens) > 0
+            ? Number(provider.maxTokens)
+            : null;
+        const reasoningEffort = typeof provider.reasoningEffort === 'string' ? provider.reasoningEffort.trim().toLowerCase() : '';
+        providers[name] = {
+            apiKey,
+            model,
+            disabled: provider.disabled === true,
+            maxTokens,
+            reasoningEffort: ['low', 'medium', 'high'].includes(reasoningEffort) ? reasoningEffort : '',
+            updatedAt: typeof provider.updatedAt === 'string' ? provider.updatedAt : ''
+        };
+    }
+    const rawLastApplied = getRecord(source.lastApplied);
+    const lastAppliedProvider = normalizeOpencodeProviderName(rawLastApplied.provider);
+    const lastApplied = lastAppliedProvider
+        ? {
+            provider: lastAppliedProvider,
+            modelRef: typeof rawLastApplied.modelRef === 'string' ? rawLastApplied.modelRef : '',
+            providerHash: typeof rawLastApplied.providerHash === 'string' ? rawLastApplied.providerHash : '',
+            disabledProvidersHash: typeof rawLastApplied.disabledProvidersHash === 'string' ? rawLastApplied.disabledProvidersHash : '',
+            providerCreatedByCodexMate: rawLastApplied.providerCreatedByCodexMate === true,
+            disabledProviderAddedByCodexMate: rawLastApplied.disabledProviderAddedByCodexMate === true
+        }
+        : null;
+    return {
+        version: 1,
+        providers,
+        lastApplied
+    };
+}
+
+function readOpencodeProviderStore() {
+    if (!fs.existsSync(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE)) {
+        return normalizeOpencodeProviderStore({});
+    }
+    try {
+        const raw = JSON.parse(fs.readFileSync(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE, 'utf-8') || '{}');
+        return normalizeOpencodeProviderStore(raw);
+    } catch (e) {
+        return normalizeOpencodeProviderStore({});
+    }
+}
+
+function writeOpencodeProviderStore(store) {
+    ensureDir(CODEXMATE_OPENCODE_DIR);
+    writeJsonAtomic(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE, normalizeOpencodeProviderStore(store));
+    try {
+        fs.chmodSync(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE, 0o600);
+    } catch (e) {}
+}
+
+function summarizeOpencodeConfig(config = {}, targetPath = resolveOpencodeConfigFile(), exists = false, providerStore = readOpencodeProviderStore()) {
+    const providers = getRecord(config.provider);
+    const storedProviders = getRecord(providerStore.providers);
+    const agents = getRecord(config.agent);
+    const disabledProviders = Array.isArray(config.disabled_providers)
+        ? config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean)
+        : [];
+    const topLevelModel = splitOpencodeModelRef(config.model);
+    const agentEntries = Object.entries(agents)
+        .filter(([, agent]) => agent && typeof agent === 'object' && !Array.isArray(agent))
+        .map(([name, agent]) => {
+            const modelRef = typeof agent.model === 'string' ? agent.model : '';
+            const parsedModel = splitOpencodeModelRef(modelRef);
+            const requestBody = getRecord(getRecord(agent.request).body);
+            return {
+                name,
+                model: parsedModel.model || modelRef,
+                modelRef,
+                provider: parsedModel.provider,
+                maxTokens: Number.isFinite(Number(requestBody.max_tokens)) ? Number(requestBody.max_tokens) : null,
+                reasoningEffort: typeof requestBody.reasoning_effort === 'string' ? requestBody.reasoning_effort : ''
+            };
+        });
+    const preferredAgentName = normalizeOpencodeAgentName(config.default_agent) || 'build';
+    const primaryAgent = agentEntries.find(item => item.name === preferredAgentName)
+        || agentEntries.find(item => item.name === 'build')
+        || agentEntries[0]
+        || null;
+    const currentProvider = topLevelModel.provider || (primaryAgent && primaryAgent.provider) || '';
+    const currentModel = topLevelModel.model || (primaryAgent && primaryAgent.model) || '';
+    const providerNames = [...new Set([
+        ...Object.keys(storedProviders),
+        ...Object.keys(providers),
+        currentProvider,
+        ...(agentEntries.map(item => item.provider))
+    ].map(item => normalizeOpencodeProviderName(item)).filter(Boolean))];
+    return {
+        exists: !!exists,
+        targetPath,
+        providerStorePath: CODEXMATE_OPENCODE_PROVIDER_STORE_FILE,
+        providers: providerNames.map((name) => {
+            const provider = getRecord(providers[name]);
+            const storedProvider = getRecord(storedProviders[name]);
+            const options = getRecord(provider.options);
+            const apiKey = typeof options.apiKey === 'string' && options.apiKey.trim()
+                ? options.apiKey
+                : (typeof storedProvider.apiKey === 'string' ? storedProvider.apiKey : '');
+            return {
+                name,
+                apiKey: maskKey(apiKey),
+                hasKey: apiKey.trim().length > 0,
+                disabled: disabledProviders.includes(name) || storedProvider.disabled === true,
+                source: Object.prototype.hasOwnProperty.call(providers, name) ? 'opencode' : 'codexmate'
+            };
+        }),
+        agents: agentEntries,
+        currentAgent: primaryAgent ? primaryAgent.name : preferredAgentName,
+        currentProvider,
+        currentModel,
+        currentModelRef: joinOpencodeModelRef(currentProvider, currentModel),
+        autoCompact: getRecord(config.compaction).auto !== false,
+        redacted: true
+    };
+}
+
+function readOpencodeConfigInfo() {
+    const targetPath = resolveOpencodeConfigFile();
+    if (!fs.existsSync(targetPath)) {
+        const config = { $schema: 'https://opencode.ai/config.json' };
+        return {
+            ...summarizeOpencodeConfig(config, targetPath, false),
+            content: JSON.stringify(config, null, 2) + '\n',
+            candidates: getOpencodeConfigCandidates()
+        };
+    }
+    try {
+        const raw = fs.readFileSync(targetPath, 'utf-8');
+        const config = readOpencodeConfigObject(raw);
+        return {
+            ...summarizeOpencodeConfig(config, targetPath, true),
+            content: raw || '{}',
+            candidates: getOpencodeConfigCandidates()
+        };
+    } catch (e) {
+        return {
+            error: e.message || '读取 OpenCode 配置失败',
+            exists: true,
+            targetPath,
+            candidates: getOpencodeConfigCandidates()
+        };
+    }
+}
+
+function applyOpencodeConfigRaw(params = {}) {
+    assertToolConfigWriteAllowed('opencode');
+    const content = typeof params.content === 'string' ? params.content : '';
+    if (!content.trim()) {
+        return { error: '内容不能为空' };
+    }
+    if (content.length > 1024 * 1024) {
+        return { error: '内容过大（最大 1MB）' };
+    }
+    let parsed;
+    try {
+        parsed = readOpencodeConfigObject(content);
+    } catch (e) {
+        return { error: `OpenCode JSON/JSONC 解析失败: ${e.message}` };
+    }
+    const targetPath = resolveOpencodeConfigFile();
+    try {
+        ensureDir(path.dirname(targetPath));
+        backupFileIfNeededOnce(targetPath);
+        fs.writeFileSync(targetPath, JSON.stringify(parsed, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+        return {
+            success: true,
+            targetPath,
+            content: JSON.stringify(parsed, null, 2) + '\n',
+            ...summarizeOpencodeConfig(parsed, targetPath, true)
+        };
+    } catch (e) {
+        return { error: e.message || '写入 OpenCode 配置失败' };
+    }
+}
+
+function removePreviousCodexMateOpencodeProjection(config, lastApplied, nextProviderName) {
+    const previousProvider = normalizeOpencodeProviderName(lastApplied && lastApplied.provider);
+    const nextProvider = normalizeOpencodeProviderName(nextProviderName);
+    if (!previousProvider || previousProvider === nextProvider) return;
+
+    const providers = getRecord(config.provider);
+    if (lastApplied.providerCreatedByCodexMate === true && providers[previousProvider] && lastApplied.providerHash) {
+        const currentHash = hashOpencodeManagedValue(providers[previousProvider]);
+        if (currentHash === lastApplied.providerHash) {
+            delete providers[previousProvider];
+        }
+    }
+    if (Object.keys(providers).length) {
+        config.provider = providers;
+    } else {
+        delete config.provider;
+    }
+
+    if (lastApplied.disabledProviderAddedByCodexMate === true && Array.isArray(config.disabled_providers) && lastApplied.disabledProvidersHash) {
+        const currentDisabled = config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean).sort();
+        if (hashOpencodeManagedValue(currentDisabled) === lastApplied.disabledProvidersHash) {
+            const nextDisabled = currentDisabled.filter(item => item !== previousProvider);
+            if (nextDisabled.length) {
+                config.disabled_providers = nextDisabled;
+            } else {
+                delete config.disabled_providers;
+            }
+        }
+    }
+}
+
+function updateOpencodeSelection(params = {}) {
+    assertToolConfigWriteAllowed('opencode');
+    const providerName = normalizeOpencodeProviderName(params.provider);
+    const model = typeof params.model === 'string' ? params.model.trim() : '';
+    const agentName = normalizeOpencodeAgentName(params.agent || 'build') || 'build';
+    if (!providerName) {
+        return { error: '请选择 OpenCode provider' };
+    }
+    if (!model) {
+        return { error: '请选择或输入 OpenCode model' };
+    }
+
+    const targetPath = resolveOpencodeConfigFile();
+    let config = {};
+    if (fs.existsSync(targetPath)) {
+        try {
+            config = readOpencodeConfigObject(fs.readFileSync(targetPath, 'utf-8'));
+        } catch (e) {
+            return { error: `OpenCode JSON/JSONC 解析失败: ${e.message}` };
+        }
+    }
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        config = {};
+    }
+
+    const providerStore = readOpencodeProviderStore();
+    removePreviousCodexMateOpencodeProjection(config, providerStore.lastApplied, providerName);
+    const providerExistedBeforeApply = !!(getRecord(config.provider)[providerName]);
+    const disabledContainedBeforeApply = Array.isArray(config.disabled_providers)
+        && config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean).includes(providerName);
+
+    if (!config.$schema) {
+        config.$schema = 'https://opencode.ai/config.json';
+    }
+    const modelRef = joinOpencodeModelRef(providerName, model);
+    config.model = modelRef;
+
+    if (!config.provider || typeof config.provider !== 'object' || Array.isArray(config.provider)) {
+        config.provider = {};
+    }
+    const storedProvider = getRecord(providerStore.providers[providerName]);
+    const previousProvider = getRecord(config.provider[providerName]);
+    const previousOptions = getRecord(previousProvider.options);
+    const explicitApiKey = typeof params.apiKey === 'string' ? params.apiKey.trim() : '';
+    const storedApiKey = typeof storedProvider.apiKey === 'string' ? storedProvider.apiKey.trim() : '';
+    const apiKey = explicitApiKey || storedApiKey;
+    config.provider[providerName] = {
+        ...previousProvider,
+        options: {
+            ...previousOptions
+        }
+    };
+    if (apiKey) {
+        config.provider[providerName].options.apiKey = apiKey;
+    }
+    if (Object.keys(config.provider[providerName].options).length === 0) {
+        delete config.provider[providerName].options;
+    }
+
+    const disabledSet = new Set(Array.isArray(config.disabled_providers)
+        ? config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean)
+        : []);
+    if (params.disabled === true) {
+        disabledSet.add(providerName);
+    } else {
+        disabledSet.delete(providerName);
+    }
+    if (disabledSet.size) {
+        config.disabled_providers = [...disabledSet].sort();
+    } else {
+        delete config.disabled_providers;
+    }
+
+    if (!config.agent || typeof config.agent !== 'object' || Array.isArray(config.agent)) {
+        config.agent = {};
+    }
+    const coreAgents = params.applyToCoreAgents === true
+        ? ['build', 'plan', 'general', 'title', 'summary', 'compaction']
+        : [agentName];
+    for (const name of coreAgents) {
+        const previousAgent = getRecord(config.agent[name]);
+        const previousRequest = getRecord(previousAgent.request);
+        const previousBody = getRecord(previousRequest.body);
+        const nextAgent = {
+            ...previousAgent,
+            model: modelRef
+        };
+        const requestBody = { ...previousBody };
+        const maxTokens = normalizePositiveIntegerParam(params.maxTokens);
+        if (maxTokens !== null) {
+            requestBody.max_tokens = maxTokens;
+        }
+        const effort = typeof params.reasoningEffort === 'string' ? params.reasoningEffort.trim().toLowerCase() : '';
+        if (effort === 'low' || effort === 'medium' || effort === 'high') {
+            requestBody.reasoning_effort = effort;
+        }
+        if (Object.keys(requestBody).length) {
+            nextAgent.request = {
+                ...previousRequest,
+                body: requestBody
+            };
+        }
+        config.agent[name] = nextAgent;
+    }
+    if (!config.default_agent) {
+        config.default_agent = agentName;
+    }
+    if (!config.compaction || typeof config.compaction !== 'object' || Array.isArray(config.compaction)) {
+        config.compaction = {};
+    }
+    config.compaction.auto = params.autoCompact !== false;
+
+    const maxTokens = normalizePositiveIntegerParam(params.maxTokens);
+    const effort = typeof params.reasoningEffort === 'string' ? params.reasoningEffort.trim().toLowerCase() : '';
+    providerStore.providers[providerName] = {
+        ...storedProvider,
+        apiKey: apiKey || '',
+        model,
+        disabled: params.disabled === true,
+        maxTokens,
+        reasoningEffort: ['low', 'medium', 'high'].includes(effort) ? effort : '',
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        ensureDir(path.dirname(targetPath));
+        backupFileIfNeededOnce(targetPath);
+        const content = JSON.stringify(config, null, 2) + '\n';
+        fs.writeFileSync(targetPath, content, { encoding: 'utf-8', mode: 0o600 });
+        const disabledProviders = Array.isArray(config.disabled_providers)
+            ? config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean).sort()
+            : [];
+        providerStore.lastApplied = {
+            provider: providerName,
+            modelRef,
+            providerHash: hashOpencodeManagedValue(getRecord(config.provider)[providerName]),
+            disabledProvidersHash: hashOpencodeManagedValue(disabledProviders),
+            providerCreatedByCodexMate: providerExistedBeforeApply !== true,
+            disabledProviderAddedByCodexMate: params.disabled === true && disabledContainedBeforeApply !== true
+        };
+        writeOpencodeProviderStore(providerStore);
+        return {
+            success: true,
+            targetPath,
+            ...summarizeOpencodeConfig(config, targetPath, true, providerStore),
+            content
+        };
+    } catch (e) {
+        return { error: e.message || '写入 OpenCode 配置失败' };
+    }
+}
 // API: 打包 Claude 配置目录（系统 zip 可用则使用，否则回退 zip-lib）
 async function prepareClaudeDirDownload() {
     return await prepareDirectoryDownload(CLAUDE_DIR, {
@@ -11451,6 +11912,15 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'apply-claude-settings-raw':
                             result = applyClaudeSettingsRaw(params || {});
+                            break;
+                        case 'get-opencode-config':
+                            result = readOpencodeConfigInfo();
+                            break;
+                        case 'apply-opencode-config':
+                            result = applyOpencodeConfigRaw(params || {});
+                            break;
+                        case 'update-opencode-selection':
+                            result = updateOpencodeSelection(params || {});
                             break;
                         case 'apply-claude-config':
                             result = await applyToClaudeSettings(params.config);
