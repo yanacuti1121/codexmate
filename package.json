@@ -1,6 +1,6 @@
 {
   "name": "codexmate",
-  "version": "0.0.46",
+  "version": "0.0.47",
   "description": "Codex/Claude Code/OpenClaw 配置、会话与任务编排 CLI + Web 工具",
   "main": "cli.js",
   "bin": {
@@ -72,6 +72,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@vue/compiler-dom": "^3.5.30",
+    "opencc-js": "^1.3.1",
     "vitepress": "^1.6.4"
   }
 }
