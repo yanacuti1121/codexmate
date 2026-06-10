@@ -158,7 +158,7 @@ flowchart TD
 Cảm ơn tất cả những người đóng góp cho Codex Mate ❤️
 
 <a href="https://github.com/SakuraByteCore/codexmate/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=SakuraByteCore/codexmate" />
+  <img src="https://contrib.rocks/image?repo=SakuraByteCore/codexmate" alt="Contributors" />
 </a>
 
 ## Lịch sử Star
