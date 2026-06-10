@@ -138,7 +138,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         return false;
     }
 
-    const TRANSIENT_RETRY_DELAYS_MS = [200, 600];
+    const TRANSIENT_RETRY_DELAYS_MS = [200, 600, 1200];
 
     async function retryTransientRequest(executor) {
         let lastResult = null;
@@ -158,7 +158,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             if (result.ok) return result;
             if (result.retry) return result;
             if (result.status && result.status > 0) return result;
-            if (!isTransientNetworkError(result.error)) return result;
+            if (!result.retryTransient && !isTransientNetworkError(result.error)) return result;
         }
         return lastResult;
     }
@@ -264,6 +264,17 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         }
     }
 
+    function parseJsonValueOrNull(value) {
+        if (typeof value !== 'string') return null;
+        const text = value.trim();
+        if (!text) return null;
+        try {
+            return JSON.parse(text);
+        } catch (_) {
+            return null;
+        }
+    }
+
     function normalizeChatUsageToResponsesUsage(usage) {
         if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return undefined;
         const pickNumber = (...keys) => {
@@ -338,7 +349,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         return blocks;
     }
 
-    function buildResponsesPayloadFromChatCompletion(payload, fallbackModel = '') {
+    function buildResponsesPayloadFromChatCompletion(payload, fallbackModel = '', options = {}) {
         const base = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
         const choice = Array.isArray(base.choices) ? base.choices[0] : null;
         const message = choice && typeof choice === 'object' && choice.message && typeof choice.message === 'object'
@@ -355,16 +366,8 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         }
         if (Array.isArray(message.tool_calls)) {
             for (const toolCall of message.tool_calls) {
-                if (!toolCall || typeof toolCall !== 'object') continue;
-                const fn = toolCall.function && typeof toolCall.function === 'object' ? toolCall.function : {};
-                const name = typeof fn.name === 'string' ? fn.name : '';
-                if (!name) continue;
-                output.push({
-                    type: 'function_call',
-                    call_id: typeof toolCall.id === 'string' && toolCall.id ? toolCall.id : `call_${crypto.randomBytes(8).toString('hex')}`,
-                    name,
-                    arguments: stringifyJsonValue(fn.arguments, '{}')
-                });
+                const item = buildResponsesToolCallItemFromChatToolCall(toolCall, options.toolTypesByName || {});
+                if (item) output.push(item);
             }
         }
         const finish = mapChatFinishReasonToResponses(choice);
@@ -378,151 +381,499 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         });
     }
 
-    function normalizeResponsesInputToChatMessages(input) {
-        // 参考 cc-switch 的 Responses 转换形态：message content 保持为消息，function_call /
-        // function_call_output 提升为 OpenAI Chat 的 assistant tool_calls / tool 消息。
-        const toChatContent = (blocks) => {
-            if (!Array.isArray(blocks)) return '';
-            const out = [];
-            for (const block of blocks) {
-                if (!block || typeof block !== 'object') continue;
-                const type = typeof block.type === 'string' ? block.type : '';
-                if ((type === 'input_text' || type === 'output_text' || type === 'text') && typeof block.text === 'string') {
-                    out.push({ type: 'text', text: block.text });
-                    continue;
-                }
-                if (type === 'refusal' && typeof block.refusal === 'string') {
-                    out.push({ type: 'text', text: block.refusal });
-                    continue;
-                }
-                if (type === 'input_image') {
-                    const raw = block.image_url != null ? block.image_url : block.imageUrl;
-                    const url = typeof raw === 'string'
-                        ? raw
-                        : (raw && typeof raw === 'object' && typeof raw.url === 'string' ? raw.url : '');
-                    if (url) {
-                        out.push({ type: 'image_url', image_url: { url } });
-                    }
-                    continue;
-                }
-                if (type === 'image_url' && block.image_url) {
-                    out.push({ type: 'image_url', image_url: block.image_url });
-                }
-            }
-            if (out.length === 0) return '';
-            return out;
-        };
+    function isRecord(value) {
+        return !!value && typeof value === 'object' && !Array.isArray(value);
+    }
 
-        const messageFromResponsesItem = (item) => {
-            if (!item || typeof item !== 'object') return null;
-            const type = typeof item.type === 'string' ? item.type : '';
-            if (type === 'function_call') {
-                const name = typeof item.name === 'string' ? item.name : '';
-                if (!name) return null;
-                return {
-                    role: 'assistant',
-                    content: null,
-                    tool_calls: [{
-                        id: typeof item.call_id === 'string' && item.call_id ? item.call_id : (typeof item.id === 'string' ? item.id : `call_${crypto.randomBytes(8).toString('hex')}`),
-                        type: 'function',
-                        function: {
-                            name,
-                            arguments: stringifyJsonValue(item.arguments, '{}')
-                        }
-                    }]
-                };
-            }
-            if (type === 'function_call_output') {
-                const callId = typeof item.call_id === 'string' ? item.call_id : '';
-                return {
-                    role: 'tool',
-                    tool_call_id: callId,
-                    content: stringifyJsonValue(item.output, '')
-                };
-            }
-            if (typeof item.role === 'string' && item.content != null) {
-                const role = item.role.trim() || 'user';
-                const content = Array.isArray(item.content)
-                    ? toChatContent(item.content)
-                    : item.content;
-                return content || content === null ? { role, content } : null;
-            }
-            if (type) {
-                const content = toChatContent([item]);
-                return content ? { role: 'user', content } : null;
+    function asTrimmedString(value) {
+        return typeof value === 'string' ? value.trim() : '';
+    }
+
+    function cloneJsonValue(value) {
+        if (Array.isArray(value)) return value.map((item) => cloneJsonValue(item));
+        if (isRecord(value)) {
+            return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneJsonValue(item)]));
+        }
+        return value;
+    }
+
+    function normalizeResponsesToolOutput(value) {
+        if (typeof value === 'string') return value;
+        if (value == null) return '';
+        return stringifyJsonValue(value, '');
+    }
+
+    function normalizeOpenAiToolArguments(value) {
+        if (typeof value === 'string') return value;
+        if (value == null) return '{}';
+        return stringifyJsonValue(value, '{}');
+    }
+
+    function normalizeInputFileBlock(item) {
+        if (!isRecord(item)) return null;
+        const file = isRecord(item.file) ? item.file : item;
+        const out = {};
+        const fileId = asTrimmedString(file.file_id || file.id);
+        const filename = asTrimmedString(file.filename || file.name);
+        const fileData = asTrimmedString(file.file_data || file.data);
+        const mimeType = asTrimmedString(file.mime_type || file.media_type);
+        if (fileId) out.file_id = fileId;
+        if (filename) out.filename = filename;
+        if (fileData) out.file_data = fileData;
+        if (mimeType) out.mime_type = mimeType;
+        return Object.keys(out).length > 0 ? out : null;
+    }
+
+    function normalizeResponsesContentBlockForChat(item) {
+        if (typeof item === 'string') return item.trim() ? item : null;
+        if (!isRecord(item)) return null;
+
+        const type = asTrimmedString(item.type).toLowerCase();
+        if (!type) {
+            const text = asTrimmedString(item.text || item.content || item.output_text);
+            return text ? { type: 'text', text } : null;
+        }
+
+        if (type === 'input_text' || type === 'output_text' || type === 'text' || type === 'summary_text' || type === 'reasoning_text') {
+            const text = typeof item.text === 'string' ? item.text : asTrimmedString(item.content || item.output_text);
+            return text ? { type: 'text', text } : null;
+        }
+
+        if (type === 'refusal' && typeof item.refusal === 'string') {
+            return item.refusal ? { type: 'text', text: item.refusal } : null;
+        }
+
+        if (type === 'input_image') {
+            const raw = item.image_url != null ? item.image_url : (item.url != null ? item.url : item.imageUrl);
+            if (raw === undefined) return null;
+            return {
+                type: 'image_url',
+                image_url: typeof raw === 'string' ? { url: raw } : cloneJsonValue(raw)
+            };
+        }
+
+        if (type === 'image_url' && item.image_url !== undefined) {
+            return { type: 'image_url', image_url: item.image_url };
+        }
+
+        if (type === 'input_audio') {
+            if (item.input_audio !== undefined) return { type: 'input_audio', input_audio: item.input_audio };
+            if (item.data !== undefined || item.format !== undefined) {
+                return { type: 'input_audio', input_audio: { data: item.data, format: item.format } };
             }
             return null;
+        }
+
+        if (type === 'input_file' || type === 'file') {
+            const file = normalizeInputFileBlock(item);
+            return file ? { type: 'file', file } : null;
+        }
+
+        if (type === 'reasoning' || type === 'thinking' || type === 'redacted_reasoning') {
+            const text = asTrimmedString(item.text || item.content);
+            return text ? { type: 'text', text } : null;
+        }
+
+        return cloneJsonValue(item);
+    }
+
+    function toOpenAiMessageContent(content) {
+        if (typeof content === 'string') return content;
+        if (!Array.isArray(content)) {
+            if (isRecord(content)) {
+                const single = normalizeResponsesContentBlockForChat(content);
+                if (!single) return '';
+                return typeof single === 'string' ? single : [single];
+            }
+            return '';
+        }
+
+        const blocks = content
+            .map((item) => normalizeResponsesContentBlockForChat(item))
+            .filter((item) => !!item);
+
+        if (blocks.length === 0) return '';
+        if (blocks.length === 1 && typeof blocks[0] === 'string') return blocks[0];
+        return blocks;
+    }
+
+    const RESPONSES_TOOL_CALL_INPUT_TYPES = new Set(['function_call', 'custom_tool_call', 'mcp_tool_call', 'local_shell_call']);
+    const RESPONSES_TOOL_CALL_OUTPUT_TYPES = new Set(['function_call_output', 'custom_tool_call_output', 'mcp_tool_call_output', 'tool_search_output', 'local_shell_call_output']);
+
+    function stripOrphanedResponsesToolOutputs(input) {
+        if (!Array.isArray(input)) return input;
+        const seenToolCallIds = new Set();
+        const sanitized = [];
+        for (const item of input) {
+            if (!isRecord(item)) {
+                sanitized.push(item);
+                continue;
+            }
+            const type = asTrimmedString(item.type).toLowerCase();
+            if (RESPONSES_TOOL_CALL_INPUT_TYPES.has(type)) {
+                const callId = asTrimmedString(item.call_id || item.id);
+                if (callId) seenToolCallIds.add(callId);
+                sanitized.push(item);
+                continue;
+            }
+            if (RESPONSES_TOOL_CALL_OUTPUT_TYPES.has(type)) {
+                const callId = asTrimmedString(item.call_id || item.id);
+                if (!callId || !seenToolCallIds.has(callId)) continue;
+                sanitized.push(item);
+                continue;
+            }
+            sanitized.push(item);
+        }
+        return sanitized;
+    }
+
+    function normalizeFreeformToolArguments(value) {
+        if (typeof value === 'string') return stringifyJsonValue({ input: value }, '{"input":""}');
+        if (value == null) return '{"input":""}';
+        if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, 'input')) {
+            return stringifyJsonValue(value, '{"input":""}');
+        }
+        return stringifyJsonValue({ input: normalizeResponsesToolOutput(value) }, '{"input":""}');
+    }
+
+    function toOpenAiToolCall(item, fallbackIndex) {
+        if (!isRecord(item)) return null;
+        const callId = asTrimmedString(item.call_id || item.id) || `call_${crypto.randomBytes(8).toString('hex')}_${fallbackIndex}`;
+        const name = asTrimmedString(item.name) || asTrimmedString(item.server_label);
+        if (!name) return null;
+        const type = asTrimmedString(item.type).toLowerCase();
+        const rawArguments = item.arguments != null ? item.arguments : item.input;
+        const args = type === 'custom_tool_call' && item.arguments == null
+            ? normalizeFreeformToolArguments(rawArguments)
+            : normalizeOpenAiToolArguments(rawArguments);
+        return {
+            id: callId,
+            type: 'function',
+            function: {
+                name,
+                arguments: args
+            }
+        };
+    }
+
+    function hasOpenAiMessageContent(content) {
+        return typeof content === 'string'
+            ? content.trim().length > 0
+            : Array.isArray(content) && content.length > 0;
+    }
+
+    function normalizeResponsesInputToChatMessages(input) {
+        // 参考 metapi 的 Responses → Chat 桥接：聚合连续 tool calls、丢弃孤儿 tool outputs，
+        // 并保留 reasoning / richer content blocks / developer-role compatibility。
+        const messages = [];
+        const normalizedInput = stripOrphanedResponsesToolOutputs(input);
+        let functionCallIndex = 0;
+        let pendingToolCalls = [];
+        const emittedToolCallIds = new Set();
+
+        const flushPendingToolCalls = () => {
+            if (pendingToolCalls.length <= 0) return;
+            for (const toolCall of pendingToolCalls) {
+                const callId = asTrimmedString(toolCall.id);
+                if (callId) emittedToolCallIds.add(callId);
+            }
+            messages.push({
+                role: 'assistant',
+                content: null,
+                tool_calls: pendingToolCalls
+            });
+            pendingToolCalls = [];
         };
 
-        if (typeof input === 'string') {
-            return [{ role: 'user', content: input }];
-        }
-        if (input && typeof input === 'object' && !Array.isArray(input)) {
-            const message = messageFromResponsesItem(input);
-            return message ? [message] : [];
-        }
-        if (!Array.isArray(input)) {
-            return [];
-        }
+        const pushToolOutputMessage = (callIdRaw, outputRaw) => {
+            const toolCallId = asTrimmedString(callIdRaw);
+            if (!toolCallId) return;
+            messages.push({
+                role: 'tool',
+                tool_call_id: toolCallId,
+                content: normalizeResponsesToolOutput(outputRaw)
+            });
+        };
 
-        const messages = [];
-        for (const item of input) {
-            const message = messageFromResponsesItem(item);
-            if (message) messages.push(message);
-        }
-        if (messages.length > 0) {
-            return messages;
-        }
+        const processInputItem = (item) => {
+            if (typeof item === 'string') {
+                flushPendingToolCalls();
+                const text = item.trim();
+                if (text) messages.push({ role: 'user', content: text });
+                return;
+            }
+            if (!isRecord(item)) return;
 
-        const fallbackContent = toChatContent(input);
-        if (fallbackContent) {
-            return [{ role: 'user', content: fallbackContent }];
+            const itemType = asTrimmedString(item.type).toLowerCase();
+            if (itemType === 'function_call' || itemType === 'custom_tool_call') {
+                const toolCall = toOpenAiToolCall(item, functionCallIndex);
+                functionCallIndex += 1;
+                if (toolCall) pendingToolCalls.push(toolCall);
+                return;
+            }
+
+            if (itemType === 'function_call_output' || itemType === 'custom_tool_call_output') {
+                flushPendingToolCalls();
+                const toolCallId = asTrimmedString(item.call_id || item.id);
+                if (!toolCallId || !emittedToolCallIds.has(toolCallId)) return;
+                pushToolOutputMessage(toolCallId, item.output != null ? item.output : item.content);
+                return;
+            }
+
+            if (itemType === 'reasoning') {
+                // Any non-tool-call item is a sequence boundary: keep only consecutive
+                // tool calls in the same assistant `tool_calls` message.
+                flushPendingToolCalls();
+                const reasoningContent = toOpenAiMessageContent(item.summary != null ? item.summary : (item.content != null ? item.content : item));
+                const reasoningSignature = asTrimmedString(item.encrypted_content || item.reasoning_signature);
+                if (!hasOpenAiMessageContent(reasoningContent) && !reasoningSignature) return;
+                const message = { role: 'assistant', content: reasoningContent };
+                if (reasoningSignature) message.reasoning_signature = reasoningSignature;
+                messages.push(message);
+                return;
+            }
+
+            flushPendingToolCalls();
+            const role = asTrimmedString(item.role).toLowerCase() || 'user';
+            const normalizedRole = role === 'developer' ? 'system' : role;
+            const content = toOpenAiMessageContent(item.content != null ? item.content : (item.input != null ? item.input : item));
+
+            if (normalizedRole === 'tool') {
+                const toolCallId = asTrimmedString(item.tool_call_id || item.call_id || item.id);
+                if (!toolCallId || !emittedToolCallIds.has(toolCallId)) return;
+                pushToolOutputMessage(toolCallId, item.content);
+                return;
+            }
+
+            if (!hasOpenAiMessageContent(content)) return;
+            const message = { role: normalizedRole, content };
+            const phase = asTrimmedString(item.phase);
+            if (phase) message.phase = phase;
+            messages.push(message);
+        };
+
+        if (typeof normalizedInput === 'string') {
+            const text = normalizedInput.trim();
+            if (text) messages.push({ role: 'user', content: text });
+        } else if (Array.isArray(normalizedInput)) {
+            for (const item of normalizedInput) processInputItem(item);
+        } else if (isRecord(normalizedInput)) {
+            processInputItem(normalizedInput);
         }
+        flushPendingToolCalls();
+        return messages;
+    }
+
+    function normalizeFunctionToolForChat(tool) {
+        if (!isRecord(tool)) return null;
+        const sourceFn = isRecord(tool.function) ? tool.function : tool;
+        const name = asTrimmedString(sourceFn.name) || asTrimmedString(tool.name);
+        if (!name) return null;
+        const fn = { name };
+        const description = asTrimmedString(sourceFn.description) || asTrimmedString(tool.description);
+        if (description) fn.description = description;
+        if (sourceFn.parameters !== undefined) {
+            fn.parameters = cloneJsonValue(sourceFn.parameters);
+        } else if (tool.parameters !== undefined) {
+            fn.parameters = cloneJsonValue(tool.parameters);
+        }
+        if (typeof sourceFn.strict === 'boolean') {
+            fn.strict = sourceFn.strict;
+        } else if (typeof tool.strict === 'boolean') {
+            fn.strict = tool.strict;
+        }
+        return { type: 'function', function: fn };
+    }
+
+    function buildLocalShellToolForChat(tool) {
+        return {
+            type: 'function',
+            function: {
+                name: asTrimmedString(tool && tool.name) || 'local_shell',
+                description: asTrimmedString(tool && tool.description) || 'Run a local shell command and return its output.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        cmd: { type: 'string', description: 'Shell command to execute.' },
+                        yield_time_ms: { type: 'number', description: 'Milliseconds to wait before yielding partial output.' },
+                        max_output_tokens: { type: 'number', description: 'Maximum output tokens to return.' }
+                    },
+                    required: ['cmd'],
+                    additionalProperties: true
+                }
+            }
+        };
+    }
+
+    function buildFreeformToolForChat(tool, fallbackName = 'custom_tool') {
+        return {
+            type: 'function',
+            function: {
+                name: asTrimmedString(tool && tool.name) || fallbackName,
+                description: asTrimmedString(tool && tool.description) || 'Pass raw freeform input to the local tool.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        input: { type: 'string', description: 'Raw tool input.' }
+                    },
+                    required: ['input'],
+                    additionalProperties: false
+                }
+            }
+        };
+    }
+
+    const MAX_RESPONSES_TOOL_NAMESPACE_DEPTH = 5;
+
+    function rememberResponsesToolType(tool, target, depth = 0) {
+        if (!isRecord(tool) || !target || depth > MAX_RESPONSES_TOOL_NAMESPACE_DEPTH) return;
+        const type = asTrimmedString(tool.type).toLowerCase();
+        if (type === 'namespace' && Array.isArray(tool.tools)) {
+            for (const inner of tool.tools) rememberResponsesToolType(inner, target, depth + 1);
+            return;
+        }
+        const sourceFn = isRecord(tool.function) ? tool.function : tool;
+        const name = asTrimmedString(sourceFn.name) || asTrimmedString(tool.name);
+        if (!name) return;
+        if (type === 'local_shell') {
+            target[name] = 'local_shell_call';
+            return;
+        }
+        if (type === 'custom' || type === 'custom_tool' || (!type && name === 'apply_patch')) {
+            target[name] = 'custom_tool_call';
+            return;
+        }
+        if (type === 'function') {
+            target[name] = 'function_call';
+        }
+    }
+
+    function collectResponsesToolTypesByName(tools) {
+        const result = {};
+        if (!Array.isArray(tools)) return result;
+        for (const tool of tools) rememberResponsesToolType(tool, result);
+        return result;
+    }
+
+    function extractFreeformInputFromChatArguments(argumentsText) {
+        if (typeof argumentsText !== 'string') return '';
+        const parsed = parseJsonValueOrNull(argumentsText);
+        if (isRecord(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'input')) {
+            return typeof parsed.input === 'string' ? parsed.input : normalizeResponsesToolOutput(parsed.input);
+        }
+        return argumentsText;
+    }
+
+    function extractLocalShellActionFromChatArguments(argumentsText) {
+        const parsed = parseJsonValueOrNull(argumentsText);
+        if (isRecord(parsed)) return cloneJsonValue(parsed);
+        return { cmd: typeof argumentsText === 'string' ? argumentsText : '' };
+    }
+
+    function buildResponsesToolCallItemFromChatToolCall(toolCall, toolTypesByName = {}) {
+        if (!isRecord(toolCall)) return null;
+        const fn = isRecord(toolCall.function) ? toolCall.function : {};
+        const name = asTrimmedString(fn.name);
+        if (!name) return null;
+        const callId = asTrimmedString(toolCall.id) || `call_${crypto.randomBytes(8).toString('hex')}`;
+        const argumentsText = typeof fn.arguments === 'string' ? fn.arguments : '';
+        const responseType = toolTypesByName && toolTypesByName[name] ? toolTypesByName[name] : 'function_call';
+        if (responseType === 'custom_tool_call') {
+            return {
+                type: 'custom_tool_call',
+                call_id: callId,
+                name,
+                input: extractFreeformInputFromChatArguments(argumentsText)
+            };
+        }
+        if (responseType === 'local_shell_call') {
+            return {
+                type: 'local_shell_call',
+                call_id: callId,
+                name,
+                action: extractLocalShellActionFromChatArguments(argumentsText)
+            };
+        }
+        return {
+            type: 'function_call',
+            call_id: callId,
+            name,
+            arguments: argumentsText
+        };
+    }
+
+    function normalizeSingleResponsesToolToChatTools(tool, depth = 0) {
+        if (!isRecord(tool) || depth > MAX_RESPONSES_TOOL_NAMESPACE_DEPTH) return [];
+        const type = asTrimmedString(tool.type).toLowerCase();
+        if (type === 'namespace' && Array.isArray(tool.tools)) {
+            return tool.tools.flatMap((inner) => normalizeSingleResponsesToolToChatTools(inner, depth + 1));
+        }
+        if (type === 'function') {
+            const converted = normalizeFunctionToolForChat(tool);
+            return converted ? [converted] : [];
+        }
+        if (type === 'local_shell') {
+            return [buildLocalShellToolForChat(tool)];
+        }
+        const name = asTrimmedString(tool.name);
+        if (type === 'custom' || type === 'custom_tool' || (!type && name === 'apply_patch')) {
+            return [buildFreeformToolForChat(tool, name || 'custom_tool')];
+        }
+        // Hosted Responses tools such as web_search/image_generation/computer_use
+        // do not have a safe Chat Completions representation. Passing them through
+        // as-is makes OpenAI-compatible chat gateways reject the request, so drop
+        // them instead of pretending the shapes are compatible.
         return [];
     }
 
     function normalizeResponsesToolsToChatTools(tools) {
         if (!Array.isArray(tools)) return tools;
-        return tools
-            .map((tool) => {
-                if (!tool || typeof tool !== 'object') return null;
-                if (tool.type !== 'function') return tool;
-                const sourceFn = tool.function && typeof tool.function === 'object' && !Array.isArray(tool.function)
-                    ? tool.function
-                    : {};
-                const name = typeof sourceFn.name === 'string' && sourceFn.name.trim()
-                    ? sourceFn.name.trim()
-                    : (typeof tool.name === 'string' ? tool.name.trim() : '');
-                if (!name) return null;
-                const description = typeof sourceFn.description === 'string'
-                    ? sourceFn.description
-                    : (typeof tool.description === 'string' ? tool.description : undefined);
-                const parameters = sourceFn.parameters && typeof sourceFn.parameters === 'object' && !Array.isArray(sourceFn.parameters)
-                    ? sourceFn.parameters
-                    : (tool.parameters && typeof tool.parameters === 'object' && !Array.isArray(tool.parameters) ? tool.parameters : {});
-                const strict = typeof sourceFn.strict === 'boolean'
-                    ? sourceFn.strict
-                    : (typeof tool.strict === 'boolean' ? tool.strict : undefined);
-                const fn = { name, parameters };
-                if (description !== undefined) fn.description = description;
-                if (strict !== undefined) fn.strict = strict;
-                return { type: 'function', function: fn };
-            })
-            .filter(Boolean);
+        return tools.flatMap((tool) => normalizeSingleResponsesToolToChatTools(tool));
     }
 
     function normalizeResponsesToolChoiceToChatToolChoice(toolChoice) {
-        if (!toolChoice || typeof toolChoice !== 'object' || Array.isArray(toolChoice)) return toolChoice;
-        if (toolChoice.type === 'function' && typeof toolChoice.name === 'string') {
-            return { type: 'function', function: { name: toolChoice.name } };
+        if (toolChoice === undefined) return undefined;
+        if (typeof toolChoice === 'string') return toolChoice;
+        if (!isRecord(toolChoice)) return toolChoice;
+
+        const type = asTrimmedString(toolChoice.type).toLowerCase();
+        if (type === 'tool' || type === 'function' || type === 'custom' || type === 'custom_tool' || type === 'local_shell') {
+            if (isRecord(toolChoice.function) && asTrimmedString(toolChoice.function.name)) return cloneJsonValue(toolChoice);
+            const name = asTrimmedString(toolChoice.name) || asTrimmedString(toolChoice.server_label);
+            if (!name) return 'required';
+            return { type: 'function', function: { name } };
         }
-        return toolChoice;
+        if (type === 'auto' || type === 'none' || type === 'required') return type;
+        return 'auto';
+    }
+
+    function getChatToolChoiceName(toolChoice) {
+        if (!isRecord(toolChoice)) return '';
+        if (isRecord(toolChoice.function)) return asTrimmedString(toolChoice.function.name);
+        return '';
+    }
+
+    function pruneInvalidChatToolChoice(chatBody) {
+        if (!isRecord(chatBody) || !Array.isArray(chatBody.tools)) return;
+        if (chatBody.tools.length === 0) {
+            delete chatBody.tools;
+            delete chatBody.tool_choice;
+            return;
+        }
+        const chosenName = getChatToolChoiceName(chatBody.tool_choice);
+        if (!chosenName) return;
+        const toolNames = new Set(chatBody.tools
+            .map((tool) => isRecord(tool) && isRecord(tool.function) ? asTrimmedString(tool.function.name) : '')
+            .filter(Boolean));
+        if (!toolNames.has(chosenName)) {
+            delete chatBody.tool_choice;
+        }
     }
 
     function buildChatCompletionsBodyFromResponsesPayload(payload) {
-        const source = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+        const source = isRecord(payload) ? payload : {};
         const messages = normalizeResponsesInputToChatMessages(source.input);
-        const instructions = typeof source.instructions === 'string' ? source.instructions.trim() : '';
+        const instructions = asTrimmedString(source.instructions);
         if (instructions) {
             messages.unshift({ role: 'system', content: instructions });
         }
@@ -536,12 +887,12 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         const passthroughKeys = [
             'frequency_penalty',
             'presence_penalty',
-            'response_format',
             'stop',
             'temperature',
             'top_p',
             'tools',
             'tool_choice',
+            'parallel_tool_calls',
             'logprobs',
             'top_logprobs',
             'kbs',
@@ -551,7 +902,9 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             'n',
             'modalities',
             'audio',
-            'reasoning_effort'
+            'reasoning',
+            'reasoning_effort',
+            'service_tier'
         ];
         for (const key of passthroughKeys) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
@@ -560,10 +913,21 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                 } else if (key === 'tool_choice') {
                     chatBody[key] = normalizeResponsesToolChoiceToChatToolChoice(source[key]);
                 } else {
-                    chatBody[key] = source[key];
+                    chatBody[key] = cloneJsonValue(source[key]);
                 }
             }
         }
+
+        if (Object.prototype.hasOwnProperty.call(source, 'response_format')) {
+            chatBody.response_format = cloneJsonValue(source.response_format);
+        } else if (isRecord(source.text) && source.text.format !== undefined) {
+            chatBody.response_format = cloneJsonValue(source.text.format);
+        }
+        if (isRecord(source.text) && asTrimmedString(source.text.verbosity)) {
+            chatBody.verbosity = asTrimmedString(source.text.verbosity);
+        }
+
+        pruneInvalidChatToolChoice(chatBody);
 
         if (Object.prototype.hasOwnProperty.call(source, 'max_tokens')) {
             chatBody.max_tokens = source.max_tokens;
@@ -712,6 +1076,8 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         content: [{ type: 'output_text', text: '' }]
                     };
                     state.output.push(state.messageItem);
+                    state.outputStarted = true;
+                    beginChatStreamResponsesSse(state);
                     writeSse(state.res, 'response.output_item.added', {
                         type: 'response.output_item.added',
                         output_index: state.output.length - 1,
@@ -764,6 +1130,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
     function finishChatStreamResponsesSse(state) {
         if (state.finished) return;
+        beginChatStreamResponsesSse(state);
         state.finished = true;
         stopChatStreamHeartbeat(state);
 
@@ -787,14 +1154,11 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
         for (const toolCall of state.toolCalls) {
             if (!toolCall) continue;
-            const item = {
-                type: 'function_call',
-                call_id: toolCall.id || `call_${crypto.randomBytes(8).toString('hex')}`,
-                name: toolCall.function && typeof toolCall.function.name === 'string' ? toolCall.function.name : '',
-                arguments: toolCall.function && typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : ''
-            };
+            const item = buildResponsesToolCallItemFromChatToolCall(toolCall, state.toolTypesByName || {});
+            if (!item) continue;
             const outputIndex = state.output.length;
             state.output.push(item);
+            state.outputStarted = true;
             writeSse(state.res, 'response.output_item.added', {
                 type: 'response.output_item.added',
                 output_index: outputIndex,
@@ -829,11 +1193,68 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         } catch (_) {}
     }
 
+    function beginChatStreamResponsesSse(state) {
+        if (!state || state.started) return;
+        state.started = true;
+        const res = state.res;
+        if (!res.headersSent) {
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+            });
+        }
+        startChatStreamHeartbeat(state);
+        if (typeof res.on === 'function' && !state.closeListenerAttached) {
+            state.closeListenerAttached = true;
+            res.on('close', () => {
+                stopChatStreamHeartbeat(state);
+                if (!state.finished && state.upstreamReq) {
+                    try { state.upstreamReq.destroy(new Error('client aborted')); } catch (_) {}
+                }
+            });
+        }
+        writeSse(res, 'response.created', {
+            type: 'response.created',
+            response: {
+                id: state.responseId,
+                model: state.model,
+                created_at: state.createdAt
+            }
+        });
+    }
+
     function failChatStreamResponsesSse(state, message) {
         if (!state || state.finished) return;
+        beginChatStreamResponsesSse(state);
         state.finished = true;
         stopChatStreamHeartbeat(state);
         failResponsesSseRaw(state.res, message);
+    }
+
+    function createChatStreamResponsesSseState(res, model, options = {}) {
+        let sequence = 0;
+        return {
+            res,
+            upstreamReq: null,
+            responseId: `resp_${crypto.randomBytes(10).toString('hex')}`,
+            model: typeof model === 'string' ? model : '',
+            createdAt: Math.floor(Date.now() / 1000),
+            output: [],
+            messageItem: null,
+            messageText: '',
+            toolCalls: [],
+            toolTypesByName: options.toolTypesByName || {},
+            finished: false,
+            started: false,
+            outputStarted: false,
+            closeListenerAttached: false,
+            nextSeq: () => {
+                sequence += 1;
+                return sequence;
+            }
+        };
     }
 
     function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
@@ -853,9 +1274,13 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             : 30000;
         const res = options.res;
         const model = typeof options.model === 'string' ? options.model : '';
+        const sharedState = options.streamState || createChatStreamResponsesSseState(res, model, {
+            toolTypesByName: options.toolTypesByName || {}
+        });
 
         return new Promise((resolve) => {
             let settled = false;
+            let streamAccepted = false;
             const finish = (value) => {
                 if (settled) return;
                 settled = true;
@@ -873,13 +1298,21 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                 const status = upstreamRes.statusCode || 0;
                 const chunks = [];
                 const contentType = String(upstreamRes.headers && upstreamRes.headers['content-type'] || '');
+                streamAccepted = status >= 200 && status < 300 && /text\/event-stream/i.test(contentType);
+                if (streamAccepted) {
+                    req.setTimeout(0);
+                }
                 let streamState = null;
 
                 const handleAbort = (reason) => {
                     if (settled) return;
                     if (streamState) {
-                        failChatStreamResponsesSse(streamState, reason);
-                        finish({ ok: true });
+                        if (streamState.outputStarted) {
+                            failChatStreamResponsesSse(streamState, reason);
+                            finish({ ok: true });
+                            return;
+                        }
+                        finish({ ok: false, retryTransient: true, error: reason || 'upstream stream failed' });
                         return;
                     }
                     if (res.headersSent) {
@@ -887,11 +1320,14 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         finish({ ok: true });
                         return;
                     }
+                    const bodyText = chunks.length ? Buffer.concat(chunks).toString('utf-8') : '';
+                    const transient = isTransientNetworkError(reason) || /aborted|stream aborted/i.test(String(reason || ''));
                     finish({
                         ok: false,
-                        status,
+                        ...(transient ? {} : { status }),
+                        ...(transient ? { retryTransient: true } : {}),
                         error: reason,
-                        bodyText: chunks.length ? Buffer.concat(chunks).toString('utf-8') : ''
+                        bodyText
                     });
                 };
                 upstreamRes.on('error', (err) => handleAbort(err && err.message ? err.message : 'upstream stream failed'));
@@ -909,18 +1345,17 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     return;
                 }
 
-                res.writeHead(200, {
-                    'Content-Type': 'text/event-stream; charset=utf-8',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'X-Accel-Buffering': 'no'
-                });
-
                 if (!/text\/event-stream/i.test(contentType)) {
                     upstreamRes.on('data', (chunk) => chunk && chunks.push(chunk));
                     upstreamRes.on('end', () => {
                         const text = chunks.length ? Buffer.concat(chunks).toString('utf-8') : '';
                         const parsedJson = parseJsonOrError(text);
+                        res.writeHead(200, {
+                            'Content-Type': 'text/event-stream; charset=utf-8',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
+                            'X-Accel-Buffering': 'no'
+                        });
                         if (parsedJson.error) {
                             writeSse(res, 'response.failed', { type: 'response.failed', error: `invalid upstream response: ${parsedJson.error}` });
                             writeSse(res, 'done', '[DONE]');
@@ -928,42 +1363,20 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                             finish({ ok: true });
                             return;
                         }
-                        sendResponsesSse(res, buildResponsesPayloadFromChatCompletion(parsedJson.value, model));
+                        sendResponsesSse(res, buildResponsesPayloadFromChatCompletion(parsedJson.value, model, {
+                            toolTypesByName: options.toolTypesByName || {}
+                        }));
                         res.end();
                         finish({ ok: true });
                     });
                     return;
                 }
 
-                let sequence = 0;
-                const state = {
-                    res,
-                    responseId: `resp_${crypto.randomBytes(10).toString('hex')}`,
-                    model,
-                    createdAt: Math.floor(Date.now() / 1000),
-                    output: [],
-                    messageItem: null,
-                    messageText: '',
-                    toolCalls: [],
-                    finished: false,
-                    nextSeq: () => {
-                        sequence += 1;
-                        return sequence;
-                    }
-                };
+                const state = sharedState;
+                state.upstreamReq = req;
+                if (!state.model && model) state.model = model;
                 streamState = state;
-                startChatStreamHeartbeat(state);
-                if (typeof res.on === 'function') {
-                    res.on('close', () => stopChatStreamHeartbeat(state));
-                }
-                writeSse(res, 'response.created', {
-                    type: 'response.created',
-                    response: {
-                        id: state.responseId,
-                        model: state.model,
-                        created_at: state.createdAt
-                    }
-                });
+                beginChatStreamResponsesSse(state);
 
                 let buffer = '';
                 const handleEventBlock = (block) => {
@@ -981,6 +1394,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     }
                     const parsedChunk = parseJsonOrError(data);
                     if (!parsedChunk.error) {
+                        beginChatStreamResponsesSse(state);
                         writeChatCompletionChunkAsResponsesSse(state, parsedChunk.value);
                     }
                 };
@@ -1003,6 +1417,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                 });
             });
             req.setTimeout(timeoutMs, () => {
+                if (streamAccepted) return;
                 try { req.destroy(new Error('timeout')); } catch (_) {}
                 finish({ ok: false, error: 'timeout' });
             });
@@ -1018,8 +1433,11 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             return { ok: false, error: 'failed to build upstream URL' };
         }
         let lastResult = null;
+        const streamState = options.streamState || createChatStreamResponsesSseState(options.res, options.model, {
+            toolTypesByName: options.toolTypesByName || {}
+        });
         for (const url of urls) {
-            const result = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(url, options));
+            const result = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(url, { ...options, streamState }));
             lastResult = result;
             if (result && result.retry) continue;
             return result;
@@ -1303,7 +1721,6 @@ function createBuiltinProxyRuntimeController(deps = {}) {
     function createBuiltinProxyServer(settings, upstream) {
         const connections = new Set();
         const timeoutMs = settings.timeoutMs;
-
         const server = http.createServer((req, res) => {
             let parsedIncoming;
             try {
@@ -1376,8 +1793,8 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
             // Responses shim：
             // - Codex CLI 默认走 /v1/responses（含 SSE）
-            // - 某些上游只支持 /v1/chat/completions
-            // 因此这里优先尝试 /v1/responses（stream=false），失败再转换到 chat/completions 并回包为 responses。
+            // - SSE/streaming 任务优先走 chat/completions fallback，避免卡在会接收但不产出 Responses 的兼容网关
+            // - 非流式请求仍优先尝试 /v1/responses（stream=false），失败再转换到 chat/completions 并回包为 responses。
             if ((incomingPath === '/v1/responses' || incomingPath === '/v1/responses/') && (req.method || 'GET').toUpperCase() === 'POST') {
                 void (async () => {
                     const { body, error } = await readRequestBody(req, 10 * 1024 * 1024);
@@ -1400,6 +1817,34 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         ...(upstream.authHeader ? { 'Authorization': upstream.authHeader } : {}),
                         'X-Codexmate-Proxy': '1'
                     };
+
+                    const model = typeof payload.model === 'string' ? payload.model : '';
+                    const chatBody = buildChatCompletionsBodyFromResponsesPayload(payload);
+                    const toolTypesByName = collectResponsesToolTypesByName(payload.tools);
+
+                    if (wantsStream) {
+                        const streamingChatBody = { ...chatBody, stream: true };
+                        const streamed = await streamChatCompletionsAsResponsesSseWithFallbackUrls(upstream.baseUrl, 'chat/completions', {
+                            method: 'POST',
+                            headers: commonHeaders,
+                            timeoutMs,
+                            body: streamingChatBody,
+                            res,
+                            model,
+                            toolTypesByName
+                        });
+                        if (!streamed.ok) {
+                            if (!res.headersSent) {
+                                res.writeHead(streamed.status && streamed.status >= 400 ? streamed.status : 502, { 'Content-Type': 'application/json; charset=utf-8' });
+                                res.end(streamed.bodyText || JSON.stringify({ error: streamed.error || 'proxy request failed' }));
+                            } else if (!res.writableEnded) {
+                                writeSse(res, 'response.failed', { type: 'response.failed', error: streamed.error || streamed.bodyText || 'proxy request failed' });
+                                writeSse(res, 'done', '[DONE]');
+                                res.end();
+                            }
+                        }
+                        return;
+                    }
 
                     const upstreamResponses = await proxyRequestJsonWithFallbackUrls(upstream.baseUrl, 'responses', {
                         method: 'POST',
@@ -1452,32 +1897,6 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         // Treat that as an unsupported Responses endpoint and try the chat fallback.
                     }
 
-                    const model = typeof payload.model === 'string' ? payload.model : '';
-                    const chatBody = buildChatCompletionsBodyFromResponsesPayload(payload);
-
-                    if (wantsStream) {
-                        const streamingChatBody = { ...chatBody, stream: true };
-                        const streamed = await streamChatCompletionsAsResponsesSseWithFallbackUrls(upstream.baseUrl, 'chat/completions', {
-                            method: 'POST',
-                            headers: commonHeaders,
-                            timeoutMs,
-                            body: streamingChatBody,
-                            res,
-                            model
-                        });
-                        if (!streamed.ok) {
-                            if (!res.headersSent) {
-                                res.writeHead(streamed.status && streamed.status >= 400 ? streamed.status : 502, { 'Content-Type': 'application/json; charset=utf-8' });
-                                res.end(streamed.bodyText || JSON.stringify({ error: streamed.error || 'proxy request failed' }));
-                            } else if (!res.writableEnded) {
-                                writeSse(res, 'response.failed', { type: 'response.failed', error: streamed.error || streamed.bodyText || 'proxy request failed' });
-                                writeSse(res, 'done', '[DONE]');
-                                res.end();
-                            }
-                        }
-                        return;
-                    }
-
                     const upstreamChat = await proxyRequestJsonWithFallbackUrls(upstream.baseUrl, 'chat/completions', {
                         method: 'POST',
                         headers: commonHeaders,
@@ -1503,7 +1922,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         return;
                     }
 
-                    const responsesPayload = buildResponsesPayloadFromChatCompletion(chatJson.value, model);
+                    const responsesPayload = buildResponsesPayloadFromChatCompletion(chatJson.value, model, { toolTypesByName });
 
                     if (wantsStream) {
                         res.writeHead(200, {

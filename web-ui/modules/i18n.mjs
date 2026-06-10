@@ -1,12 +1,43 @@
 import { DICT } from './i18n.dict.mjs';
 
-const I18N_STORAGE_KEY = 'codexmateLang'; // VI_PATCH_COMPLETE
+const I18N_STORAGE_KEY = 'codexmateLang';
+
+const LANGUAGE_META = Object.freeze([
+    Object.freeze({ code: 'zh', nativeName: '中文', englishName: 'Chinese', htmlLang: 'zh-CN', dir: 'ltr' }),
+    Object.freeze({ code: 'zh-tw', nativeName: '繁體中文', englishName: 'Chinese-TW', htmlLang: 'zh-TW', dir: 'ltr' }),
+    Object.freeze({ code: 'en', nativeName: 'English', englishName: 'English', htmlLang: 'en', dir: 'ltr' }),
+    Object.freeze({ code: 'ja', nativeName: '日本語', englishName: 'Japanese', htmlLang: 'ja', dir: 'ltr' }),
+    Object.freeze({ code: 'vi', nativeName: 'Tiếng Việt', englishName: 'Vietnamese', htmlLang: 'vi', dir: 'ltr' })
+]);
+
+function getAvailableLanguages() {
+    return LANGUAGE_META.filter((item) => item && item.code && DICT[item.code]);
+}
+
+function getDefaultLanguageMeta() {
+    const available = getAvailableLanguages();
+    return available[0] || LANGUAGE_META[0];
+}
+
+function getLanguageMeta(code) {
+    const normalized = typeof code === 'string' ? code.trim().toLowerCase() : '';
+    return getAvailableLanguages().find((item) => item.code === normalized) || getDefaultLanguageMeta();
+}
 
 function normalizeLang(value) {
     const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
-    if (normalized === 'en') return 'en';
-    if (normalized === 'vi') return 'vi';
-    return 'vi';
+    const available = getAvailableLanguages();
+    const fallback = available[0] && available[0].code ? available[0].code : 'zh';
+    return available.some((item) => item.code === normalized) ? normalized : fallback;
+}
+
+function applyDocumentLanguage(next) {
+    try {
+        if (typeof document === 'undefined' || !document.documentElement) return;
+        const meta = getLanguageMeta(next);
+        document.documentElement.lang = meta.htmlLang || meta.code || 'zh-CN';
+        document.documentElement.dir = meta.dir || 'ltr';
+    } catch (_) {}
 }
 
 function interpolate(template, params) {
@@ -26,13 +57,38 @@ export function createI18nMethods() {
                 : '';
             const next = normalizeLang(saved);
             this.lang = next;
-            try {
-                if (typeof document !== 'undefined' && document.documentElement) {
-                    if (next === 'en') document.documentElement.lang = 'en';
-                    else if (next === 'vi') document.documentElement.lang = 'vi';
-                    else document.documentElement.lang = 'vi';
+            applyDocumentLanguage(next);
+        },
+        languageOptions() {
+            return getAvailableLanguages();
+        },
+        currentLanguageLabel() {
+            return getLanguageMeta(this.lang).nativeName || '中文';
+        },
+        openLanguageSettings() {
+            if (typeof this.switchMainTab === 'function') {
+                this.switchMainTab('settings');
+            } else {
+                this.mainTab = 'settings';
+                if (typeof this.saveNavState === 'function') {
+                    this.saveNavState();
                 }
-            } catch (_) {}
+            }
+            this.settingsTab = 'general';
+            this.$nextTick(() => {
+                const target = typeof document !== 'undefined'
+                    ? document.getElementById('settings-language')
+                    : null;
+                if (target && typeof target.scrollIntoView === 'function') {
+                    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+                const select = typeof document !== 'undefined'
+                    ? document.getElementById('settings-language-select')
+                    : null;
+                if (select && typeof select.focus === 'function') {
+                    select.focus();
+                }
+            });
         },
         setLang(nextLang) {
             const next = normalizeLang(nextLang);
@@ -42,19 +98,14 @@ export function createI18nMethods() {
                     localStorage.setItem(I18N_STORAGE_KEY, next);
                 }
             } catch (_) {}
-            try {
-                if (typeof document !== 'undefined' && document.documentElement) {
-                    if (next === 'en') document.documentElement.lang = 'en';
-                    else if (next === 'vi') document.documentElement.lang = 'vi';
-                    else document.documentElement.lang = 'vi';
-                }
-            } catch (_) {}
+            applyDocumentLanguage(next);
         },
         t(key, params = null) {
             const lang = normalizeLang(this.lang);
-            const table = DICT[lang] || DICT.vi;
+            const table = DICT[lang] || DICT.zh;
+            const fallbackZh = DICT.zh;
             const fallbackEn = DICT.en;
-            const raw = (table && table[key]) || (fallbackEn && fallbackEn[key]) || key;
+            const raw = (table && table[key]) || (fallbackZh && fallbackZh[key]) || (fallbackEn && fallbackEn[key]) || key;
             return interpolate(raw, params);
         }
     };

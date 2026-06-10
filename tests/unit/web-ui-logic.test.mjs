@@ -51,7 +51,7 @@ test('normalizeClaudeValue trims strings and ignores non-string', () => {
 
 test('normalizeClaudeConfig trims all fields', () => {
     const cfg = normalizeClaudeConfig({ apiKey: ' key ', baseUrl: ' url ', model: ' model ', authToken: ' token ', useKey: ' yes ', externalCredentialType: ' auth-token ' });
-    assert.deepStrictEqual(cfg, { apiKey: 'key', baseUrl: 'url', model: 'model', authToken: 'token', useKey: 'yes', externalCredentialType: 'auth-token' });
+    assert.deepStrictEqual(cfg, { apiKey: 'key', baseUrl: 'url', model: 'model', authToken: 'token', useKey: 'yes', externalCredentialType: 'auth-token', targetApi: 'responses' });
 });
 
 test('normalizeClaudeConfig infers external credential type from authToken and useKey', () => {
@@ -63,7 +63,8 @@ test('normalizeClaudeConfig infers external credential type from authToken and u
             model: '',
             authToken: 'token',
             useKey: '',
-            externalCredentialType: 'auth-token'
+            externalCredentialType: 'auth-token',
+            targetApi: 'responses'
         }
     );
     assert.deepStrictEqual(
@@ -74,9 +75,16 @@ test('normalizeClaudeConfig infers external credential type from authToken and u
             model: '',
             authToken: '',
             useKey: '1',
-            externalCredentialType: 'claude-code-use-key'
+            externalCredentialType: 'claude-code-use-key',
+            targetApi: 'responses'
         }
     );
+});
+
+test('normalizeClaudeConfig accepts chat completions target api aliases', () => {
+    assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat_completions' }).targetApi, 'chat_completions');
+    assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat/completions' }).targetApi, 'chat_completions');
+    assert.strictEqual(normalizeClaudeConfig({ targetApi: 'chat-completions' }).targetApi, 'chat_completions');
 });
 
 test('normalizeClaudeSettingsEnv trims settings env', () => {
@@ -220,6 +228,14 @@ test('findDuplicateClaudeConfigName detects duplicates', () => {
     };
     const duplicate = { apiKey: 'k2', baseUrl: 'u2', model: 'm2' };
     assert.strictEqual(findDuplicateClaudeConfigName(configs, duplicate), 'second');
+});
+
+test('findDuplicateClaudeConfigName keeps different target APIs distinct', () => {
+    const configs = {
+        anthropic: { apiKey: 'k', baseUrl: 'https://api.example.com', model: 'm', targetApi: 'responses' }
+    };
+    const ollama = { apiKey: 'k', baseUrl: 'https://api.example.com', model: 'm', targetApi: 'ollama' };
+    assert.strictEqual(findDuplicateClaudeConfigName(configs, ollama), '');
 });
 
 test('findDuplicateClaudeConfigName detects external credential duplicates', () => {
@@ -496,6 +512,20 @@ test('shouldForceCompactLayoutMode keeps desktop layout for narrow non-touch win
         screenHeight: 1080,
         maxTouchPoints: 0,
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        coarsePointer: false,
+        noHover: false
+    });
+    assert.strictEqual(enabled, false);
+});
+
+
+test('shouldForceCompactLayoutMode does not let mobile UA alone diverge from desktop Web UI layout', () => {
+    const enabled = shouldForceCompactLayoutMode({
+        viewportWidth: 390,
+        screenWidth: 390,
+        screenHeight: 844,
+        maxTouchPoints: 0,
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile',
         coarsePointer: false,
         noHover: false
     });

@@ -148,7 +148,7 @@ const {
     deleteCodexSkills
 } = require('./cli/skills');
 const { cmdImportSkills: cmdImportSkillsFromUrl } = require('./cli/import-skills-url');
-const { cmdToolUpdate } = require('./cli/update');
+const { cmdToolUpdate, fetchLatestVersionStatus } = require('./cli/update');
 const {
     getFileStatSafe,
     isBootstrapLikeText,
@@ -185,6 +185,11 @@ const DEFAULT_WEB_OPEN_HOST = '127.0.0.1';
 const CONFIG_DIR = path.join(os.homedir(), '.codex');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.toml');
 const AUTH_FILE = path.join(CONFIG_DIR, 'auth.json');
+const OPENCODE_CONFIG_DIR = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'opencode');
+const OPENCODE_CONFIG_ENV_FILE = process.env.OPENCODE_CONFIG ? path.resolve(process.env.OPENCODE_CONFIG) : '';
+const OPENCODE_GLOBAL_JSONC_CONFIG_FILE = path.join(OPENCODE_CONFIG_DIR, 'opencode.jsonc');
+const OPENCODE_GLOBAL_JSON_CONFIG_FILE = path.join(OPENCODE_CONFIG_DIR, 'opencode.json');
+const OPENCODE_LEGACY_CONFIG_FILE = path.join(OPENCODE_CONFIG_DIR, 'config.json');
 const AUTH_PROFILES_DIR = path.join(CONFIG_DIR, 'auth-profiles');
 const AUTH_REGISTRY_FILE = path.join(AUTH_PROFILES_DIR, 'registry.json');
 const MODELS_FILE = path.join(CONFIG_DIR, 'models.json');
@@ -213,6 +218,9 @@ const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 const CODEBUDDY_DIR = path.join(os.homedir(), '.codebuddy');
 const CODEBUDDY_PROJECTS_DIR = path.join(CODEBUDDY_DIR, 'projects');
 const CODEXMATE_DIR = path.join(os.homedir(), '.codexmate');
+const CODEXMATE_PREFERENCES_FILE = path.join(CODEXMATE_DIR, 'preferences.json');
+const CODEXMATE_OPENCODE_DIR = path.join(CODEXMATE_DIR, 'opencode');
+const CODEXMATE_OPENCODE_PROVIDER_STORE_FILE = path.join(CODEXMATE_OPENCODE_DIR, 'providers.json');
 const CODEXMATE_SESSIONS_DIR = path.join(CODEXMATE_DIR, 'sessions');
 const CODEXMATE_DERIVED_SESSIONS_DIR = path.join(CODEXMATE_SESSIONS_DIR, 'derived');
 const CODEXMATE_DERIVED_CODEX_DIR = path.join(CODEXMATE_DERIVED_SESSIONS_DIR, 'codex');
@@ -290,7 +298,11 @@ const DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS = Object.freeze({
     host: '127.0.0.1',
     port: 8328,
     provider: '',
+    upstreamProviderName: '',
+    upstreamBaseUrl: '',
+    upstreamApiKey: '',
     authSource: 'provider',
+    targetApi: 'responses',
     timeoutMs: 30000
 });
 const CLI_INSTALL_TARGETS = Object.freeze([
@@ -356,6 +368,91 @@ function resolveWebPort() {
     const parsed = parseInt(raw, 10);
     if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_WEB_PORT;
     return parsed;
+}
+
+function isWebPortExplicit() {
+    return typeof process.env.CODEXMATE_PORT === 'string' && process.env.CODEXMATE_PORT.trim().length > 0;
+}
+
+async function resolveAvailableWebPort(port, host, options = {}) {
+    const explicitPort = !!options.explicitPort;
+    const maxAttemptsRaw = Number.isFinite(options.maxAttempts) ? options.maxAttempts : parseInt(options.maxAttempts, 10);
+    const maxAttempts = Number.isFinite(maxAttemptsRaw) && maxAttemptsRaw > 0 ? Math.floor(maxAttemptsRaw) : 20;
+    const netModule = options.net || net;
+    const requestedPort = parseInt(String(port), 10);
+    if (!Number.isFinite(requestedPort) || requestedPort <= 0 || explicitPort) {
+        return {
+            port,
+            requestedPort: port,
+            explicitPort,
+            changed: false,
+            attempts: []
+        };
+    }
+
+    const attempts = [];
+    const checkPort = (candidatePort) => new Promise((resolve) => {
+        const tester = netModule.createServer();
+        let settled = false;
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            resolve(result);
+        };
+        tester.once('error', (error) => {
+            finish({
+                available: false,
+                code: error && error.code ? String(error.code) : '',
+                message: error && error.message ? String(error.message) : ''
+            });
+        });
+        tester.once('listening', () => {
+            tester.close(() => finish({ available: true, code: '', message: '' }));
+        });
+        try {
+            tester.listen(candidatePort, host);
+        } catch (error) {
+            finish({
+                available: false,
+                code: error && error.code ? String(error.code) : '',
+                message: error && error.message ? String(error.message) : String(error)
+            });
+        }
+    });
+
+    const lastPort = Math.min(65535, requestedPort + maxAttempts - 1);
+    for (let candidatePort = requestedPort; candidatePort <= lastPort; candidatePort += 1) {
+        const result = await checkPort(candidatePort);
+        attempts.push({ port: candidatePort, available: !!result.available, code: result.code || '' });
+        if (result.available) {
+            return {
+                port: candidatePort,
+                requestedPort,
+                explicitPort: false,
+                changed: candidatePort !== requestedPort,
+                attempts
+            };
+        }
+        if (result.code !== 'EADDRINUSE' && result.code !== 'EACCES') {
+            return {
+                port: requestedPort,
+                requestedPort,
+                explicitPort: false,
+                changed: false,
+                attempts,
+                error: result.message || result.code || 'port probe failed'
+            };
+        }
+    }
+
+    return {
+        port: requestedPort,
+        requestedPort,
+        explicitPort: false,
+        changed: false,
+        attempts,
+        error: `no available port found from ${requestedPort} to ${lastPort}`
+    };
 }
 
 // #region releaseRunPortIfNeeded
@@ -717,6 +814,7 @@ function readConfig() {
 }
 
 function writeConfig(content) {
+    assertToolConfigWriteAllowed('codex');
     try {
         fs.writeFileSync(CONFIG_FILE, content, 'utf-8');
     } catch (e) {
@@ -734,6 +832,7 @@ function readModels() {
 }
 
 function writeModels(models) {
+    assertToolConfigWriteAllowed('codex');
     fs.writeFileSync(MODELS_FILE, JSON.stringify(models, null, 2), 'utf-8');
 }
 
@@ -747,10 +846,12 @@ function readCurrentModels() {
 }
 
 function writeCurrentModels(data) {
+    assertToolConfigWriteAllowed('codex');
     fs.writeFileSync(CURRENT_MODELS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 function updateAuthJson(apiKey) {
+    assertToolConfigWriteAllowed('codex');
     let authData = {};
     if (fs.existsSync(AUTH_FILE)) {
         try {
@@ -764,6 +865,147 @@ function updateAuthJson(apiKey) {
 
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+const TOOL_CONFIG_PERMISSION_TARGETS = new Set(['codex', 'claude', 'opencode']);
+const TOOL_CONFIG_PERMISSION_DEFAULTS = Object.freeze({ codex: false, claude: false, opencode: false });
+let toolConfigWriteGuardDepth = 0;
+
+function enterToolConfigWriteGuard() {
+    toolConfigWriteGuardDepth += 1;
+    let active = true;
+    return () => {
+        if (!active) return;
+        active = false;
+        toolConfigWriteGuardDepth = Math.max(0, toolConfigWriteGuardDepth - 1);
+    };
+}
+
+function isToolConfigWriteGuardActive() {
+    return toolConfigWriteGuardDepth > 0;
+}
+
+function normalizeToolConfigTarget(value) {
+    const target = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return TOOL_CONFIG_PERMISSION_TARGETS.has(target) ? target : '';
+}
+
+function normalizeToolConfigPermissions(value) {
+    const source = isPlainObject(value) ? value : {};
+    return {
+        codex: source.codex === true,
+        claude: source.claude === true,
+        opencode: source.opencode === true
+    };
+}
+
+function readCodexmatePreferences() {
+    if (!fs.existsSync(CODEXMATE_PREFERENCES_FILE)) return {};
+    try {
+        const raw = fs.readFileSync(CODEXMATE_PREFERENCES_FILE, 'utf-8');
+        const parsed = raw && raw.trim() ? JSON.parse(raw) : {};
+        return isPlainObject(parsed) ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function writeCodexmatePreferences(preferences) {
+    ensureDir(CODEXMATE_DIR);
+    writeJsonAtomic(CODEXMATE_PREFERENCES_FILE, isPlainObject(preferences) ? preferences : {});
+}
+
+function readToolConfigPermissions() {
+    const preferences = readCodexmatePreferences();
+    return normalizeToolConfigPermissions(preferences.toolConfigPermissions || TOOL_CONFIG_PERMISSION_DEFAULTS);
+}
+
+function isToolConfigWriteAllowed(target) {
+    const normalizedTarget = normalizeToolConfigTarget(target);
+    if (!normalizedTarget) return false;
+    return readToolConfigPermissions()[normalizedTarget] === true;
+}
+
+function buildToolConfigWriteDeniedPayload(target) {
+    const normalizedTarget = normalizeToolConfigTarget(target) || target || '';
+    return {
+        error: '当前为仅浏览，未修改配置。',
+        errorCode: 'tool-config-write-disabled',
+        target: normalizedTarget,
+        permissions: readToolConfigPermissions()
+    };
+}
+
+function assertToolConfigWriteAllowed(target) {
+    if (!isToolConfigWriteGuardActive()) return;
+    if (isToolConfigWriteAllowed(target)) return;
+    const payload = buildToolConfigWriteDeniedPayload(target);
+    const err = new Error(payload.error);
+    err.code = payload.errorCode;
+    err.target = payload.target;
+    throw err;
+}
+
+function getApiToolConfigWriteTarget(action) {
+    const name = typeof action === 'string' ? action.trim() : '';
+    if (!name) return '';
+    const codexWriteActions = new Set([
+        'apply-config-template',
+        'add-provider',
+        'update-provider',
+        'delete-provider',
+        'reset-config',
+        'add-model',
+        'delete-model',
+        'restore-codex-dir',
+        'import-config',
+        'import-auth-profile',
+        'switch-auth-profile',
+        'delete-auth-profile',
+        'proxy-enable-codex-default',
+        'proxy-apply-provider',
+        'local-bridge-toggle',
+        'local-bridge-set-excluded'
+    ]);
+    const claudeWriteActions = new Set([
+        'apply-claude-settings-raw',
+        'apply-claude-config',
+        'restore-claude-dir',
+        'claude-local-bridge-toggle',
+        'claude-local-bridge-set-excluded',
+        'claude-local-bridge-sync-providers'
+    ]);
+    const opencodeWriteActions = new Set([
+        'apply-opencode-config',
+        'update-opencode-selection'
+    ]);
+    if (codexWriteActions.has(name)) return 'codex';
+    if (claudeWriteActions.has(name)) return 'claude';
+    if (opencodeWriteActions.has(name)) return 'opencode';
+    return '';
+}
+
+function setToolConfigPermission(params = {}) {
+    const target = normalizeToolConfigTarget(params && params.target);
+    if (!target) return { error: '未知配置对象' };
+    const preferences = readCodexmatePreferences();
+    const current = normalizeToolConfigPermissions(preferences.toolConfigPermissions || TOOL_CONFIG_PERMISSION_DEFAULTS);
+    current[target] = params && params.allowWrite === true;
+    preferences.toolConfigPermissions = current;
+    writeCodexmatePreferences(preferences);
+
+    let bootstrapNotice = '';
+    if (target === 'codex' && current.codex) {
+        const bootstrap = ensureManagedConfigBootstrap({ allowWrite: true });
+        bootstrapNotice = bootstrap && bootstrap.notice ? bootstrap.notice : '';
+    }
+
+    return {
+        success: true,
+        target,
+        permissions: current,
+        bootstrapNotice
+    };
 }
 
 const PROVIDER_CONFIG_KEYS = new Set([
@@ -5515,7 +5757,9 @@ const {
     HTTPS_KEEP_ALIVE_AGENT,
     readConfigOrVirtualDefault,
     resolveBuiltinProxyProviderName,
-    resolveAuthTokenFromCurrentProfile
+    resolveAuthTokenFromCurrentProfile,
+    OPENAI_BRIDGE_SETTINGS_FILE,
+    resolveOpenaiBridgeUpstream
 });
 
 function applyBuiltinProxyProvider(params = {}) {
@@ -5543,6 +5787,7 @@ function readLocalBridgeSettings() {
 }
 
 function writeLocalBridgeSettings(settings) {
+    assertToolConfigWriteAllowed('codex');
     fs.writeFileSync(LOCAL_BRIDGE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
 }
 
@@ -5641,6 +5886,7 @@ function readClaudeLocalBridgeSettings() {
 }
 
 function writeClaudeLocalBridgeSettings(settings) {
+    assertToolConfigWriteAllowed('claude');
     fs.writeFileSync(CLAUDE_LOCAL_BRIDGE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
 }
 
@@ -5655,6 +5901,7 @@ function readClaudeLocalProvidersFile() {
 }
 
 function writeClaudeLocalProvidersFile(data) {
+    assertToolConfigWriteAllowed('claude');
     ensureDir(CONFIG_DIR);
     fs.writeFileSync(CLAUDE_LOCAL_PROVIDERS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
@@ -5669,6 +5916,7 @@ function syncClaudeProvidersToBridgeFile() {
 }
 
 function toggleClaudeLocalBridge(params = {}) {
+    assertToolConfigWriteAllowed('claude');
     const enable = !!params.enable;
     const settings = readClaudeLocalBridgeSettings();
 
@@ -7853,15 +8101,17 @@ function buildClaudeSharePayload(config = {}) {
     const apiKey = typeof config.apiKey === 'string' ? config.apiKey : '';
     const baseUrl = typeof config.baseUrl === 'string' ? config.baseUrl : '';
     const model = typeof config.model === 'string' ? config.model : '';
+    const targetApi = normalizeClaudeTargetApi(config.targetApi);
 
     if (!baseUrl) return { error: 'Claude Base URL 未设置' };
-    if (!apiKey) return { error: 'Claude API 密钥未设置' };
+    if (!apiKey && targetApi !== 'ollama') return { error: 'Claude API 密钥未设置' };
 
     return {
         payload: {
             baseUrl: baseUrl.trim(),
             apiKey: apiKey.trim(),
-            model: (model && model.trim()) || DEFAULT_CLAUDE_MODEL
+            model: (model && model.trim()) || DEFAULT_CLAUDE_MODEL,
+            targetApi
         }
     };
 }
@@ -9175,18 +9425,93 @@ function maskKey(key) {
     return key.substring(0, 4) + '...' + key.substring(key.length - 4);
 }
 
+function normalizeClaudeTargetApi(value) {
+    const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (raw === 'chat_completions' || raw === 'chat-completions' || raw === 'chat/completions') {
+        return 'chat_completions';
+    }
+    if (raw === 'ollama') {
+        return 'ollama';
+    }
+    return 'responses';
+}
+
+function resetBuiltinClaudeProxySavedSettingsToResponses() {
+    const proxySettingsResult = readJsonObjectFromFile(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS);
+    const proxySettings = proxySettingsResult.ok && proxySettingsResult.data && typeof proxySettingsResult.data === 'object' && !Array.isArray(proxySettingsResult.data)
+        ? proxySettingsResult.data
+        : DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS;
+    writeJsonAtomic(BUILTIN_CLAUDE_PROXY_SETTINGS_FILE, {
+        ...DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS,
+        ...proxySettings,
+        enabled: false,
+        targetApi: 'responses'
+    });
+}
+
 // 应用到 Claude Code settings.json（跨平台）
-function applyToClaudeSettings(config = {}) {
+async function applyToClaudeSettings(config = {}) {
+    let proxyStarted = false;
     try {
+        assertToolConfigWriteAllowed('claude');
         const apiKey = (config.apiKey || '').trim();
-        if (!apiKey) {
+        const targetApi = normalizeClaudeTargetApi(config.targetApi);
+        if (!apiKey && targetApi !== 'ollama') {
             return { success: false, mode: 'settings-file', error: '请先输入 API Key' };
         }
 
-        const baseUrl = (config.baseUrl || 'https://open.bigmodel.cn/api/anthropic').trim();
+        const configuredBaseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : '';
+        const baseUrl = (configuredBaseUrl || (targetApi === 'ollama' ? 'http://127.0.0.1:11434' : 'https://open.bigmodel.cn/api/anthropic')).trim();
         const model = (config.model || DEFAULT_CLAUDE_MODEL).trim();
+        let settingsBaseUrl = baseUrl;
+        let settingsApiKey = apiKey;
+        let proxyResult = null;
+
+        if (targetApi === 'chat_completions' || targetApi === 'ollama') {
+            const upstreamProviderName = typeof config.name === 'string' ? config.name.trim() : '';
+            if (targetApi === 'chat_completions' && !configuredBaseUrl && !upstreamProviderName) {
+                return {
+                    success: false,
+                    mode: 'claude-proxy',
+                    error: 'chat_completions 模式需要显式的上游 Base URL 或可解析的 provider 名称'
+                };
+            }
+            await stopBuiltinClaudeProxyRuntime();
+            const proxyToken = crypto.randomBytes(24).toString('hex');
+            proxyResult = await startBuiltinClaudeProxyRuntime({
+                enabled: true,
+                host: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.host,
+                provider: upstreamProviderName,
+                authSource: 'provider',
+                targetApi,
+                timeoutMs: DEFAULT_BUILTIN_CLAUDE_PROXY_SETTINGS.timeoutMs,
+                upstreamProviderName,
+                ...(configuredBaseUrl ? { upstreamBaseUrl: configuredBaseUrl } : {}),
+                upstreamApiKey: apiKey
+            });
+            if (!proxyResult || proxyResult.error || proxyResult.success === false || !proxyResult.listenUrl) {
+                await stopBuiltinClaudeProxyRuntime();
+                resetBuiltinClaudeProxySavedSettingsToResponses();
+                return {
+                    success: false,
+                    mode: 'claude-proxy',
+                    error: (proxyResult && proxyResult.error) || '启动 Claude 兼容代理失败'
+                };
+            }
+            proxyStarted = true;
+            settingsBaseUrl = proxyResult.listenUrl;
+            settingsApiKey = proxyToken;
+        } else {
+            await stopBuiltinClaudeProxyRuntime();
+            resetBuiltinClaudeProxySavedSettingsToResponses();
+        }
+
         const readResult = readJsonObjectFromFile(CLAUDE_SETTINGS_FILE, {});
         if (!readResult.ok) {
+            if (proxyStarted) {
+                await stopBuiltinClaudeProxyRuntime();
+                resetBuiltinClaudeProxySavedSettingsToResponses();
+            }
             return { success: false, mode: 'settings-file', error: readResult.error };
         }
 
@@ -9197,8 +9522,8 @@ function applyToClaudeSettings(config = {}) {
 
         const nextEnv = {
             ...currentEnv,
-            ANTHROPIC_API_KEY: apiKey,
-            ANTHROPIC_BASE_URL: baseUrl,
+            ANTHROPIC_API_KEY: settingsApiKey,
+            ANTHROPIC_BASE_URL: settingsBaseUrl,
             ANTHROPIC_MODEL: model
         };
         delete nextEnv.ANTHROPIC_AUTH_TOKEN;
@@ -9215,7 +9540,8 @@ function applyToClaudeSettings(config = {}) {
 
         const result = {
             success: true,
-            mode: 'settings-file',
+            mode: targetApi === 'responses' ? 'settings-file' : 'claude-proxy',
+            targetApi,
             targetPath: CLAUDE_SETTINGS_FILE,
             updatedKeys: [
                 'env.ANTHROPIC_API_KEY',
@@ -9223,11 +9549,23 @@ function applyToClaudeSettings(config = {}) {
                 'env.ANTHROPIC_MODEL'
             ]
         };
+        if (proxyResult) {
+            result.proxy = {
+                running: true,
+                listenUrl: proxyResult.listenUrl,
+                upstreamProvider: proxyResult.upstreamProvider || '',
+                mode: proxyResult.mode || (targetApi === 'ollama' ? 'anthropic-to-ollama' : 'anthropic-to-chat-completions')
+            };
+        }
         if (backupPath) {
             result.backupPath = backupPath;
         }
         return result;
     } catch (e) {
+        if (proxyStarted) {
+            try { await stopBuiltinClaudeProxyRuntime(); } catch (_) {}
+            try { resetBuiltinClaudeProxySavedSettingsToResponses(); } catch (_) {}
+        }
         return {
             success: false,
             mode: 'settings-file',
@@ -9276,6 +9614,7 @@ function readClaudeSettingsRaw() {
 }
 
 function applyClaudeSettingsRaw(params = {}) {
+    assertToolConfigWriteAllowed('claude');
     const content = typeof params.content === 'string' ? params.content : '';
     if (!content.trim()) {
         return { error: '内容不能为空' };
@@ -9302,6 +9641,454 @@ function applyClaudeSettingsRaw(params = {}) {
     }
 }
 
+function getOpencodeConfigCandidates() {
+    const candidates = [
+        OPENCODE_CONFIG_ENV_FILE,
+        OPENCODE_GLOBAL_JSONC_CONFIG_FILE,
+        OPENCODE_GLOBAL_JSON_CONFIG_FILE,
+        OPENCODE_LEGACY_CONFIG_FILE
+    ]
+        .filter(Boolean)
+        .map(item => path.resolve(item));
+    return [...new Set(candidates)];
+}
+
+function resolveOpencodeConfigFile() {
+    const candidates = getOpencodeConfigCandidates();
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+    return OPENCODE_CONFIG_ENV_FILE || OPENCODE_GLOBAL_JSONC_CONFIG_FILE;
+}
+
+function readOpencodeConfigObject(content) {
+    const raw = typeof content === 'string' ? content : '';
+    if (!raw.trim()) {
+        return {};
+    }
+    const parsed = JSON5.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('OpenCode config must be a JSON/JSONC object');
+    }
+    return parsed;
+}
+
+function normalizeOpencodeAgentName(value) {
+    const name = typeof value === 'string' ? value.trim() : '';
+    return /^[a-zA-Z0-9_.-]+$/.test(name) ? name : '';
+}
+
+function normalizeOpencodeProviderName(value) {
+    const name = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return /^[a-z0-9_.-]+$/.test(name) ? name : '';
+}
+
+function splitOpencodeModelRef(modelRef) {
+    const raw = typeof modelRef === 'string' ? modelRef.trim() : '';
+    const slash = raw.indexOf('/');
+    if (slash <= 0 || slash === raw.length - 1) {
+        return { provider: '', model: raw };
+    }
+    return {
+        provider: normalizeOpencodeProviderName(raw.slice(0, slash)),
+        model: raw.slice(slash + 1).trim()
+    };
+}
+
+function joinOpencodeModelRef(providerName, model) {
+    const provider = normalizeOpencodeProviderName(providerName);
+    const modelName = typeof model === 'string' ? model.trim().replace(/^\/+/, '') : '';
+    return provider && modelName ? `${provider}/${modelName}` : '';
+}
+
+function getRecord(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function stableOpencodeJson(value) {
+    if (Array.isArray(value)) {
+        return `[${value.map(item => stableOpencodeJson(item)).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableOpencodeJson(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+function hashOpencodeManagedValue(value) {
+    return crypto.createHash('sha256').update(stableOpencodeJson(value === undefined ? null : value)).digest('hex');
+}
+
+function normalizeOpencodeProviderStore(raw) {
+    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const providers = {};
+    const sourceProviders = getRecord(source.providers);
+    for (const [rawName, rawProvider] of Object.entries(sourceProviders)) {
+        const name = normalizeOpencodeProviderName(rawName);
+        const provider = getRecord(rawProvider);
+        if (!name) continue;
+        const apiKey = typeof provider.apiKey === 'string' ? provider.apiKey : '';
+        const model = typeof provider.model === 'string' ? provider.model.trim() : '';
+        const maxTokens = Number.isFinite(Number(provider.maxTokens)) && Number(provider.maxTokens) > 0
+            ? Number(provider.maxTokens)
+            : null;
+        const reasoningEffort = typeof provider.reasoningEffort === 'string' ? provider.reasoningEffort.trim().toLowerCase() : '';
+        providers[name] = {
+            apiKey,
+            model,
+            disabled: provider.disabled === true,
+            maxTokens,
+            reasoningEffort: ['low', 'medium', 'high'].includes(reasoningEffort) ? reasoningEffort : '',
+            updatedAt: typeof provider.updatedAt === 'string' ? provider.updatedAt : ''
+        };
+    }
+    const rawLastApplied = getRecord(source.lastApplied);
+    const lastAppliedProvider = normalizeOpencodeProviderName(rawLastApplied.provider);
+    const lastApplied = lastAppliedProvider
+        ? {
+            provider: lastAppliedProvider,
+            modelRef: typeof rawLastApplied.modelRef === 'string' ? rawLastApplied.modelRef : '',
+            providerHash: typeof rawLastApplied.providerHash === 'string' ? rawLastApplied.providerHash : '',
+            disabledProvidersHash: typeof rawLastApplied.disabledProvidersHash === 'string' ? rawLastApplied.disabledProvidersHash : '',
+            providerCreatedByCodexMate: rawLastApplied.providerCreatedByCodexMate === true,
+            disabledProviderAddedByCodexMate: rawLastApplied.disabledProviderAddedByCodexMate === true
+        }
+        : null;
+    return {
+        version: 1,
+        providers,
+        lastApplied
+    };
+}
+
+function readOpencodeProviderStore() {
+    if (!fs.existsSync(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE)) {
+        return normalizeOpencodeProviderStore({});
+    }
+    try {
+        const raw = JSON.parse(fs.readFileSync(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE, 'utf-8') || '{}');
+        return normalizeOpencodeProviderStore(raw);
+    } catch (e) {
+        return normalizeOpencodeProviderStore({});
+    }
+}
+
+function writeOpencodeProviderStore(store) {
+    ensureDir(CODEXMATE_OPENCODE_DIR);
+    writeJsonAtomic(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE, normalizeOpencodeProviderStore(store));
+    try {
+        fs.chmodSync(CODEXMATE_OPENCODE_PROVIDER_STORE_FILE, 0o600);
+    } catch (e) {}
+}
+
+function summarizeOpencodeConfig(config = {}, targetPath = resolveOpencodeConfigFile(), exists = false, providerStore = readOpencodeProviderStore()) {
+    const providers = getRecord(config.provider);
+    const storedProviders = getRecord(providerStore.providers);
+    const agents = getRecord(config.agent);
+    const disabledProviders = Array.isArray(config.disabled_providers)
+        ? config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean)
+        : [];
+    const topLevelModel = splitOpencodeModelRef(config.model);
+    const agentEntries = Object.entries(agents)
+        .filter(([, agent]) => agent && typeof agent === 'object' && !Array.isArray(agent))
+        .map(([name, agent]) => {
+            const modelRef = typeof agent.model === 'string' ? agent.model : '';
+            const parsedModel = splitOpencodeModelRef(modelRef);
+            const requestBody = getRecord(getRecord(agent.request).body);
+            return {
+                name,
+                model: parsedModel.model || modelRef,
+                modelRef,
+                provider: parsedModel.provider,
+                maxTokens: Number.isFinite(Number(requestBody.max_tokens)) ? Number(requestBody.max_tokens) : null,
+                reasoningEffort: typeof requestBody.reasoning_effort === 'string' ? requestBody.reasoning_effort : ''
+            };
+        });
+    const preferredAgentName = normalizeOpencodeAgentName(config.default_agent) || 'build';
+    const primaryAgent = agentEntries.find(item => item.name === preferredAgentName)
+        || agentEntries.find(item => item.name === 'build')
+        || agentEntries[0]
+        || null;
+    const currentProvider = topLevelModel.provider || (primaryAgent && primaryAgent.provider) || '';
+    const currentModel = topLevelModel.model || (primaryAgent && primaryAgent.model) || '';
+    const providerNames = [...new Set([
+        ...Object.keys(storedProviders),
+        ...Object.keys(providers),
+        currentProvider,
+        ...(agentEntries.map(item => item.provider))
+    ].map(item => normalizeOpencodeProviderName(item)).filter(Boolean))];
+    return {
+        exists: !!exists,
+        targetPath,
+        providerStorePath: CODEXMATE_OPENCODE_PROVIDER_STORE_FILE,
+        providers: providerNames.map((name) => {
+            const provider = getRecord(providers[name]);
+            const storedProvider = getRecord(storedProviders[name]);
+            const options = getRecord(provider.options);
+            const apiKey = typeof options.apiKey === 'string' && options.apiKey.trim()
+                ? options.apiKey
+                : (typeof storedProvider.apiKey === 'string' ? storedProvider.apiKey : '');
+            return {
+                name,
+                apiKey: maskKey(apiKey),
+                hasKey: apiKey.trim().length > 0,
+                disabled: disabledProviders.includes(name) || storedProvider.disabled === true,
+                source: Object.prototype.hasOwnProperty.call(providers, name) ? 'opencode' : 'codexmate'
+            };
+        }),
+        agents: agentEntries,
+        currentAgent: primaryAgent ? primaryAgent.name : preferredAgentName,
+        currentProvider,
+        currentModel,
+        currentModelRef: joinOpencodeModelRef(currentProvider, currentModel),
+        autoCompact: getRecord(config.compaction).auto !== false,
+        redacted: true
+    };
+}
+
+function readOpencodeConfigInfo() {
+    const targetPath = resolveOpencodeConfigFile();
+    if (!fs.existsSync(targetPath)) {
+        const config = { $schema: 'https://opencode.ai/config.json' };
+        return {
+            ...summarizeOpencodeConfig(config, targetPath, false),
+            content: JSON.stringify(config, null, 2) + '\n',
+            candidates: getOpencodeConfigCandidates()
+        };
+    }
+    try {
+        const raw = fs.readFileSync(targetPath, 'utf-8');
+        const config = readOpencodeConfigObject(raw);
+        return {
+            ...summarizeOpencodeConfig(config, targetPath, true),
+            content: raw || '{}',
+            candidates: getOpencodeConfigCandidates()
+        };
+    } catch (e) {
+        return {
+            error: e.message || '读取 OpenCode 配置失败',
+            exists: true,
+            targetPath,
+            candidates: getOpencodeConfigCandidates()
+        };
+    }
+}
+
+function applyOpencodeConfigRaw(params = {}) {
+    assertToolConfigWriteAllowed('opencode');
+    const content = typeof params.content === 'string' ? params.content : '';
+    if (!content.trim()) {
+        return { error: '内容不能为空' };
+    }
+    if (content.length > 1024 * 1024) {
+        return { error: '内容过大（最大 1MB）' };
+    }
+    let parsed;
+    try {
+        parsed = readOpencodeConfigObject(content);
+    } catch (e) {
+        return { error: `OpenCode JSON/JSONC 解析失败: ${e.message}` };
+    }
+    const targetPath = resolveOpencodeConfigFile();
+    try {
+        ensureDir(path.dirname(targetPath));
+        backupFileIfNeededOnce(targetPath);
+        fs.writeFileSync(targetPath, JSON.stringify(parsed, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+        return {
+            success: true,
+            targetPath,
+            content: JSON.stringify(parsed, null, 2) + '\n',
+            ...summarizeOpencodeConfig(parsed, targetPath, true)
+        };
+    } catch (e) {
+        return { error: e.message || '写入 OpenCode 配置失败' };
+    }
+}
+
+function removePreviousCodexMateOpencodeProjection(config, lastApplied, nextProviderName) {
+    const previousProvider = normalizeOpencodeProviderName(lastApplied && lastApplied.provider);
+    const nextProvider = normalizeOpencodeProviderName(nextProviderName);
+    if (!previousProvider || previousProvider === nextProvider) return;
+
+    const providers = getRecord(config.provider);
+    if (lastApplied.providerCreatedByCodexMate === true && providers[previousProvider] && lastApplied.providerHash) {
+        const currentHash = hashOpencodeManagedValue(providers[previousProvider]);
+        if (currentHash === lastApplied.providerHash) {
+            delete providers[previousProvider];
+        }
+    }
+    if (Object.keys(providers).length) {
+        config.provider = providers;
+    } else {
+        delete config.provider;
+    }
+
+    if (lastApplied.disabledProviderAddedByCodexMate === true && Array.isArray(config.disabled_providers) && lastApplied.disabledProvidersHash) {
+        const currentDisabled = config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean).sort();
+        if (hashOpencodeManagedValue(currentDisabled) === lastApplied.disabledProvidersHash) {
+            const nextDisabled = currentDisabled.filter(item => item !== previousProvider);
+            if (nextDisabled.length) {
+                config.disabled_providers = nextDisabled;
+            } else {
+                delete config.disabled_providers;
+            }
+        }
+    }
+}
+
+function updateOpencodeSelection(params = {}) {
+    assertToolConfigWriteAllowed('opencode');
+    const providerName = normalizeOpencodeProviderName(params.provider);
+    const model = typeof params.model === 'string' ? params.model.trim() : '';
+    const agentName = normalizeOpencodeAgentName(params.agent || 'build') || 'build';
+    if (!providerName) {
+        return { error: '请选择 OpenCode provider' };
+    }
+    if (!model) {
+        return { error: '请选择或输入 OpenCode model' };
+    }
+
+    const targetPath = resolveOpencodeConfigFile();
+    let config = {};
+    if (fs.existsSync(targetPath)) {
+        try {
+            config = readOpencodeConfigObject(fs.readFileSync(targetPath, 'utf-8'));
+        } catch (e) {
+            return { error: `OpenCode JSON/JSONC 解析失败: ${e.message}` };
+        }
+    }
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        config = {};
+    }
+
+    const providerStore = readOpencodeProviderStore();
+    removePreviousCodexMateOpencodeProjection(config, providerStore.lastApplied, providerName);
+    const providerExistedBeforeApply = !!(getRecord(config.provider)[providerName]);
+    const disabledContainedBeforeApply = Array.isArray(config.disabled_providers)
+        && config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean).includes(providerName);
+
+    if (!config.$schema) {
+        config.$schema = 'https://opencode.ai/config.json';
+    }
+    const modelRef = joinOpencodeModelRef(providerName, model);
+    config.model = modelRef;
+
+    if (!config.provider || typeof config.provider !== 'object' || Array.isArray(config.provider)) {
+        config.provider = {};
+    }
+    const storedProvider = getRecord(providerStore.providers[providerName]);
+    const previousProvider = getRecord(config.provider[providerName]);
+    const previousOptions = getRecord(previousProvider.options);
+    const explicitApiKey = typeof params.apiKey === 'string' ? params.apiKey.trim() : '';
+    const storedApiKey = typeof storedProvider.apiKey === 'string' ? storedProvider.apiKey.trim() : '';
+    const apiKey = explicitApiKey || storedApiKey;
+    config.provider[providerName] = {
+        ...previousProvider,
+        options: {
+            ...previousOptions
+        }
+    };
+    if (apiKey) {
+        config.provider[providerName].options.apiKey = apiKey;
+    }
+    if (Object.keys(config.provider[providerName].options).length === 0) {
+        delete config.provider[providerName].options;
+    }
+
+    const disabledSet = new Set(Array.isArray(config.disabled_providers)
+        ? config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean)
+        : []);
+    if (params.disabled === true) {
+        disabledSet.add(providerName);
+    } else {
+        disabledSet.delete(providerName);
+    }
+    if (disabledSet.size) {
+        config.disabled_providers = [...disabledSet].sort();
+    } else {
+        delete config.disabled_providers;
+    }
+
+    if (!config.agent || typeof config.agent !== 'object' || Array.isArray(config.agent)) {
+        config.agent = {};
+    }
+    const coreAgents = params.applyToCoreAgents === true
+        ? ['build', 'plan', 'general', 'title', 'summary', 'compaction']
+        : [agentName];
+    for (const name of coreAgents) {
+        const previousAgent = getRecord(config.agent[name]);
+        const previousRequest = getRecord(previousAgent.request);
+        const previousBody = getRecord(previousRequest.body);
+        const nextAgent = {
+            ...previousAgent,
+            model: modelRef
+        };
+        const requestBody = { ...previousBody };
+        const maxTokens = normalizePositiveIntegerParam(params.maxTokens);
+        if (maxTokens !== null) {
+            requestBody.max_tokens = maxTokens;
+        }
+        const effort = typeof params.reasoningEffort === 'string' ? params.reasoningEffort.trim().toLowerCase() : '';
+        if (effort === 'low' || effort === 'medium' || effort === 'high') {
+            requestBody.reasoning_effort = effort;
+        }
+        if (Object.keys(requestBody).length) {
+            nextAgent.request = {
+                ...previousRequest,
+                body: requestBody
+            };
+        }
+        config.agent[name] = nextAgent;
+    }
+    if (!config.default_agent) {
+        config.default_agent = agentName;
+    }
+    if (!config.compaction || typeof config.compaction !== 'object' || Array.isArray(config.compaction)) {
+        config.compaction = {};
+    }
+    config.compaction.auto = params.autoCompact !== false;
+
+    const maxTokens = normalizePositiveIntegerParam(params.maxTokens);
+    const effort = typeof params.reasoningEffort === 'string' ? params.reasoningEffort.trim().toLowerCase() : '';
+    providerStore.providers[providerName] = {
+        ...storedProvider,
+        apiKey: apiKey || '',
+        model,
+        disabled: params.disabled === true,
+        maxTokens,
+        reasoningEffort: ['low', 'medium', 'high'].includes(effort) ? effort : '',
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        ensureDir(path.dirname(targetPath));
+        backupFileIfNeededOnce(targetPath);
+        const content = JSON.stringify(config, null, 2) + '\n';
+        fs.writeFileSync(targetPath, content, { encoding: 'utf-8', mode: 0o600 });
+        const disabledProviders = Array.isArray(config.disabled_providers)
+            ? config.disabled_providers.map(item => normalizeOpencodeProviderName(item)).filter(Boolean).sort()
+            : [];
+        providerStore.lastApplied = {
+            provider: providerName,
+            modelRef,
+            providerHash: hashOpencodeManagedValue(getRecord(config.provider)[providerName]),
+            disabledProvidersHash: hashOpencodeManagedValue(disabledProviders),
+            providerCreatedByCodexMate: providerExistedBeforeApply !== true,
+            disabledProviderAddedByCodexMate: params.disabled === true && disabledContainedBeforeApply !== true
+        };
+        writeOpencodeProviderStore(providerStore);
+        return {
+            success: true,
+            targetPath,
+            ...summarizeOpencodeConfig(config, targetPath, true, providerStore),
+            content
+        };
+    } catch (e) {
+        return { error: e.message || '写入 OpenCode 配置失败' };
+    }
+}
 // API: 打包 Claude 配置目录（系统 zip 可用则使用，否则回退 zip-lib）
 async function prepareClaudeDirDownload() {
     return await prepareDirectoryDownload(CLAUDE_DIR, {
@@ -9339,6 +10126,40 @@ async function restoreCodexDir(payload) {
 }
 
 // CLI: 一行写入 Claude Code 配置
+function parseClaudeCommandArgs(argv = []) {
+    const positionals = [];
+    let targetApi = 'responses';
+    for (let i = 0; i < argv.length; i += 1) {
+        const token = String(argv[i] ?? '');
+        if (token === '--target-api' || token === '--targetApi') {
+            const nextValue = String(argv[i + 1] ?? '');
+            if (!nextValue || nextValue.startsWith('--')) {
+                throw new Error('错误: --target-api 需要一个值（responses、chat_completions 或 ollama）');
+            }
+            targetApi = normalizeClaudeTargetApi(nextValue);
+            i += 1;
+            continue;
+        }
+        positionals.push(token);
+    }
+
+    const baseUrl = positionals[0];
+    if (targetApi === 'ollama' && positionals.length === 2) {
+        return {
+            baseUrl,
+            apiKey: '',
+            model: positionals[1],
+            targetApi
+        };
+    }
+    return {
+        baseUrl,
+        apiKey: positionals[1],
+        model: positionals[2],
+        targetApi
+    };
+}
+
 async function cmdClaude(args = []) {
     const argv = Array.isArray(args) ? args : [];
     // 无参数 → 代理启动
@@ -9346,7 +10167,7 @@ async function cmdClaude(args = []) {
         return runProxyCommand('Claude', 'claude', [], '', { autoFlag: '--dangerously-skip-permissions' });
     }
     // 有参数 → 配置写入
-    const [baseUrl, apiKey, model] = argv;
+    const { baseUrl, apiKey, model, targetApi } = parseClaudeCommandArgs(argv);
     const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
     const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     const normalizedModel = typeof model === 'string' && model.trim()
@@ -9355,19 +10176,21 @@ async function cmdClaude(args = []) {
 
     const silent = false;
 
-    if (!normalizedBaseUrl || !normalizedKey) {
+    if (!normalizedBaseUrl || (!normalizedKey && targetApi !== 'ollama')) {
         if (!silent) {
-            console.error('用法: codexmate claude <BaseURL> <API密钥> [模型]');
+            console.error('用法: codexmate claude <BaseURL> <API密钥> [模型] [--target-api responses|chat_completions|ollama]');
             console.log('\n示例:');
             console.log('  codexmate claude https://open.bigmodel.cn/api/anthropic sk-ant-xxx glm-4.7');
+            console.log("  codexmate claude http://127.0.0.1:11434 '' llama3.1:8b --target-api ollama");
         }
-        throw new Error('BaseURL 和 API 密钥必填');
+        throw new Error(targetApi === 'ollama' ? 'BaseURL 必填' : 'BaseURL 和 API 密钥必填');
     }
 
-    const result = applyToClaudeSettings({
+    const result = await applyToClaudeSettings({
         baseUrl: normalizedBaseUrl,
         apiKey: normalizedKey,
-        model: normalizedModel
+        model: normalizedModel,
+        targetApi
     });
 
     if (!result || result.success === false) {
@@ -10181,8 +11004,20 @@ function extractRequestToken(req) {
     const headers = req && req.headers && typeof req.headers === 'object' ? req.headers : {};
     const rawAuth = typeof headers.authorization === 'string' ? headers.authorization.trim() : '';
     if (rawAuth) {
-        const match = rawAuth.match(/^bearer\s+(.+)$/i);
-        if (match && match[1]) return match[1].trim();
+        const bearerMatch = rawAuth.match(/^bearer\s+(.+)$/i);
+        if (bearerMatch && bearerMatch[1]) return bearerMatch[1].trim();
+        const basicMatch = rawAuth.match(/^basic\s+(.+)$/i);
+        if (basicMatch && basicMatch[1]) {
+            try {
+                const decoded = Buffer.from(basicMatch[1].trim(), 'base64').toString('utf-8');
+                const separatorIndex = decoded.indexOf(':');
+                if (separatorIndex >= 0) {
+                    const password = decoded.slice(separatorIndex + 1).trim();
+                    if (password) return password;
+                }
+                if (decoded.trim()) return decoded.trim();
+            } catch (_) { }
+        }
         return rawAuth;
     }
     const raw = typeof headers['x-codexmate-token'] === 'string' ? headers['x-codexmate-token'].trim() : '';
@@ -10208,10 +11043,20 @@ function assertRequestAuthorized(req, res) {
     }
     const actual = extractRequestToken(req);
     if (!actual || !safeTimingEqual(actual, expected)) {
-        writeJsonResponse(res, 401, { error: 'Unauthorized' });
+        writeJsonResponse(res, 401, { error: 'Unauthorized' }, {
+            'WWW-Authenticate': 'Basic realm="codexmate"'
+        });
         return { ok: false, mode: 'unauthorized' };
     }
     return { ok: true, mode: 'token' };
+}
+
+function isProtectedWebSurfacePath(requestPath) {
+    return requestPath === '/'
+        || requestPath === '/session'
+        || requestPath === '/web-ui/index.html'
+        || requestPath.startsWith('/web-ui/')
+        || requestPath.startsWith('/res/');
 }
 
 const g_webhookDeliveryCache = new Map();
@@ -10711,6 +11556,21 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         if (typeof openaiBridgeHandler === 'function' && openaiBridgeHandler(req, res)) {
             return;
         }
+        if (isProtectedWebSurfacePath(requestPath)) {
+            const remoteAddr = req && req.socket ? req.socket.remoteAddress : '';
+            const isLoopback = !remoteAddr || isLoopbackRemoteAddress(remoteAddr);
+            if (!isLoopback) {
+                const rateLimitKey = (remoteAddr || 'unknown') + ':' + requestPath;
+                if (!checkRateLimit(rateLimitKey)) {
+                    writeJsonResponse(res, 429, { error: 'Rate limit exceeded' }, { 'Retry-After': '60' });
+                    return;
+                }
+                const auth = assertRequestAuthorized(req, res);
+                if (!auth.ok) {
+                    return;
+                }
+            }
+        }
         if (
             requestPath === '/api'
             || requestPath.startsWith('/api/import-')
@@ -10769,13 +11629,27 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             });
             req.on('end', async () => {
                 if (bodyTooLarge) return;
+                let leaveToolConfigWriteGuard = null;
                 try {
                     const { action, params } = JSON.parse(body || '{}');
+                    leaveToolConfigWriteGuard = typeof enterToolConfigWriteGuard === 'function'
+                        ? enterToolConfigWriteGuard()
+                        : () => {};
                     let result;
 
-                    switch (action) {
+                    const guardedToolConfigTarget = getApiToolConfigWriteTarget(action);
+                    if (guardedToolConfigTarget && !isToolConfigWriteAllowed(guardedToolConfigTarget)) {
+                        result = buildToolConfigWriteDeniedPayload(guardedToolConfigTarget);
+                    } else {
+                        switch (action) {
                         case 'health-check':
                             result = { ok: true };
+                            break;
+                        case 'get-tool-config-permissions':
+                            result = { permissions: readToolConfigPermissions() };
+                            break;
+                        case 'set-tool-config-permission':
+                            result = setToolConfigPermission(params || {});
                             break;
                         case 'status': {
                             const statusConfigResult = readConfigOrVirtualDefault();
@@ -10815,13 +11689,39 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                                 configReady: !statusConfigResult.isVirtual,
                                 configErrorType: statusConfigResult.errorType || '',
                                 configNotice: statusConfigResult.reason || '',
-                                initNotice: consumeInitNotice()
+                                initNotice: consumeInitNotice(),
+                                toolConfigPermissions: readToolConfigPermissions()
                             };
                             break;
                         }
                         case 'install-status':
                             result = buildInstallStatusReport();
                             break;
+                        case 'version-status': {
+                            const currentVersion = (() => {
+                                try {
+                                    const pkg = require('./package.json');
+                                    return pkg && pkg.version ? pkg.version : '';
+                                } catch (_) {
+                                    return '';
+                                }
+                            })();
+                            try {
+                                const force = !!(params && params.force);
+                                result = await fetchLatestVersionStatus({ currentVersion, timeoutMs: 2000, cacheTtlMs: force ? 0 : undefined });
+                            } catch (e) {
+                                result = {
+                                    currentVersion,
+                                    latestVersion: '',
+                                    updateAvailable: false,
+                                    source: 'npm',
+                                    checkedAt: new Date().toISOString(),
+                                    cached: false,
+                                    error: e && e.message ? e.message : '获取最新版本失败'
+                                };
+                            }
+                            break;
+                        }
                         case 'list':
                             result = buildMcpProviderListPayload();
                             break;
@@ -11013,8 +11913,17 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                         case 'apply-claude-settings-raw':
                             result = applyClaudeSettingsRaw(params || {});
                             break;
+                        case 'get-opencode-config':
+                            result = readOpencodeConfigInfo();
+                            break;
+                        case 'apply-opencode-config':
+                            result = applyOpencodeConfigRaw(params || {});
+                            break;
+                        case 'update-opencode-selection':
+                            result = updateOpencodeSelection(params || {});
+                            break;
                         case 'apply-claude-config':
-                            result = applyToClaudeSettings(params.config);
+                            result = await applyToClaudeSettings(params.config);
                             if (result && !result.error) {
                                 const cfgName = (params && params.config && typeof params.config.name === 'string') ? params.config.name : '';
                                 const cfgFrom = (params && typeof params.previousName === 'string') ? params.previousName : '';
@@ -11455,6 +12364,7 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         default:
                             result = { error: '未知操作' };
+                        }
                     }
 
                     const responseBody = JSON.stringify(result, null, 2);
@@ -11463,7 +12373,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                         'Content-Length': Buffer.byteLength(responseBody, 'utf-8')
                     });
                     res.end(responseBody, 'utf-8');
+                    if (leaveToolConfigWriteGuard) leaveToolConfigWriteGuard();
                 } catch (e) {
+                    if (leaveToolConfigWriteGuard) leaveToolConfigWriteGuard();
                     const errorBody = JSON.stringify({ error: e.message }, null, 2);
                     res.writeHead(500, {
                         'Content-Type': 'application/json; charset=utf-8',
@@ -11604,8 +12516,8 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
             });
             fs.createReadStream(filePath).pipe(res);
         } else {
-            // Only serve HTML for root path; /web-ui returns 404.
-            if (requestPath === '/') {
+            // Serve the SPA shell for routable entry points. Keep /web-ui as 404.
+            if (requestPath === '/' || requestPath === '/session') {
                 try {
                     const html = readBundledWebUiHtml(htmlPath);
                     res.writeHead(200, {
@@ -11628,10 +12540,22 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
         socket.on('close', () => connections.delete(socket));
     });
 
+    const printPortOverrideHint = () => {
+        const examplePort = port === 8080 ? 8081 : 8080;
+        console.error(`  临时换端口（macOS/Linux）: CODEXMATE_PORT=${examplePort} codexmate run`);
+        console.error(`  临时换端口（Windows PowerShell）: $env:CODEXMATE_PORT=${examplePort}; codexmate run`);
+        console.error(`  临时换端口（Windows CMD）: set CODEXMATE_PORT=${examplePort} && codexmate run`);
+    };
+
     server.once('error', (err) => {
         if (err && err.code === 'EADDRINUSE') {
             console.error(`! 启动失败: 端口 ${port} 已被占用，可能有残留的 codexmate run 实例。`);
             console.error('  请先停止旧实例或更换端口后重试。');
+            printPortOverrideHint();
+        } else if (err && err.code === 'EACCES') {
+            console.error(`! 启动失败: 没有权限监听 ${host}:${port}。`);
+            console.error('  请检查系统/安全软件限制，或更换端口后重试。');
+            printPortOverrideHint();
         } else {
             console.error('! 启动 Web UI 失败:', err && err.message ? err.message : err);
         }
@@ -11752,7 +12676,7 @@ async function restartWebUiServerAfterFrontendChange({
 // #endregion restartWebUiServerAfterFrontendChange
 
 // 打开 Web UI
-function cmdStart(options = {}) {
+async function cmdStart(options = {}) {
     const webDir = path.join(__dirname, 'web-ui');
     const newHtmlPath = path.join(webDir, 'index.html');
     const legacyHtmlPath = path.join(__dirname, 'web-ui.html');
@@ -11763,9 +12687,29 @@ function cmdStart(options = {}) {
         process.exit(1);
     }
 
-    const port = resolveWebPort();
+    let port = resolveWebPort();
+    const explicitPort = isWebPortExplicit();
     const host = resolveWebHost(options);
     releaseRunPortIfNeeded(port, host);
+    const selectedPort = await resolveAvailableWebPort(port, host, { explicitPort });
+    if (selectedPort.error) {
+        console.error(`! 启动失败: ${selectedPort.error}`);
+        console.error(`  已尝试端口: ${selectedPort.attempts.map((attempt) => attempt.port).join(', ')}`);
+        console.error('  请设置 CODEXMATE_PORT 指定可用端口后重试。');
+        process.exit(1);
+    }
+    if (selectedPort.changed) {
+        const failed = selectedPort.attempts
+            .filter((attempt) => !attempt.available)
+            .map((attempt) => `${attempt.port}${attempt.code ? `(${attempt.code})` : ''}`)
+            .join(', ');
+        console.warn(`! 默认端口 ${selectedPort.requestedPort} 不可用，已自动切换到 ${selectedPort.port}。`);
+        if (failed) {
+            console.warn(`  跳过端口: ${failed}`);
+        }
+        console.warn('  如需固定端口，请设置 CODEXMATE_PORT 后重新启动。');
+    }
+    port = selectedPort.port;
 
     const isDev = process.env.NODE_ENV === 'development'
         || process.env.CODEXMATE_DEV === '1'
@@ -15576,9 +16520,20 @@ function createMcpTools(options = {}) {
             properties: {
                 apiKey: { type: 'string' },
                 baseUrl: { type: 'string' },
-                model: { type: 'string' }
+                model: { type: 'string' },
+                name: { type: 'string' },
+                targetApi: { type: 'string' }
             },
-            required: ['apiKey'],
+            allOf: [{
+                if: {
+                    not: {
+                        type: 'object',
+                        properties: { targetApi: { type: 'string', pattern: '^[\\s]*[oO][lL][lL][aA][mM][aA][\\s]*$' } },
+                        required: ['targetApi']
+                    }
+                },
+                then: { required: ['apiKey'] }
+            }],
             additionalProperties: false
         },
         handler: async (args = {}) => applyToClaudeSettings(args || {})
@@ -16034,7 +16989,7 @@ function printMainHelp() {
     console.log('  codexmate add <名称> <URL> [密钥] [--bridge <openai>]');
     console.log('  codexmate delete <名称>    删除提供商');
     console.log('  codexmate claude            等同于 claude --dangerously-skip-permissions');
-    console.log('  codexmate claude <BaseURL> <API密钥> [模型]  写入 Claude Code 配置');
+    console.log('  codexmate claude <BaseURL> <API密钥> [模型] [--target-api responses|chat_completions|ollama]  写入 Claude Code 配置');
     console.log('  codexmate auth <list|import|switch|delete|status>  认证管理');
     console.log('  codexmate add-model <模型> 添加模型');
     console.log('  codexmate delete-model <模型> 删除模型');
@@ -16062,7 +17017,10 @@ async function main() {
     const args = process.argv.slice(2);
     const command = args[0];
     const isMcpCommand = command === 'mcp';
-    const bootstrap = ensureManagedConfigBootstrap();
+    const shouldGateInitialBootstrap = command === 'run' || isMcpCommand;
+    const bootstrap = ensureManagedConfigBootstrap({
+        allowWrite: shouldGateInitialBootstrap ? isToolConfigWriteAllowed('codex') : true
+    });
     if (bootstrap && bootstrap.notice) {
         // MCP stdio transport requires stdout to be protocol-clean.
         if (!isMcpCommand) {
@@ -16134,7 +17092,7 @@ async function main() {
         case 'workflow': await cmdWorkflow(args.slice(1)); break;
         case 'task': await cmdTask(args.slice(1)); break;
         case 'analytics': await cmdAnalytics(args.slice(1)); break;
-        case 'run': cmdStart(parseStartOptions(args.slice(1))); break;
+        case 'run': await cmdStart(parseStartOptions(args.slice(1))); break;
         case 'update': await cmdToolUpdate(args.slice(1)); break;
         case 'start':
             console.error('错误: 命令已更名为 "run"，请使用: codexmate run');

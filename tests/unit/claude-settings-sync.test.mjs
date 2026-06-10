@@ -1,8 +1,24 @@
 import assert from 'assert';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { readBundledWebUiScript, readProjectFile } from './helpers/web-ui-source.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const { createI18nMethods } = await import(
+    pathToFileURL(path.join(__dirname, '..', '..', 'web-ui', 'modules', 'i18n.mjs'))
+);
+const {
+    isLikelyBuiltinClaudeProxySettingsEnv,
+    matchBuiltinClaudeProxyConfigFromSettings
+} = await import(
+    pathToFileURL(path.join(__dirname, '..', '..', 'web-ui', 'logic.mjs'))
+);
 
 const appSource = readBundledWebUiScript();
 const claudeConfigModuleSource = readProjectFile('web-ui/modules/app.methods.claude-config.mjs');
+const cliSource = readProjectFile('cli.js');
 
 function escapeRegExp(value) {
     return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -224,7 +240,10 @@ test('addClaudeConfig requires a visible model value before saving', () => {
     const addClaudeConfig = instantiateFunction(source, 'addClaudeConfig');
     const messages = [];
     let saveCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Claude Test',
             apiKey: 'sk-test',
@@ -256,7 +275,10 @@ ${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
 ${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
     const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
     const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Existing',
             apiKey: '',
@@ -297,7 +319,10 @@ ${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
 ${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
     const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
     const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: { name: '', apiKey: '', baseUrl: '', model: '' },
         editingConfig: {
             name: 'Imported Auth Token',
@@ -309,6 +334,40 @@ ${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
         claudeConfigs: {}
     };
 
+    assert.strictEqual(claudeConfigFieldError.call(context, 'edit', 'apiKey'), '');
+    assert.strictEqual(canSubmitClaudeConfig.call(context, 'edit'), true);
+});
+
+test('Claude validation allows Ollama target without api key', () => {
+    const support = claudeValidationSupportSource();
+    const fieldErrorSource = `${support}
+${extractMethodAsFunction(appSource, 'claudeConfigFieldError')}`;
+    const canSubmitSource = `${support}
+${extractMethodAsFunction(appSource, 'canSubmitClaudeConfig')}`;
+    const claudeConfigFieldError = instantiateFunction(fieldErrorSource, 'claudeConfigFieldError');
+    const canSubmitClaudeConfig = instantiateFunction(canSubmitSource, 'canSubmitClaudeConfig');
+    const context = {
+        newClaudeConfig: {
+            name: 'Local Ollama',
+            apiKey: '',
+            externalCredentialType: '',
+            baseUrl: 'http://127.0.0.1:11434',
+            model: 'deepseek-v4-pro:cloud',
+            targetApi: 'ollama'
+        },
+        editingConfig: {
+            name: 'Edit Ollama',
+            apiKey: '',
+            externalCredentialType: '',
+            baseUrl: 'http://127.0.0.1:11434',
+            model: 'deepseek-v4-pro:cloud',
+            targetApi: 'ollama'
+        },
+        claudeConfigs: {}
+    };
+
+    assert.strictEqual(claudeConfigFieldError.call(context, 'add', 'apiKey'), '');
+    assert.strictEqual(canSubmitClaudeConfig.call(context, 'add'), true);
     assert.strictEqual(claudeConfigFieldError.call(context, 'edit', 'apiKey'), '');
     assert.strictEqual(canSubmitClaudeConfig.call(context, 'edit'), true);
 });
@@ -337,7 +396,8 @@ test('openEditConfigModal carries external credential metadata into edit validat
         apiKey: '',
         externalCredentialType: 'auth-token',
         baseUrl: 'https://api.anthropic.com',
-        model: 'claude-opus-4-6'
+        model: 'claude-opus-4-6',
+        targetApi: 'responses'
     });
     assert.strictEqual(context.showEditClaudeConfigKey, false);
     assert.strictEqual(context.showEditConfigModal, true);
@@ -350,7 +410,10 @@ test('addClaudeConfig trims and persists the entered model', () => {
     let saveCount = 0;
     let closed = false;
     let refreshed = false;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         newClaudeConfig: {
             name: 'Claude Test',
             apiKey: 'sk-test',
@@ -461,6 +524,8 @@ test('refreshClaudeSelectionFromSettings selects imported config when settings m
         currentClaudeConfig: '',
         currentClaudeModel: '',
         matchClaudeConfigFromSettings: () => '',
+        matchBuiltinClaudeProxyConfigFromSettings: () => '',
+        shouldSuppressClaudeSettingsImport: () => false,
         ensureClaudeConfigFromSettings: function () {
             this.claudeConfigs['导入-maxx-direct.cloverstd.com'] = {
                 apiKey: 'maxx-key',
@@ -483,6 +548,87 @@ test('refreshClaudeSelectionFromSettings selects imported config when settings m
     assert.strictEqual(context.currentClaudeConfig, '导入-maxx-direct.cloverstd.com');
     assert.strictEqual(refreshCount, 1);
     assert.deepStrictEqual(messages, []);
+});
+
+test('refreshClaudeSelectionFromSettings keeps builtin Claude proxy selection without importing duplicate config', async () => {
+    const source = extractMethodAsFunction(appSource, 'refreshClaudeSelectionFromSettings');
+    const proxyEnv = {
+        ANTHROPIC_API_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef',
+        ANTHROPIC_BASE_URL: 'http://127.0.0.1:34567',
+        ANTHROPIC_MODEL: 'deepseek-r1:8b'
+    };
+    const refreshClaudeSelectionFromSettings = instantiateFunction(source, 'refreshClaudeSelectionFromSettings', {
+        api: async () => ({ exists: true, env: proxyEnv })
+    });
+
+    let refreshCount = 0;
+    let ensureCount = 0;
+    let saveCount = 0;
+    const messages = [];
+    const context = {
+        claudeConfigs: {
+            'Local Ollama': {
+                apiKey: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-r1:8b',
+                hasKey: false,
+                externalCredentialType: '',
+                targetApi: 'ollama'
+            }
+        },
+        currentClaudeConfig: 'Local Ollama',
+        currentClaudeModel: '',
+        matchClaudeConfigFromSettings(env) {
+            return '';
+        },
+        matchBuiltinClaudeProxyConfigFromSettings(env) {
+            return matchBuiltinClaudeProxyConfigFromSettings(this.claudeConfigs, env, this.currentClaudeConfig);
+        },
+        shouldSuppressClaudeSettingsImport(env) {
+            return isLikelyBuiltinClaudeProxySettingsEnv(env);
+        },
+        ensureClaudeConfigFromSettings() {
+            ensureCount += 1;
+            throw new Error('builtin proxy settings must not be imported as external config');
+        },
+        saveClaudeConfigs() {
+            saveCount += 1;
+        },
+        refreshClaudeModelContext: () => {
+            refreshCount += 1;
+        },
+        resetClaudeModelsState: () => {
+            throw new Error('should not reset when builtin proxy selection matches current config');
+        },
+        showMessage: (msg, type) => messages.push({ msg, type })
+    };
+
+    await refreshClaudeSelectionFromSettings.call(context, { silent: true });
+
+    assert.strictEqual(context.currentClaudeConfig, 'Local Ollama');
+    assert.deepStrictEqual(Object.keys(context.claudeConfigs), ['Local Ollama']);
+    assert.strictEqual(ensureCount, 0);
+    assert.strictEqual(saveCount, 0);
+    assert.strictEqual(refreshCount, 1);
+    assert.deepStrictEqual(messages, []);
+});
+
+test('builtin Claude proxy settings detection requires loopback URL and generated proxy token shape', () => {
+    assert.strictEqual(isLikelyBuiltinClaudeProxySettingsEnv({
+        ANTHROPIC_API_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef',
+        ANTHROPIC_BASE_URL: 'http://localhost:34567',
+        ANTHROPIC_MODEL: 'deepseek-r1:8b'
+    }), true);
+    assert.strictEqual(isLikelyBuiltinClaudeProxySettingsEnv({
+        ANTHROPIC_API_KEY: 'sk-real-provider-key',
+        ANTHROPIC_BASE_URL: 'https://api.example.com/anthropic',
+        ANTHROPIC_MODEL: 'claude-opus-4-6'
+    }), false);
+    assert.strictEqual(isLikelyBuiltinClaudeProxySettingsEnv({
+        ANTHROPIC_API_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef',
+        ANTHROPIC_BASE_URL: 'https://api.example.com/anthropic',
+        ANTHROPIC_MODEL: 'claude-opus-4-6'
+    }), false);
 });
 
 test('ensureClaudeConfigFromSettings imports external auth-token backed Claude settings', () => {
@@ -548,7 +694,10 @@ test('saveAndApplyConfig writes the edited Claude model through apply api', asyn
     let saveCount = 0;
     let closed = false;
     let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         editingConfig: {
             name: 'UI Claude Use',
             apiKey: 'sk-test',
@@ -584,8 +733,10 @@ test('saveAndApplyConfig writes the edited Claude model through apply api', asyn
         params: {
             config: {
                 apiKey: 'sk-test',
+                externalCredentialType: '',
                 baseUrl: 'https://api.example.com/anthropic',
                 model: 'claude-model-from-edit',
+                targetApi: 'responses',
                 name: 'UI Claude Use'
             }
         }
@@ -607,7 +758,10 @@ test('saveAndApplyConfig saves external credential config without api key', asyn
     let saveCount = 0;
     let closed = false;
     let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         editingConfig: {
             name: 'Imported Auth Token',
             apiKey: '',
@@ -644,6 +798,74 @@ test('saveAndApplyConfig saves external credential config without api key', asyn
     assert.deepStrictEqual(messages, [{ msg: '已保存（未填写 API Key）', type: 'info' }]);
 });
 
+test('saveAndApplyConfig applies ollama config without api key through proxy', async () => {
+    const source = extractClaudeMethodAsFunction(appSource, 'saveAndApplyConfig');
+    const applyCalls = [];
+    const saveAndApplyConfig = instantiateFunction(source, 'saveAndApplyConfig', {
+        api: async (action, params) => {
+            applyCalls.push({ action, params });
+            return { success: true, mode: 'claude-proxy', targetApi: 'ollama' };
+        }
+    });
+
+    const messages = [];
+    let saveCount = 0;
+    let closed = false;
+    let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
+    const context = {
+        ...i18nMethods,
+        lang: 'zh',
+        editingConfig: {
+            name: 'Local Ollama',
+            apiKey: '',
+            externalCredentialType: '',
+            baseUrl: 'http://127.0.0.1:11434/',
+            model: 'deepseek-v4-pro:cloud',
+            targetApi: 'ollama'
+        },
+        claudeConfigs: {
+            'Local Ollama': {
+                apiKey: '',
+                baseUrl: 'https://old.example.com/anthropic',
+                model: 'old-model',
+                targetApi: 'responses'
+            }
+        },
+        currentClaudeConfig: 'Local Ollama',
+        _lastAppliedClaudeKey: '',
+        mergeClaudeConfig(existing, updates) {
+            return { ...existing, ...updates };
+        },
+        saveClaudeConfigs() { saveCount += 1; },
+        closeEditConfigModal() { closed = true; },
+        refreshClaudeModelContext() { refreshCount += 1; },
+        showMessage(msg, type) { messages.push({ msg, type }); }
+    };
+
+    await saveAndApplyConfig.call(context);
+
+    assert.strictEqual(context.claudeConfigs['Local Ollama'].baseUrl, 'http://127.0.0.1:11434');
+    assert.strictEqual(context.claudeConfigs['Local Ollama'].targetApi, 'ollama');
+    assert.strictEqual(saveCount, 1);
+    assert.strictEqual(closed, true);
+    assert.strictEqual(refreshCount, 1);
+    assert.deepStrictEqual(applyCalls, [{
+        action: 'apply-claude-config',
+        params: {
+            config: {
+                apiKey: '',
+                externalCredentialType: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-v4-pro:cloud',
+                targetApi: 'ollama',
+                name: 'Local Ollama'
+            }
+        }
+    }]);
+    assert.deepStrictEqual(messages, [{ msg: 'Claude 配置已生效', type: 'success' }]);
+});
+
 test('applyClaudeConfig reports informative message for external credential only config', async () => {
     const source = extractMethodAsFunction(appSource, 'applyClaudeConfig');
     const applyClaudeConfig = instantiateFunction(source, 'applyClaudeConfig', {
@@ -654,7 +876,10 @@ test('applyClaudeConfig reports informative message for external credential only
 
     const messages = [];
     let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         claudeConfigs: {
             imported: {
                 apiKey: '',
@@ -681,6 +906,60 @@ test('applyClaudeConfig reports informative message for external credential only
     assert.deepStrictEqual(result, messages[0]);
 });
 
+test('applyClaudeConfig applies ollama config without api key', async () => {
+    const source = extractMethodAsFunction(appSource, 'applyClaudeConfig');
+    const applyCalls = [];
+    const applyClaudeConfig = instantiateFunction(source, 'applyClaudeConfig', {
+        api: async (action, params) => {
+            applyCalls.push({ action, params });
+            return { success: true, mode: 'claude-proxy', targetApi: 'ollama' };
+        }
+    });
+
+    const messages = [];
+    let refreshCount = 0;
+    const i18nMethods = createI18nMethods();
+    const context = {
+        ...i18nMethods,
+        lang: 'zh',
+        claudeConfigs: {
+            ollama: {
+                apiKey: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-v4-pro:cloud',
+                targetApi: 'ollama'
+            }
+        },
+        currentClaudeConfig: '',
+        _lastAppliedClaudeKey: '',
+        refreshClaudeModelContext: () => {
+            refreshCount += 1;
+        },
+        showMessage: (msg, type) => {
+            messages.push({ msg, type });
+            return { msg, type };
+        }
+    };
+
+    await applyClaudeConfig.call(context, 'ollama');
+
+    assert.strictEqual(context.currentClaudeConfig, 'ollama');
+    assert.strictEqual(refreshCount, 1);
+    assert.deepStrictEqual(applyCalls, [{
+        action: 'apply-claude-config',
+        params: {
+            config: {
+                apiKey: '',
+                baseUrl: 'http://127.0.0.1:11434',
+                model: 'deepseek-v4-pro:cloud',
+                targetApi: 'ollama',
+                name: 'ollama'
+            }
+        }
+    }]);
+    assert.deepStrictEqual(messages, [{ msg: '配置已应用', type: 'success' }]);
+});
+
 test('onClaudeModelChange applies external credential config without api key', () => {
     const source = extractMethodAsFunction(appSource, 'onClaudeModelChange');
     const onClaudeModelChange = instantiateFunction(source, 'onClaudeModelChange');
@@ -689,7 +968,10 @@ test('onClaudeModelChange applies external credential config without api key', (
     let updateCount = 0;
     const applyCalls = [];
     const messages = [];
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         currentClaudeConfig: 'imported',
         currentClaudeModel: ' claude-opus-4-6 ',
         claudeConfigs: {
@@ -735,7 +1017,10 @@ test('onClaudeModelChange still requires api key when no external credential is 
     let updateCount = 0;
     const applyCalls = [];
     const messages = [];
+    const i18nMethods = createI18nMethods();
     const context = {
+        ...i18nMethods,
+        lang: 'zh',
         currentClaudeConfig: 'local',
         currentClaudeModel: ' claude-opus-4-6 ',
         claudeConfigs: {
@@ -783,7 +1068,8 @@ test('mergeClaudeConfig preserves externalCredentialType across edits without ap
             model: typeof config.model === 'string' ? config.model.trim() : '',
             authToken: typeof config.authToken === 'string' ? config.authToken.trim() : '',
             useKey: typeof config.useKey === 'string' ? config.useKey.trim() : '',
-            externalCredentialType: typeof config.externalCredentialType === 'string' ? config.externalCredentialType.trim() : ''
+            externalCredentialType: typeof config.externalCredentialType === 'string' ? config.externalCredentialType.trim() : '',
+            targetApi: typeof config.targetApi === 'string' ? config.targetApi.trim() : 'responses'
         })
     };
 
@@ -803,7 +1089,8 @@ test('mergeClaudeConfig preserves externalCredentialType across edits without ap
         baseUrl: 'https://api.anthropic.com/',
         model: 'claude-3-7-sonnet',
         hasKey: true,
-        externalCredentialType: 'auth-token'
+        externalCredentialType: 'auth-token',
+        targetApi: 'responses'
     });
 });
 
@@ -1112,4 +1399,28 @@ test('loadClaudeModels skips remote fetch for external-credential config without
     assert.strictEqual(context.claudeModelsSource, 'catalog');
     assert.strictEqual(context.claudeModelsHasCurrent, true);
     assert.deepStrictEqual(messages, []);
+});
+
+test('applyToClaudeSettings does not proxy chat completions through default Anthropic URL', () => {
+    const startIndex = cliSource.indexOf('async function applyToClaudeSettings');
+    assert.notStrictEqual(startIndex, -1);
+    const endIndex = cliSource.indexOf('async function cmdClaude', startIndex);
+    assert.notStrictEqual(endIndex, -1);
+    const source = cliSource.slice(startIndex, endIndex);
+    assert.match(source, /const configuredBaseUrl = typeof config\.baseUrl === 'string' \? config\.baseUrl\.trim\(\) : '';/);
+    assert.match(source, /targetApi === 'chat_completions' && !configuredBaseUrl && !upstreamProviderName/);
+    assert.match(source, /chat_completions 模式需要显式的上游 Base URL 或可解析的 provider 名称/);
+    assert.match(source, /\.\.\.\(configuredBaseUrl \? \{ upstreamBaseUrl: configuredBaseUrl \} : \{\}\)/);
+});
+
+test('MCP Claude config schema allows Ollama without API key only for ollama target', () => {
+    const toolIndex = cliSource.indexOf("name: 'codexmate.claude.config.apply'");
+    assert.notStrictEqual(toolIndex, -1);
+    const schemaEnd = cliSource.indexOf('handler: async (args = {}) => applyToClaudeSettings(args || {})', toolIndex);
+    assert.notStrictEqual(schemaEnd, -1);
+    const schemaSource = cliSource.slice(toolIndex, schemaEnd);
+    assert.match(schemaSource, /allOf:\s*\[\{/);
+    assert.match(schemaSource, /properties:\s*\{ targetApi:\s*\{ type: 'string', pattern: '\^\[\\\\s\]\*\[oO\]\[lL\]\[lL\]\[aA\]\[mM\]\[aA\]\[\\\\s\]\*\$' \} \}/);
+    assert.match(schemaSource, /then:\s*\{ required:\s*\['apiKey'\] \}/);
+    assert.doesNotMatch(schemaSource, /required:\s*\['apiKey'\],\s*additionalProperties/);
 });
