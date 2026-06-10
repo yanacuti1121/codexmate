@@ -62,15 +62,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageType: '',
                 showAddModal: false,
                 showEditModal: false,
+                showAddProviderKey: false,
                 showEditProviderKey: false,
                 showModelModal: false,
                 showModelListModal: false,
                 showClaudeConfigModal: false,
                 showEditConfigModal: false,
+                showAddClaudeConfigKey: false,
                 showEditClaudeConfigKey: false,
                 showOpenclawConfigModal: false,
                 showConfigTemplateModal: false,
                 showAgentsModal: false,
+                promptsSubTab: 'codex',
                 showSkillsModal: false,
                 showHealthCheckModal: false,
                 showCodexBridgePoolModal: false,
@@ -268,19 +271,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 installRegistryPreset: 'default',
                 installRegistryCustom: '',
                 installStatusTargets: null,
-                newProvider: { name: '', url: '', key: '', useTransform: false, _suggestedModel: '' },
+                appLatestVersion: '',
+                appVersionStatusLoading: false,
+                appVersionStatusError: '',
+                appVersionStatusChecked: false,
+                appVersionStatusCheckedAt: '',
+                appVersionStatusSource: '',
+                newProvider: { name: '', url: '', key: '', model: '', useTransform: false },
                 resetConfigLoading: false,
                 editingProvider: { name: '', url: '', key: '', readOnly: false, nonEditable: false },
                 newModelName: '',
                 currentClaudeConfig: '',
                 currentClaudeModel: '',
                 claudeCustomModelDraft: '',
-                editingConfig: { name: '', apiKey: '', baseUrl: '', model: '' },
+                editingConfig: { name: '', apiKey: '', baseUrl: '', model: '', targetApi: 'responses' },
                 claudeConfigs: {
                     '智谱GLM': {
                         apiKey: '',
                         baseUrl: 'https://open.bigmodel.cn/api/anthropic',
                         model: 'glm-4.7',
+                        targetApi: 'responses',
                         hasKey: false
                     }
                 },
@@ -288,12 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: '',
                     apiKey: '',
                     baseUrl: '',
-                    model: ''
+                    model: '',
+                    targetApi: 'responses'
                 },
                 currentOpenclawConfig: '',
                 openclawConfigs: {
                     '默认配置': {
-                        content: DEFAULT_OPENCLAW_TEMPLATE
+                        content: DEFAULT_OPENCLAW_TEMPLATE,
+                        isDefault: true
                     }
                 },
                 openclawEditing: { name: '', content: '', lockName: false },
@@ -343,6 +355,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     overrideModels: true,
                     showKey: false
                 },
+                openclawAccordionStep: 1,
+                openclawValidation: {
+                    providerName: { valid: true, message: '' },
+                    modelId: { valid: true, message: '' }
+                },
                 openclawAgentsList: [],
                 openclawProviders: [],
                 openclawMissingProviders: [],
@@ -358,6 +375,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 codexDownloadProgress: 0,
                 codexDownloadTimer: null,
                 settingsTab: 'general',
+                toolConfigPermissions: (function() {
+                    try {
+                        const cached = localStorage.getItem('toolConfigPermissions');
+                        if (cached) {
+                            const parsed = JSON.parse(cached);
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                return {
+                                    codex: parsed.codex === true,
+                                    claude: parsed.claude === true,
+                                    opencode: parsed.opencode === true
+                                };
+                            }
+                        }
+                    } catch (_) {}
+                    return { codex: false, claude: false, opencode: false };
+                })(),
+                toolConfigPermissionSaving: { codex: false, claude: false, opencode: false },
                 sessionTrashEnabled: true,
                 sessionTrashItems: [],
                 sessionTrashVisibleCount: SESSION_TRASH_PAGE_SIZE,
@@ -378,6 +412,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 claudeImportLoading: false,
                 codexImportLoading: false,
                 codexAuthProfiles: [],
+                opencodeConfigPath: '',
+                opencodeProviderStorePath: '',
+                opencodeConfigExists: false,
+                opencodeContent: '{}',
+                opencodeLoading: false,
+                opencodeSaving: false,
+                opencodeApplying: false,
+                opencodeError: '',
+                opencodeImportError: '',
+                opencodeImportFileName: '',
+                opencodeProviders: [],
+                opencodeAgents: [],
+                opencodeProvider: 'anthropic',
+                opencodeModel: '',
+                opencodeApiKey: '',
+                opencodeShowKey: false,
+                opencodeProviderDisabled: false,
+                opencodeAgent: 'build',
+                opencodeApplyToCoreAgents: true,
+                opencodeAutoCompact: true,
+                opencodeMaxTokens: '',
+                opencodeReasoningEffort: '',
                 forceCompactLayout: false,
                 taskOrchestrationTabEnabled: true,
                 taskOrchestration: {
@@ -435,13 +491,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.replace(url.toString());
                     return;
                 }
-                // 清理任何查询参数和 hash，保持 URL 为 /
-                if (window.location.search || window.location.hash) {
-                    const url = new URL(window.location.href);
-                    url.search = '';
-                    url.hash = '';
-                    window.history.replaceState(null, '', url.toString());
-                }
+                // Do not strip query/hash during startup: /session uses them to identify the
+                // standalone session, and shareable tab/filter URLs are consumed below before
+                // later runtime canonicalization can clean the address bar.
             } catch (_) {}
 
             if (typeof this.initI18n === 'function') {
@@ -458,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             {
                 const NAV_STATE_STORAGE_KEY = 'codexmateNavState.v1';
-                const mainTabSet = new Set(['dashboard', 'config', 'sessions', 'usage', 'orchestration', 'market', 'plugins', 'docs', 'settings', 'trash']);
+                const mainTabSet = new Set(['dashboard', 'config', 'sessions', 'usage', 'orchestration', 'market', 'plugins', 'docs', 'settings', 'trash', 'prompts']);
                 let restored = null;
                 try {
                     const raw = localStorage.getItem(NAV_STATE_STORAGE_KEY) || '';
@@ -493,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (nextConfigMode && typeof this.switchConfigMode === 'function') {
                     this.__navStateRestoring = true;
                     try {
-                        if (nextConfigMode === 'codex' || nextConfigMode === 'claude' || nextConfigMode === 'openclaw') {
+                        if (nextConfigMode === 'codex' || nextConfigMode === 'claude' || nextConfigMode === 'openclaw' || nextConfigMode === 'opencode') {
                             this.configMode = nextConfigMode;
                         }
                         if (resolvedMainTab && mainTabSet.has(resolvedMainTab) && resolvedMainTab !== this.mainTab) {
@@ -534,6 +586,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             config.apiKey = '';
                             config.hasKey = false;
                         }
+                        const targetApiRaw = typeof config.targetApi === 'string' ? config.targetApi.trim().toLowerCase() : '';
+                        if (targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions') {
+                            config.targetApi = 'chat_completions';
+                        } else if (targetApiRaw === 'ollama') {
+                            config.targetApi = 'ollama';
+                        } else {
+                            config.targetApi = 'responses';
+                        }
                     }
                     localStorage.setItem('claudeConfigs', JSON.stringify(this.claudeConfigs));
                 } catch (e) {
@@ -567,7 +627,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         : { content: DEFAULT_OPENCLAW_TEMPLATE };
                 const normalized = {
                     '默认配置': {
-                        content: typeof defaultEntry.content === 'string' ? defaultEntry.content : DEFAULT_OPENCLAW_TEMPLATE
+                        content: typeof defaultEntry.content === 'string' ? defaultEntry.content : DEFAULT_OPENCLAW_TEMPLATE,
+                        isDefault: true
                     }
                 };
                 for (const [name, value] of Object.entries(source)) {
@@ -608,6 +669,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 void this.runProvidersHealthCheck({ remote: true });
                             }
                         }
+                    }
+                    if (typeof this.loadAppVersionStatus === 'function') {
+                        void this.loadAppVersionStatus({ silent: true });
                     }
                     void this.refreshClaudeSelectionFromSettings({ silent: true });
                     void this.syncDefaultOpenclawConfigEntry({ silent: true });
@@ -668,6 +732,19 @@ document.addEventListener('DOMContentLoaded', () => {
             this.sessionPreviewContainerEl = null;
             this.sessionPreviewHeaderEl = null;
             this.clearSessionTimelineRefs();
+        },
+
+        watch: {
+            mainTab(newTab) {
+                if (newTab === 'prompts' && typeof this.loadPromptsContent === 'function') {
+                    this.loadPromptsContent();
+                }
+            },
+            promptsSubTab() {
+                if (this.mainTab === 'prompts' && typeof this.loadPromptsContent === 'function') {
+                    this.loadPromptsContent();
+                }
+            }
         },
 
         computed: createAppComputed(),

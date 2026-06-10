@@ -1,3 +1,72 @@
+function normalizeClaudeText(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeClaudeBaseUrl(value) {
+    return normalizeClaudeText(value).replace(/\/+$/g, '');
+}
+
+function isValidClaudeHttpUrl(value) {
+    if (!value) return false;
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
+function getClaudeConfigValidationForContext(vm, mode = 'add') {
+    const draft = mode === 'edit' ? vm.editingConfig : vm.newClaudeConfig;
+    const name = normalizeClaudeText(draft && draft.name);
+    const apiKey = normalizeClaudeText(draft && draft.apiKey);
+    const externalCredentialType = normalizeClaudeText(draft && draft.externalCredentialType);
+    const baseUrl = normalizeClaudeBaseUrl(draft && draft.baseUrl);
+    const model = normalizeClaudeText(draft && draft.model);
+    const targetApiRaw = normalizeClaudeText(draft && draft.targetApi).toLowerCase();
+    const targetApi = targetApiRaw === 'chat_completions' || targetApiRaw === 'chat-completions' || targetApiRaw === 'chat/completions'
+        ? 'chat_completions'
+        : (targetApiRaw === 'ollama' ? 'ollama' : 'responses');
+    const errors = {
+        name: '',
+        apiKey: '',
+        baseUrl: '',
+        model: ''
+    };
+
+    if (!name) {
+        errors.name = vm.t('validation.claude.nameRequired');
+    } else if (mode === 'add' && vm.claudeConfigs && vm.claudeConfigs[name]) {
+        errors.name = vm.t('validation.claude.nameExists');
+    }
+
+    if (!apiKey && !externalCredentialType && targetApi !== 'ollama') {
+        errors.apiKey = vm.t('validation.claude.apiKeyRequired');
+    }
+
+    if (!baseUrl) {
+        errors.baseUrl = vm.t('validation.claude.baseUrlRequired');
+    } else if (!isValidClaudeHttpUrl(baseUrl)) {
+        errors.baseUrl = vm.t('validation.claude.baseUrlHttpOnly');
+    }
+
+    if (!model) {
+        errors.model = vm.t('validation.claude.modelRequired');
+    }
+
+    return {
+        mode,
+        name,
+        apiKey,
+        externalCredentialType,
+        baseUrl,
+        model,
+        targetApi,
+        errors,
+        ok: !errors.name && !errors.apiKey && !errors.baseUrl && !errors.model
+    };
+}
+
 export function createClaudeConfigMethods(options = {}) {
     const { api } = options;
 
@@ -15,7 +84,7 @@ export function createClaudeConfigMethods(options = {}) {
             }
             const model = (this.currentClaudeModel || '').trim();
             if (!model) {
-                this.showMessage('请输入模型', 'error');
+                this.showMessage(this.t('toast.claude.modelRequired'), 'error');
                 return;
             }
             const existing = this.claudeConfigs[name] || {};
@@ -24,8 +93,8 @@ export function createClaudeConfigMethods(options = {}) {
             this.claudeConfigs[name] = this.mergeClaudeConfig(existing, { model });
             this.saveClaudeConfigs();
             this.updateClaudeModelsCurrent();
-            if (!this.claudeConfigs[name].apiKey && !this.claudeConfigs[name].externalCredentialType) {
-                this.showMessage('请先配置 API Key', 'error');
+            if (!this.claudeConfigs[name].apiKey && !this.claudeConfigs[name].externalCredentialType && this.claudeConfigs[name].targetApi !== 'ollama') {
+                this.showMessage(this.t('toast.claude.apiKeyRequired'), 'error');
                 return;
             }
             this.applyClaudeConfig(name);
@@ -51,10 +120,28 @@ export function createClaudeConfigMethods(options = {}) {
             this.newClaudeConfig = {
                 name: '',
                 apiKey: config.apiKey || '',
+                externalCredentialType: config.externalCredentialType || '',
                 baseUrl: config.baseUrl || '',
-                model: config.model || ''
+                model: config.model || '',
+                targetApi: config.targetApi || 'responses'
             };
+            this.showAddClaudeConfigKey = false;
             this.showClaudeConfigModal = true;
+        },
+
+        getClaudeConfigValidation(mode = 'add') {
+            return getClaudeConfigValidationForContext(this, mode);
+        },
+
+        claudeConfigFieldError(mode, fieldName) {
+            const validation = getClaudeConfigValidationForContext(this, mode);
+            return validation && validation.errors && typeof validation.errors[fieldName] === 'string'
+                ? validation.errors[fieldName]
+                : '';
+        },
+
+        canSubmitClaudeConfig(mode = 'add') {
+            return getClaudeConfigValidationForContext(this, mode).ok;
         },
 
         openEditConfigModal(name) {
@@ -62,18 +149,29 @@ export function createClaudeConfigMethods(options = {}) {
             this.editingConfig = {
                 name: name,
                 apiKey: config.apiKey || '',
+                externalCredentialType: config.externalCredentialType || '',
                 baseUrl: config.baseUrl || '',
-                model: config.model || ''
+                model: config.model || '',
+                targetApi: config.targetApi || 'responses'
             };
             this.showEditClaudeConfigKey = false;
             this.showEditConfigModal = true;
         },
 
         updateConfig() {
-            const name = this.editingConfig.name;
+            const validation = getClaudeConfigValidationForContext(this, 'edit');
+            if (!validation.ok) {
+                return this.showMessage(validation.errors.name || validation.errors.apiKey || validation.errors.baseUrl || validation.errors.model || this.t('toast.claude.checkConfig'), 'error');
+            }
+            const name = validation.name;
+            this.editingConfig.apiKey = validation.apiKey;
+            this.editingConfig.externalCredentialType = validation.externalCredentialType;
+            this.editingConfig.baseUrl = validation.baseUrl;
+            this.editingConfig.model = validation.model;
+            this.editingConfig.targetApi = validation.targetApi;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
-            this.showMessage('操作成功', 'success');
+            this.showMessage(this.t('toast.operation.success'), 'success');
             this.closeEditConfigModal();
             if (name === this.currentClaudeConfig) {
                 this.refreshClaudeModelContext();
@@ -83,7 +181,7 @@ export function createClaudeConfigMethods(options = {}) {
         closeEditConfigModal() {
             this.showEditConfigModal = false;
             this.showEditClaudeConfigKey = false;
-            this.editingConfig = { name: '', apiKey: '', baseUrl: '', model: '' };
+            this.editingConfig = { name: '', apiKey: '', externalCredentialType: '', baseUrl: '', model: '', targetApi: 'responses' };
         },
 
         toggleEditClaudeConfigKey() {
@@ -91,13 +189,22 @@ export function createClaudeConfigMethods(options = {}) {
         },
 
         async saveAndApplyConfig() {
-            const name = this.editingConfig.name;
+            const validation = getClaudeConfigValidationForContext(this, 'edit');
+            if (!validation.ok) {
+                return this.showMessage(validation.errors.name || validation.errors.apiKey || validation.errors.baseUrl || validation.errors.model || this.t('toast.claude.checkConfig'), 'error');
+            }
+            const name = validation.name;
+            this.editingConfig.apiKey = validation.apiKey;
+            this.editingConfig.externalCredentialType = validation.externalCredentialType;
+            this.editingConfig.baseUrl = validation.baseUrl;
+            this.editingConfig.model = validation.model;
+            this.editingConfig.targetApi = validation.targetApi;
             this.claudeConfigs[name] = this.mergeClaudeConfig(this.claudeConfigs[name], this.editingConfig);
             this.saveClaudeConfigs();
 
             const config = this.claudeConfigs[name];
-            if (!config.apiKey) {
-                this.showMessage('已保存（未填写 API Key）', 'info');
+            if (!config.apiKey && config.targetApi !== 'ollama') {
+                this.showMessage(this.t('toast.claude.savedWithoutKey'), 'info');
                 this.closeEditConfigModal();
                 if (name === this.currentClaudeConfig) {
                     this.refreshClaudeModelContext();
@@ -105,56 +212,60 @@ export function createClaudeConfigMethods(options = {}) {
                 return;
             }
 
-            const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}`;
+            const _claudeKey = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
-                const res = await api('apply-claude-config', { config });
+                const res = await api('apply-claude-config', { config: { ...config, name } });
                 if (res.error || res.success === false) {
-                    this.showMessage(res.error || '应用配置失败', 'error');
+                    this.showMessage(res.error || this.t('toast.apply.fail'), 'error');
                 } else {
                     this.currentClaudeConfig = name;
                     if (this._lastAppliedClaudeKey !== _claudeKey) {
-                        this.showMessage('Claude 配置已生效', 'success');
+                        this.showMessage(this.t('toast.claude.applied'), 'success');
                         this._lastAppliedClaudeKey = _claudeKey;
                     }
                     this.closeEditConfigModal();
                     this.refreshClaudeModelContext();
                 }
             } catch (_) {
-                this.showMessage('应用配置失败', 'error');
+                this.showMessage(this.t('toast.apply.fail'), 'error');
             }
         },
 
         addClaudeConfig() {
-            if (!this.newClaudeConfig.name || !this.newClaudeConfig.name.trim()) {
-                return this.showMessage('请输入名称', 'error');
+            const validation = getClaudeConfigValidationForContext(this, 'add');
+            if (!validation.ok) {
+                return this.showMessage(validation.errors.name || validation.errors.apiKey || validation.errors.baseUrl || validation.errors.model || this.t('toast.claude.checkConfig'), 'error');
             }
-            const name = this.newClaudeConfig.name.trim();
-            if (this.claudeConfigs[name]) {
-                return this.showMessage('名称已存在', 'error');
-            }
+            this.newClaudeConfig.name = validation.name;
+            this.newClaudeConfig.apiKey = validation.apiKey;
+            this.newClaudeConfig.externalCredentialType = validation.externalCredentialType;
+            this.newClaudeConfig.baseUrl = validation.baseUrl;
+            this.newClaudeConfig.model = validation.model;
+            this.newClaudeConfig.targetApi = validation.targetApi;
+            const name = validation.name;
             const duplicateName = this.findDuplicateClaudeConfigName(this.newClaudeConfig);
             if (duplicateName) {
-                return this.showMessage('配置已存在', 'info');
+                return this.showMessage(this.t('toast.claude.exists'), 'info');
             }
 
             this.claudeConfigs[name] = this.mergeClaudeConfig({}, this.newClaudeConfig);
 
             this.currentClaudeConfig = name;
             this.saveClaudeConfigs();
-            this.showMessage('操作成功', 'success');
+            this.showMessage(this.t('toast.operation.success'), 'success');
             this.closeClaudeConfigModal();
             this.refreshClaudeModelContext();
         },
 
         async deleteClaudeConfig(name) {
             if (Object.keys(this.claudeConfigs).length <= 1) {
-                return this.showMessage('至少保留一项', 'error');
+                return this.showMessage(this.t('toast.claude.keepOne'), 'error');
             }
             const confirmed = await this.requestConfirmDialog({
-                title: '删除 Claude 配置',
-                message: `确定删除配置 "${name}"?`,
-                confirmText: '删除',
-                cancelText: '取消',
+                title: this.t('modal.claudeDelete.title'),
+                message: this.t('modal.claudeDelete.message', { name }),
+                confirmText: this.t('modal.claudeDelete.confirm'),
+                cancelText: this.t('modal.claudeDelete.cancel'),
                 danger: true
             });
             if (!confirmed) return;
@@ -164,7 +275,7 @@ export function createClaudeConfigMethods(options = {}) {
                 this.currentClaudeConfig = Object.keys(this.claudeConfigs)[0];
             }
             this.saveClaudeConfigs();
-            this.showMessage('操作成功', 'success');
+            this.showMessage(this.t('toast.operation.success'), 'success');
             this.refreshClaudeModelContext();
         },
 
@@ -174,37 +285,44 @@ export function createClaudeConfigMethods(options = {}) {
             this.refreshClaudeModelContext();
             const config = this.claudeConfigs[name];
 
-            if (!config.apiKey) {
+            if (!config.apiKey && config.targetApi !== 'ollama') {
                 if (config.externalCredentialType) {
-                    return this.showMessage('使用外部认证，无需 API Key', 'info');
+                    return this.showMessage(this.t('toast.claude.externalAuth'), 'info');
                 }
-                return this.showMessage('请先配置 API Key', 'error');
+                return this.showMessage(this.t('toast.claude.apiKeyRequired'), 'error');
             }
 
-            const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}`;
+            const _claudeKey2 = `${name}|${config.apiKey || ""}|${config.baseUrl || ""}|${config.model || ""}|${config.targetApi || "responses"}`;
             try {
-                const res = await api('apply-claude-config', { config });
+                const res = await api('apply-claude-config', { config: { ...config, name } });
                 if (res.error || res.success === false) {
-                    this.showMessage(res.error || '应用配置失败', 'error');
+                    this.showMessage(res.error || this.t('toast.apply.fail'), 'error');
                 } else {
                     if (this._lastAppliedClaudeKey !== _claudeKey2) {
-                        this.showMessage('配置已应用', 'success');
+                        this.showMessage(this.t('toast.apply.success'), 'success');
                         this._lastAppliedClaudeKey = _claudeKey2;
                     }
                 }
             } catch (_) {
-                this.showMessage('应用配置失败', 'error');
+                this.showMessage(this.t('toast.apply.fail'), 'error');
             }
         },
 
         closeClaudeConfigModal() {
             this.showClaudeConfigModal = false;
+            this.showAddClaudeConfigKey = false;
             this.newClaudeConfig = {
                 name: '',
                 apiKey: '',
+                externalCredentialType: '',
                 baseUrl: '',
-                model: ''
+                model: '',
+                targetApi: 'responses'
             };
+        },
+
+        toggleAddClaudeConfigKey() {
+            this.showAddClaudeConfigKey = !this.showAddClaudeConfigKey;
         },
 
         async loadClaudeLocalBridgeStatus() {
@@ -226,12 +344,12 @@ export function createClaudeConfigMethods(options = {}) {
                     return;
                 }
                 if (enable) {
-                    this.showMessage('Claude 本地负载均衡已启用', 'success');
+                    this.showMessage(this.t('toast.claude.balanceEnabled'), 'success');
                 } else {
-                    this.showMessage('Claude 本地负载均衡已关闭', 'success');
+                    this.showMessage(this.t('toast.claude.balanceDisabled'), 'success');
                 }
             } catch (e) {
-                this.showMessage('操作失败', 'error');
+                this.showMessage(this.t('toast.operation.fail'), 'error');
             }
         },
 
@@ -277,18 +395,18 @@ export function createClaudeConfigMethods(options = {}) {
 
             const candidates = this.claudeLocalBridgeCandidateProviders();
             if (candidates.length === 0) {
-                return this.showMessage('请先添加并配置至少一个 Claude 提供商', 'error');
+                return this.showMessage(this.t('toast.claude.balanceRequireProvider'), 'error');
             }
 
             try {
                 const res = await api('claude-local-bridge-toggle', { enable: true });
                 if (res.error) {
-                    this.showMessage(res.error || '启用本地负载均衡失败', 'error');
+                    this.showMessage(res.error || this.t('toast.claude.balanceEnableFail'), 'error');
                     return;
                 }
-                this.showMessage('Claude 本地负载均衡已启用', 'success');
+                this.showMessage(this.t('toast.claude.balanceEnabled'), 'success');
             } catch (e) {
-                this.showMessage('启用本地负载均衡失败', 'error');
+                this.showMessage(this.t('toast.claude.balanceEnableFail'), 'error');
             }
         },
 
@@ -303,7 +421,7 @@ export function createClaudeConfigMethods(options = {}) {
                 this.configTemplateContext = 'claude';
                 this.showConfigTemplateModal = true;
             } catch (e) {
-                this.showMessage('加载 Claude settings 失败', 'error');
+                this.showMessage(this.t('toast.claude.loadSettingsFail'), 'error');
             }
         }
     };

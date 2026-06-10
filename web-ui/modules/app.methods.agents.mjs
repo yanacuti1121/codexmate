@@ -60,7 +60,7 @@ export function createAgentsMethods(options = {}) {
                 if (!isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     return;
                 }
-                this.showMessage('加载文件失败', 'error');
+                this.showMessage(this.t('toast.load.fail'), 'error');
             } finally {
                 if (isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     this.agentsLoading = false;
@@ -92,7 +92,7 @@ export function createAgentsMethods(options = {}) {
                 if (!isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     return;
                 }
-                this.showMessage('加载文件失败', 'error');
+                this.showMessage(this.t('toast.load.fail'), 'error');
             } finally {
                 if (isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     this.agentsLoading = false;
@@ -127,7 +127,7 @@ export function createAgentsMethods(options = {}) {
                 if (!isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     return;
                 }
-                this.showMessage('加载文件失败', 'error');
+                this.showMessage(this.t('toast.load.fail'), 'error');
             } finally {
                 if (isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     this.agentsLoading = false;
@@ -171,7 +171,7 @@ export function createAgentsMethods(options = {}) {
                 if (!isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     return;
                 }
-                this.showMessage('加载文件失败', 'error');
+                this.showMessage(this.t('toast.load.fail'), 'error');
             } finally {
                 if (isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
                     this.agentsLoading = false;
@@ -588,7 +588,7 @@ export function createAgentsMethods(options = {}) {
             }
             if (!this.agentsDiffVisible) {
                 if (!this.hasAgentsContentChanged()) {
-                    this.showMessage('未检测到改动', 'info');
+                    this.showMessage(this.t('toast.noChanges'), 'info');
                     return;
                 }
                 await this.prepareAgentsDiff();
@@ -635,16 +635,62 @@ export function createAgentsMethods(options = {}) {
                     return;
                 }
                 const successLabel = this.agentsContext === 'openclaw-workspace'
-                    ? `工作区文件已保存${this.agentsWorkspaceFileName ? `: ${this.agentsWorkspaceFileName}` : ''}`
+                    ? this.t('toast.agents.saved.workspace', { name: this.agentsWorkspaceFileName || '' }).replace(/:\s*$/, '')
                     : (this.agentsContext === 'claude-md'
-                        ? 'CLAUDE.md 已保存'
-                        : (this.agentsContext === 'openclaw' ? 'OpenClaw AGENTS.md 已保存' : 'AGENTS.md 已保存'));
+                        ? this.t('toast.agents.saved.claudeMd')
+                        : (this.agentsContext === 'openclaw' ? this.t('toast.agents.saved.openclaw') : this.t('toast.agents.saved.agents')));
                 this.showMessage(successLabel, 'success');
-                this.closeAgentsModal({ force: true });
+                if (this.mainTab === 'prompts') {
+                    this.loadPromptsContent();
+                } else {
+                    this.closeAgentsModal({ force: true });
+                }
             } catch (e) {
-                this.showMessage('保存失败', 'error');
+                this.showMessage(this.t('toast.save.fail'), 'error');
             } finally {
                 this.agentsSaving = false;
+            }
+        },
+
+        switchPromptsSubTab(subTab) {
+            const normalized = subTab === 'claude-md' ? 'claude-md' : 'codex';
+            if (this.promptsSubTab === normalized) {
+                this.loadPromptsContent();
+                return;
+            }
+            this.promptsSubTab = normalized;
+        },
+
+        async loadPromptsContent() {
+            const requestToken = issueLatestRequestToken(this, '_agentsOpenRequestToken');
+            this.agentsLoading = true;
+            this.resetAgentsDiffState();
+            try {
+                const isClaude = this.promptsSubTab === 'claude-md';
+                const action = isClaude ? 'get-claude-md-file' : 'get-agents-file';
+                const res = await api(action);
+                if (!isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
+                    return;
+                }
+                if (res.error) {
+                    this.showMessage(res.error, 'error');
+                    return;
+                }
+                this.agentsContent = res.content || '';
+                this.agentsOriginalContent = this.agentsContent;
+                this.agentsPath = res.path || '';
+                this.agentsExists = !!res.exists;
+                this.agentsLineEnding = res.lineEnding === '\r\n' ? '\r\n' : '\n';
+                this.agentsContext = isClaude ? 'claude-md' : 'codex';
+            } catch (e) {
+                if (!isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
+                    return;
+                }
+                this.showMessage(this.t('toast.load.fail'), 'error');
+            } finally {
+                if (isLatestRequestToken(this, '_agentsOpenRequestToken', requestToken)) {
+                    this.agentsLoading = false;
+                }
             }
         }
     };
