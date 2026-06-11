@@ -2319,6 +2319,42 @@ function buildConfigTemplateDiff(params = {}) {
     };
 }
 
+function buildClaudeSettingsDiff(params = {}) {
+    const content = typeof params.content === 'string' ? params.content : '';
+    if (!content.trim()) {
+        return { error: 'JSON 内容不能为空' };
+    }
+    if (content.length > 1024 * 1024) {
+        return { error: '内容过大（最大 1MB）' };
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(content);
+    } catch (e) {
+        return { error: `JSON 解析失败: ${e.message}` };
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { error: 'JSON 内容必须是一个对象' };
+    }
+    let beforeText = '';
+    if (fs.existsSync(CLAUDE_SETTINGS_FILE)) {
+        try {
+            beforeText = fs.readFileSync(CLAUDE_SETTINGS_FILE, 'utf-8');
+        } catch (e) {
+            return { error: `读取 settings.json 失败: ${e.message}` };
+        }
+    }
+    const afterText = JSON.stringify(parsed, null, 2) + '\n';
+    const diff = buildLineDiff(beforeText, afterText);
+    const hasChanges = (diff.stats.added || 0) + (diff.stats.removed || 0) > 0;
+    return {
+        diff: {
+            ...diff,
+            hasChanges
+        }
+    };
+}
+
 function addProviderToConfig(params = {}) {
     const name = typeof params.name === 'string' ? params.name.trim() : '';
     const url = typeof params.url === 'string' ? params.url.trim() : '';
@@ -9528,6 +9564,12 @@ async function applyToClaudeSettings(config = {}) {
         };
         delete nextEnv.ANTHROPIC_AUTH_TOKEN;
         delete nextEnv.CLAUDE_CODE_USE_KEY;
+        const subModels = {
+            ANTHROPIC_DEFAULT_HAIKU_MODEL: model,
+            ANTHROPIC_DEFAULT_SONNET_MODEL: model,
+            ANTHROPIC_DEFAULT_OPUS_MODEL: model
+        };
+        Object.assign(nextEnv, subModels);
 
         const nextSettings = {
             ...currentSettings,
@@ -9546,7 +9588,10 @@ async function applyToClaudeSettings(config = {}) {
             updatedKeys: [
                 'env.ANTHROPIC_API_KEY',
                 'env.ANTHROPIC_BASE_URL',
-                'env.ANTHROPIC_MODEL'
+                'env.ANTHROPIC_MODEL',
+                'env.ANTHROPIC_DEFAULT_HAIKU_MODEL',
+                'env.ANTHROPIC_DEFAULT_SONNET_MODEL',
+                'env.ANTHROPIC_DEFAULT_OPUS_MODEL'
             ]
         };
         if (proxyResult) {
@@ -11909,6 +11954,9 @@ function createWebServer({ htmlPath, assetsDir, webDir, host, port, openBrowser 
                             break;
                         case 'get-claude-settings-raw':
                             result = readClaudeSettingsRaw();
+                            break;
+                        case 'preview-claude-settings-diff':
+                            result = buildClaudeSettingsDiff(params || {});
                             break;
                         case 'apply-claude-settings-raw':
                             result = applyClaudeSettingsRaw(params || {});
