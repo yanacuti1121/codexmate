@@ -840,7 +840,10 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'isCurrentLocalProvider',
         'localProviderEntry',
         'localProxyListenUrl',
-        'localProxyUpstreamOptions'
+        'localProxyUpstreamOptions',
+        'currentClaudeHaikuModel',
+        'currentClaudeSonnetModel',
+        'currentClaudeOpusModel'
     ];
     if (parityAgainstHead) {
         const allowedExtraComputedKeySet = new Set(allowedExtraCurrentComputedKeys);

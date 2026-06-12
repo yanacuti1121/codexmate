@@ -7794,7 +7794,7 @@ return function render(_ctx, _cache) {
                   }, [
                     _createElementVNode("div", { class: "agents-diff-header" }, [
                       _createElementVNode("div", { class: "agents-diff-title" }, [
-                        _createTextVNode(_toDisplayString(_ctx.t('diff.title.configTemplate')) + " ", 1 /* TEXT */),
+                        _createTextVNode(_toDisplayString(_ctx.configTemplateContext === 'claude' ? _ctx.t('diff.title.claudeSettings') : _ctx.t('diff.title.configTemplate')) + " ", 1 /* TEXT */),
                         (_ctx.configTemplateDiffLoading)
                           ? (_openBlock(), _createElementBlock("span", {
                               key: 0,
