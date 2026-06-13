@@ -74,6 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showConfigTemplateModal: false,
                 showAgentsModal: false,
                 promptsSubTab: 'codex',
+                projectClaudeMdPath: '',
+                projectPathOptions: [],
+                projectPathOptionsLoading: false,
                 showSkillsModal: false,
                 showHealthCheckModal: false,
                 showCodexBridgePoolModal: false,
@@ -574,6 +577,18 @@ document.addEventListener('DOMContentLoaded', () => {
             this.sessionTrashEnabled = this.normalizeSessionTrashEnabled(localStorage.getItem('codexmateSessionTrashEnabled'));
             this.sessionTrashRetentionDays = this.normalizeSessionTrashRetentionDays(localStorage.getItem('codexmateSessionTrashRetentionDays'));
             this.configTemplateDiffConfirmEnabled = loadConfigTemplateDiffConfirmEnabledFromStorage(localStorage);
+            try {
+                var savedProjectPath = localStorage.getItem('codexmate_project_claude_md_path');
+                if (savedProjectPath) {
+                    this.projectClaudeMdPath = savedProjectPath;
+                }
+            } catch (_) {}
+            try {
+                var savedSubTab = localStorage.getItem('codexmate_prompts_sub_tab');
+                if (savedSubTab === 'codex' || savedSubTab === 'claude-project') {
+                    this.promptsSubTab = savedSubTab;
+                }
+            } catch (_) {}
             window.addEventListener('resize', this.onWindowResize);
             window.addEventListener('keydown', this.handleGlobalKeydown);
             window.addEventListener('beforeunload', this.handleBeforeUnload);
@@ -740,10 +755,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.loadPromptsContent();
                 }
             },
-            promptsSubTab() {
+            promptsSubTab(newVal) {
+                try {
+                    localStorage.setItem('codexmate_prompts_sub_tab', newVal);
+                } catch (_) {}
                 if (this.mainTab === 'prompts' && typeof this.loadPromptsContent === 'function') {
                     this.loadPromptsContent();
                 }
+            },
+            projectClaudeMdPath(newPath) {
+                try {
+                    if (newPath) {
+                        localStorage.setItem('codexmate_project_claude_md_path', newPath);
+                    } else {
+                        localStorage.removeItem('codexmate_project_claude_md_path');
+                    }
+                } catch (_) {}
             }
         },
 
