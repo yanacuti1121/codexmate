@@ -707,7 +707,7 @@ return function render(_ctx, _cache) {
                           ]),
                           _createElementVNode("div", { class: "status-chip" }, [
                             _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.registry')), 1 /* TEXT */),
-                            _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.installRegistryPreview || _ctx.t('common.defaultOfficial')), 1 /* TEXT */)
+                            _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.installRegistryPreview || 'npmmirror'), 1 /* TEXT */)
                           ])
                         ]))
                       : (!_ctx.sessionStandalone)
@@ -3165,26 +3165,8 @@ return function render(_ctx, _cache) {
                                               "stroke-linecap": "round",
                                               "stroke-linejoin": "round"
                                             }, [
-                                              _createElementVNode("rect", {
-                                                x: "6",
-                                                y: "2.5",
-                                                width: "4",
-                                                height: "2",
-                                                rx: "1"
-                                              }),
-                                              _createElementVNode("path", { d: "M4.5 4h7a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5" }),
-                                              _createElementVNode("line", {
-                                                x1: "6",
-                                                y1: "7.5",
-                                                x2: "10",
-                                                y2: "7.5"
-                                              }),
-                                              _createElementVNode("line", {
-                                                x1: "6",
-                                                y1: "10",
-                                                x2: "10",
-                                                y2: "10"
-                                              })
+                                              _createElementVNode("path", { d: "M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5l-1 1" }),
+                                              _createElementVNode("path", { d: "M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5l1-1" })
                                             ]))
                                           ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"]),
                                           _createElementVNode("button", {
@@ -3223,26 +3205,7 @@ return function render(_ctx, _cache) {
                                             "stroke-linecap": "round",
                                             "stroke-linejoin": "round"
                                           }, [
-                                            _createElementVNode("rect", {
-                                              x: "6",
-                                              y: "2.5",
-                                              width: "4",
-                                              height: "2",
-                                              rx: "1"
-                                            }),
-                                            _createElementVNode("path", { d: "M4.5 4h7a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5" }),
-                                            _createElementVNode("line", {
-                                              x1: "6",
-                                              y1: "7.5",
-                                              x2: "10",
-                                              y2: "7.5"
-                                            }),
-                                            _createElementVNode("line", {
-                                              x1: "6",
-                                              y1: "10",
-                                              x2: "10",
-                                              y2: "10"
-                                            })
+                                            _createElementVNode("path", { d: "M2 5.5V12.5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7.5a1 1 0 0 0-1-1H8L6.5 5H3a1 1 0 0 0-1 1z" })
                                           ]))
                                         ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"])
                                       ])
@@ -4564,11 +4527,6 @@ return function render(_ctx, _cache) {
                   _createElementVNode("div", { class: "install-action-tabs" }, [
                     _createElementVNode("button", {
                       type: "button",
-                      class: _normalizeClass(["btn-mini", { active: _ctx.installRegistryPreset === 'default' }]),
-                      onClick: $event => (_ctx.setInstallRegistryPreset('default'))
-                    }, _toDisplayString(_ctx.t('common.official')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
-                    _createElementVNode("button", {
-                      type: "button",
                       class: _normalizeClass(["btn-mini", { active: _ctx.installRegistryPreset === 'npmmirror' }]),
                       onClick: $event => (_ctx.setInstallRegistryPreset('npmmirror'))
                     }, "npmmirror", 10 /* CLASS, PROPS */, ["onClick"]),
@@ -4637,7 +4595,7 @@ return function render(_ctx, _cache) {
                 ]),
                 _createElementVNode("div", { class: "docs-summary-item docs-summary-item-wide" }, [
                   _createElementVNode("span", { class: "docs-summary-label" }, _toDisplayString(_ctx.t('common.registry')), 1 /* TEXT */),
-                  _createElementVNode("strong", { class: "docs-summary-value" }, _toDisplayString(_ctx.installRegistryPreview || _ctx.t('common.defaultOfficial')), 1 /* TEXT */)
+                  _createElementVNode("strong", { class: "docs-summary-value" }, _toDisplayString(_ctx.installRegistryPreview || 'npmmirror'), 1 /* TEXT */)
                 ])
               ])
             ]),
@@ -6090,38 +6048,135 @@ return function render(_ctx, _cache) {
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.exportAgentsContent,
-                          disabled: _ctx.agentsLoading
-                        }, _toDisplayString(_ctx.t('modal.agents.export')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                          disabled: _ctx.agentsLoading,
+                          title: _ctx.t('modal.agents.export')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("path", { d: "M12 3v12M8 11l4 4 4-4M4 17v2h16v-2" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"]),
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.copyAgentsContent,
-                          disabled: _ctx.agentsLoading
-                        }, _toDisplayString(_ctx.t('modal.agents.copy')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                          disabled: _ctx.agentsLoading,
+                          title: _ctx.t('modal.agents.copy')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("rect", {
+                              x: "9",
+                              y: "9",
+                              width: "13",
+                              height: "13",
+                              rx: "2"
+                            }),
+                            _createElementVNode("path", { d: "M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"]),
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.pasteAgentsContent,
-                          disabled: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible
-                        }, _toDisplayString(_ctx.t('common.paste')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                          disabled: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible,
+                          title: _ctx.t('common.paste')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("rect", {
+                              x: "8",
+                              y: "2",
+                              width: "8",
+                              height: "4",
+                              rx: "1"
+                            }),
+                            _createElementVNode("path", { d: "M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"])
                       ]),
                       _createElementVNode("div", { class: "prompts-editor-group prompts-editor-group--workflow" }, [
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.loadPromptsContent,
-                          disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
-                        }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                          disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading,
+                          title: _ctx.t('common.cancel')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("path", { d: "M18 6L6 18M6 6l12 12" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"]),
                         (_ctx.agentsDiffVisible)
                           ? (_openBlock(), _createElementBlock("button", {
                               key: 0,
                               class: "btn-mini",
                               onClick: _ctx.resetAgentsDiffState,
-                              disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
-                            }, _toDisplayString(_ctx.t('common.backToEdit')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]))
+                              disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading,
+                              title: _ctx.t('common.backToEdit')
+                            }, [
+                              (_openBlock(), _createElementBlock("svg", {
+                                class: "btn-icon-sm",
+                                viewBox: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                "stroke-width": "2"
+                              }, [
+                                _createElementVNode("path", { d: "M19 12H5M12 19l-7-7 7-7" })
+                              ]))
+                            ], 8 /* PROPS */, ["onClick", "disabled", "title"]))
                           : _createCommentVNode("v-if", true),
                         _createElementVNode("button", {
                           class: "btn-mini btn-confirm-mini",
                           onClick: _ctx.applyAgentsContent,
-                          disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (!_ctx.agentsDiffVisible && !_ctx.hasAgentsContentChanged()) || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges)
-                        }, _toDisplayString(_ctx.agentsSaving ? (_ctx.agentsDiffVisible ? _ctx.t('common.saving') : _ctx.t('common.previewing')) : (_ctx.agentsDiffVisible ? _ctx.t('common.save') : _ctx.t('common.preview'))), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                          disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (!_ctx.agentsDiffVisible && !_ctx.hasAgentsContentChanged()) || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges),
+                          title: _ctx.agentsDiffVisible ? _ctx.t('common.save') : _ctx.t('common.preview')
+                        }, [
+                          (_ctx.agentsDiffVisible)
+                            ? (_openBlock(), _createElementBlock("svg", {
+                                key: 0,
+                                class: "btn-icon-sm",
+                                viewBox: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                "stroke-width": "2"
+                              }, [
+                                _createElementVNode("path", { d: "M20 6L9 17l-5-5" })
+                              ]))
+                            : (_openBlock(), _createElementBlock("svg", {
+                                key: 1,
+                                class: "btn-icon-sm",
+                                viewBox: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                "stroke-width": "2"
+                              }, [
+                                _createElementVNode("path", { d: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" }),
+                                _createElementVNode("circle", {
+                                  cx: "12",
+                                  cy: "12",
+                                  r: "3"
+                                })
+                              ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"])
                       ])
                     ])
                   ]),
