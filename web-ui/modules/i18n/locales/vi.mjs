@@ -235,7 +235,11 @@ const vi = Object.freeze({
     'subtitle.settings': 'Quản lý tải xuống, thư mục và dữ liệu.',
     'subtitle.prompts': 'Chỉnh sửa AGENTS.md và CLAUDE.md.',
     'prompts.subTab.codex': 'AGENTS.md (Codex)',
-    'prompts.subTab.claude': 'CLAUDE.md (Claude)',
+    'prompts.subTab.project': 'CLAUDE.md',
+    'prompts.project.pathLabel': 'Đường dẫn dự án (tùy chọn)',
+    'prompts.project.selectPlaceholder': '-- Toàn cục (~/.claude/CLAUDE.md) --',
+    'prompts.project.manualPlaceholder': 'Hoặc nhập đường dẫn gốc dự án...',
+    'prompts.project.detected': 'Đang chỉnh sửa CLAUDE.md trong: {path}',
 
 
     // Task orchestration readiness
@@ -318,7 +322,7 @@ const vi = Object.freeze({
     'toast.save.ok': 'Đã lưu',
     'toast.save.fail': 'Lưu thất bại',
     'toast.agents.saved.agents': 'AGENTS.md đã lưu',
-    'toast.agents.saved.claudeMd': 'CLAUDE.md đã lưu',
+    'toast.agents.saved.claudeProject': 'CLAUDE.md dự án đã lưu',
     'toast.agents.saved.openclaw': 'OpenClaw AGENTS.md đã lưu',
     'toast.agents.saved.workspace': 'Tệp workspace đã lưu: {name}',
     'toast.delete.ok': 'Đã xóa',
@@ -379,6 +383,13 @@ const vi = Object.freeze({
     // Sessions
     'sessions.preview.openLink': 'Mở liên kết',
 
+    // Settings
+    'settings.timeline.style.title': 'Kiểu dòng thời gian',
+    'settings.timeline.style.meta': 'Chọn kiểu điều hướng dòng thời gian trong xem trước phiên',
+    'settings.timeline.style.dots': 'Chấm',
+    'settings.timeline.style.bar': 'Thanh',
+    'settings.timeline.style.hint': 'Chấm để điều hướng nhanh, Thanh để hiển thị tiến trình trực quan',
+
     // Diff / Agents hints
     'diff.hint.busy': 'Đang tạo diff hoặc áp dụng. Thao tác tạm thời bị vô hiệu hóa.',
     'diff.hint.failedBack': 'Xem trước diff thất bại. Hãy quay lại chỉnh sửa và thử lại.',
@@ -386,6 +397,12 @@ const vi = Object.freeze({
     'diff.hint.previewMode': 'Đang xem trước. Nhấp "Lưu" để ghi hoặc "Quay lại chỉnh sửa" để tiếp tục.',
     'modal.agents.unsaved.detectedHint': 'Phát hiện thay đổi chưa lưu: lưu trước khi đóng hoặc áp dụng.',
     'modal.agents.hint.twoStepSave': 'Lưu hai bước: "Xem trước" để kiểm tra diff, rồi "Lưu" để ghi.',
+    'modal.agents.title.claudeProject': 'CLAUDE.md dự án: {path}',
+    'modal.agents.hint.claudeProject': 'Nội dung sẽ được ghi vào CLAUDE.md trong dự án: {path}',
+    'modal.agents.title.claudeProjectGlobal': 'CLAUDE.md toàn cục',
+    'modal.agents.hint.claudeProjectGlobal': 'Nội dung sẽ được ghi vào ~/.claude/CLAUDE.md.',
+    'modal.agents.contentLabel.claudeProject': 'Nội dung CLAUDE.md',
+    'modal.agents.placeholder.claudeProject': 'Chỉnh sửa CLAUDE.md tại đây',
     'diff.viewHint.preview': 'Đang xem trước. Nhấp "Lưu" để ghi hoặc "Quay lại chỉnh sửa" để tiếp tục.',
     'diff.viewHint.truncated': 'Bỏ qua xem trước do nội dung quá lớn. Nhấp "Lưu" để ghi hoặc "Quay lại chỉnh sửa" để tiếp tục.',
 

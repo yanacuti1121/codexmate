@@ -74,6 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showConfigTemplateModal: false,
                 showAgentsModal: false,
                 promptsSubTab: 'codex',
+                projectClaudeMdPath: '',
+                projectPathOptions: [],
+                projectPathOptionsLoading: false,
                 showSkillsModal: false,
                 showHealthCheckModal: false,
                 showCodexBridgePoolModal: false,
@@ -228,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionTimelineLastAnchorY: 0,
                 sessionTimelineLastDirection: 0,
                 sessionTimelineEnabled: true,
+                sessionTimelineStyle: 'dots',
                 sessionMessageRefMap: Object.create(null),
                 sessionMessageRefBinderMap: Object.create(null),
                 sessionPreviewScrollEl: null,
@@ -268,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 healthCheckBatchFailed: 0,
                 installPackageManager: 'npm',
                 installCommandAction: 'install',
-                installRegistryPreset: 'default',
+                installRegistryPreset: 'npmmirror',
                 installRegistryCustom: '',
                 installStatusTargets: null,
                 appLatestVersion: '',
@@ -573,7 +577,23 @@ document.addEventListener('DOMContentLoaded', () => {
             this.shareCommandPrefix = this.normalizeShareCommandPrefix(localStorage.getItem('codexmateShareCommandPrefix'));
             this.sessionTrashEnabled = this.normalizeSessionTrashEnabled(localStorage.getItem('codexmateSessionTrashEnabled'));
             this.sessionTrashRetentionDays = this.normalizeSessionTrashRetentionDays(localStorage.getItem('codexmateSessionTrashRetentionDays'));
+            try {
+                var savedTimelineStyle = localStorage.getItem('codexmateSessionTimelineStyle');
+                this.sessionTimelineStyle = savedTimelineStyle === 'bar' ? 'bar' : 'dots';
+            } catch (_) {}
             this.configTemplateDiffConfirmEnabled = loadConfigTemplateDiffConfirmEnabledFromStorage(localStorage);
+            try {
+                var savedProjectPath = localStorage.getItem('codexmate_project_claude_md_path');
+                if (savedProjectPath) {
+                    this.projectClaudeMdPath = savedProjectPath;
+                }
+            } catch (_) {}
+            try {
+                var savedSubTab = localStorage.getItem('codexmate_prompts_sub_tab');
+                if (savedSubTab === 'codex' || savedSubTab === 'claude-project') {
+                    this.promptsSubTab = savedSubTab;
+                }
+            } catch (_) {}
             window.addEventListener('resize', this.onWindowResize);
             window.addEventListener('keydown', this.handleGlobalKeydown);
             window.addEventListener('beforeunload', this.handleBeforeUnload);
@@ -737,13 +757,28 @@ document.addEventListener('DOMContentLoaded', () => {
         watch: {
             mainTab(newTab) {
                 if (newTab === 'prompts' && typeof this.loadPromptsContent === 'function') {
+                    if (this.promptsSubTab === 'claude-project' && !this.projectPathOptions.length && !this.projectPathOptionsLoading && typeof this.loadProjectPathOptions === 'function') {
+                        this.loadProjectPathOptions();
+                    }
                     this.loadPromptsContent();
                 }
             },
-            promptsSubTab() {
+            promptsSubTab(newVal) {
+                try {
+                    localStorage.setItem('codexmate_prompts_sub_tab', newVal);
+                } catch (_) {}
                 if (this.mainTab === 'prompts' && typeof this.loadPromptsContent === 'function') {
                     this.loadPromptsContent();
                 }
+            },
+            projectClaudeMdPath(newPath) {
+                try {
+                    if (newPath) {
+                        localStorage.setItem('codexmate_project_claude_md_path', newPath);
+                    } else {
+                        localStorage.removeItem('codexmate_project_claude_md_path');
+                    }
+                } catch (_) {}
             }
         },
 

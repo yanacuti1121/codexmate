@@ -351,13 +351,13 @@ return function render(_ctx, _cache) {
                   ])
                 ], 42 /* CLASS, PROPS, NEED_HYDRATION */, ["aria-current", "onPointerdown", "onClick"]),
                 _createElementVNode("button", {
-                  id: "side-tab-prompts-claude",
+                  id: "side-tab-prompts-project",
                   "data-main-tab": "prompts",
-                  "data-prompts-sub-tab": "claude-md",
-                  "aria-current": _ctx.mainTab === 'prompts' && _ctx.promptsSubTab === 'claude-md' ? 'page' : null,
-                  class: _normalizeClass(['side-item', { active: _ctx.isMainTabNavActive('prompts') && _ctx.promptsSubTab === 'claude-md' }]),
+                  "data-prompts-sub-tab": "claude-project",
+                  "aria-current": _ctx.mainTab === 'prompts' && _ctx.promptsSubTab === 'claude-project' ? 'page' : null,
+                  class: _normalizeClass(['side-item', { active: _ctx.isMainTabNavActive('prompts') && _ctx.promptsSubTab === 'claude-project' }]),
                   onPointerdown: $event => (_ctx.onMainTabPointerDown('prompts', $event)),
-                  onClick: $event => {_ctx.switchPromptsSubTab('claude-md'); _ctx.onMainTabClick('prompts')}
+                  onClick: $event => {_ctx.switchPromptsSubTab('claude-project'); _ctx.onMainTabClick('prompts')}
                 }, [
                   _createElementVNode("div", { class: "side-item-title" }, _toDisplayString(_ctx.t('side.prompts.claude')), 1 /* TEXT */),
                   _createElementVNode("div", { class: "side-item-meta" }, [
@@ -707,7 +707,7 @@ return function render(_ctx, _cache) {
                           ]),
                           _createElementVNode("div", { class: "status-chip" }, [
                             _createElementVNode("span", { class: "label" }, _toDisplayString(_ctx.t('status.registry')), 1 /* TEXT */),
-                            _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.installRegistryPreview || _ctx.t('common.defaultOfficial')), 1 /* TEXT */)
+                            _createElementVNode("span", { class: "value" }, _toDisplayString(_ctx.installRegistryPreview || 'npmmirror'), 1 /* TEXT */)
                           ])
                         ]))
                       : (!_ctx.sessionStandalone)
@@ -3165,26 +3165,8 @@ return function render(_ctx, _cache) {
                                               "stroke-linecap": "round",
                                               "stroke-linejoin": "round"
                                             }, [
-                                              _createElementVNode("rect", {
-                                                x: "6",
-                                                y: "2.5",
-                                                width: "4",
-                                                height: "2",
-                                                rx: "1"
-                                              }),
-                                              _createElementVNode("path", { d: "M4.5 4h7a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5" }),
-                                              _createElementVNode("line", {
-                                                x1: "6",
-                                                y1: "7.5",
-                                                x2: "10",
-                                                y2: "7.5"
-                                              }),
-                                              _createElementVNode("line", {
-                                                x1: "6",
-                                                y1: "10",
-                                                x2: "10",
-                                                y2: "10"
-                                              })
+                                              _createElementVNode("path", { d: "M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5l-1 1" }),
+                                              _createElementVNode("path", { d: "M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5l1-1" })
                                             ]))
                                           ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"]),
                                           _createElementVNode("button", {
@@ -3223,26 +3205,7 @@ return function render(_ctx, _cache) {
                                             "stroke-linecap": "round",
                                             "stroke-linejoin": "round"
                                           }, [
-                                            _createElementVNode("rect", {
-                                              x: "6",
-                                              y: "2.5",
-                                              width: "4",
-                                              height: "2",
-                                              rx: "1"
-                                            }),
-                                            _createElementVNode("path", { d: "M4.5 4h7a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5" }),
-                                            _createElementVNode("line", {
-                                              x1: "6",
-                                              y1: "7.5",
-                                              x2: "10",
-                                              y2: "7.5"
-                                            }),
-                                            _createElementVNode("line", {
-                                              x1: "6",
-                                              y1: "10",
-                                              x2: "10",
-                                              y2: "10"
-                                            })
+                                            _createElementVNode("path", { d: "M2 5.5V12.5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7.5a1 1 0 0 0-1-1H8L6.5 5H3a1 1 0 0 0-1 1z" })
                                           ]))
                                         ], 8 /* PROPS */, ["onClick", "disabled", "title", "aria-label"])
                                       ])
@@ -3320,34 +3283,70 @@ return function render(_ctx, _cache) {
                                   (_ctx.sessionPreviewRenderEnabled && _ctx.sessionTimelineNodes.length)
                                     ? (_openBlock(), _createElementBlock("aside", {
                                         key: 0,
-                                        class: "session-timeline",
+                                        class: _normalizeClass(['session-timeline', 'session-timeline-' + _ctx.sessionTimelineStyle]),
                                         "aria-label": _ctx.t('sessions.timeline.aria')
                                       }, [
-                                        _createElementVNode("div", { class: "session-timeline-track" }),
-                                        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionTimelineNodes, (node, __, ___, _cached) => {
-                                          const _memo = ([_ctx.sessionTimelineActiveKey === node.key, node.safePercent, node.title])
-                                          if (_cached && _cached.key === 'timeline-' + node.key && _isMemoSame(_cached, _memo)) return _cached
-                                          const _item = (_openBlock(), _createElementBlock("button", {
-                                            key: 'timeline-' + node.key,
-                                            type: "button",
-                                            class: _normalizeClass(['session-timeline-node', { active: _ctx.sessionTimelineActiveKey === node.key }]),
-                                            "aria-current": _ctx.sessionTimelineActiveKey === node.key ? 'true' : null,
-                                            style: _normalizeStyle({ top: `${node.safePercent}%` }),
-                                            title: node.title,
-                                            onClick: $event => (_ctx.jumpToSessionTimelineNode(node.key))
-                                          }, [
-                                            _createElementVNode("span", { class: "sr-only" }, _toDisplayString(node.title), 1 /* TEXT */)
-                                          ], 14 /* CLASS, STYLE, PROPS */, ["aria-current", "title", "onClick"]))
-                                          _item.memo = _memo
-                                          return _item
-                                        }, _cache, 4), 128 /* KEYED_FRAGMENT */)),
-                                        (_ctx.sessionTimelineActiveTitle)
-                                          ? (_openBlock(), _createElementBlock("div", {
-                                              key: 0,
-                                              class: "session-timeline-current"
-                                            }, _toDisplayString(_ctx.sessionTimelineActiveTitle), 1 /* TEXT */))
-                                          : _createCommentVNode("v-if", true)
-                                      ], 8 /* PROPS */, ["aria-label"]))
+                                        _createCommentVNode(" 点状模式 "),
+                                        (_ctx.sessionTimelineStyle === 'dots')
+                                          ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
+                                              _createElementVNode("div", { class: "session-timeline-track" }),
+                                              (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionTimelineNodes, (node, __, ___, _cached) => {
+                                                const _memo = ([_ctx.sessionTimelineActiveKey === node.key, node.safePercent, node.title])
+                                                if (_cached && _cached.key === 'timeline-' + node.key && _isMemoSame(_cached, _memo)) return _cached
+                                                const _item = (_openBlock(), _createElementBlock("button", {
+                                                  key: 'timeline-' + node.key,
+                                                  type: "button",
+                                                  class: _normalizeClass(['session-timeline-node', { active: _ctx.sessionTimelineActiveKey === node.key }]),
+                                                  "aria-current": _ctx.sessionTimelineActiveKey === node.key ? 'true' : null,
+                                                  style: _normalizeStyle({ top: `${node.safePercent}%` }),
+                                                  title: node.title,
+                                                  onClick: $event => (_ctx.jumpToSessionTimelineNode(node.key))
+                                                }, [
+                                                  _createElementVNode("span", { class: "sr-only" }, _toDisplayString(node.title), 1 /* TEXT */)
+                                                ], 14 /* CLASS, STYLE, PROPS */, ["aria-current", "title", "onClick"]))
+                                                _item.memo = _memo
+                                                return _item
+                                              }, _cache, 4), 128 /* KEYED_FRAGMENT */)),
+                                              (_ctx.sessionTimelineActiveTitle)
+                                                ? (_openBlock(), _createElementBlock("div", {
+                                                    key: 0,
+                                                    class: "session-timeline-current"
+                                                  }, _toDisplayString(_ctx.sessionTimelineActiveTitle), 1 /* TEXT */))
+                                                : _createCommentVNode("v-if", true)
+                                            ], 64 /* STABLE_FRAGMENT */))
+                                          : (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [
+                                              _createCommentVNode(" 条状模式 "),
+                                              _createElementVNode("div", { class: "session-timeline-bar-track" }, [
+                                                _createElementVNode("div", {
+                                                  class: "session-timeline-bar-progress",
+                                                  style: _normalizeStyle({ height: _ctx.sessionTimelineProgressPercent + '%' })
+                                                }, null, 4 /* STYLE */)
+                                              ]),
+                                              (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.sessionTimelineNodes, (node, __, ___, _cached) => {
+                                                const _memo = ([_ctx.sessionTimelineActiveKey === node.key, node.safePercent, node.title])
+                                                if (_cached && _cached.key === 'timeline-bar-' + node.key && _isMemoSame(_cached, _memo)) return _cached
+                                                const _item = (_openBlock(), _createElementBlock("button", {
+                                                  key: 'timeline-bar-' + node.key,
+                                                  type: "button",
+                                                  class: _normalizeClass(['session-timeline-bar-node', { active: _ctx.sessionTimelineActiveKey === node.key }]),
+                                                  "aria-current": _ctx.sessionTimelineActiveKey === node.key ? 'true' : null,
+                                                  style: _normalizeStyle({ top: `${node.safePercent}%` }),
+                                                  title: node.title,
+                                                  onClick: $event => (_ctx.jumpToSessionTimelineNode(node.key))
+                                                }, [
+                                                  _createElementVNode("span", { class: "sr-only" }, _toDisplayString(node.title), 1 /* TEXT */)
+                                                ], 14 /* CLASS, STYLE, PROPS */, ["aria-current", "title", "onClick"]))
+                                                _item.memo = _memo
+                                                return _item
+                                              }, _cache, 6), 128 /* KEYED_FRAGMENT */)),
+                                              (_ctx.sessionTimelineActiveTitle)
+                                                ? (_openBlock(), _createElementBlock("div", {
+                                                    key: 0,
+                                                    class: "session-timeline-current"
+                                                  }, _toDisplayString(_ctx.sessionTimelineActiveTitle), 1 /* TEXT */))
+                                                : _createCommentVNode("v-if", true)
+                                            ], 64 /* STABLE_FRAGMENT */))
+                                      ], 10 /* CLASS, PROPS */, ["aria-label"]))
                                     : _createCommentVNode("v-if", true)
                                 ], 64 /* STABLE_FRAGMENT */))
                               : (_openBlock(), _createElementBlock("div", {
@@ -4528,11 +4527,6 @@ return function render(_ctx, _cache) {
                   _createElementVNode("div", { class: "install-action-tabs" }, [
                     _createElementVNode("button", {
                       type: "button",
-                      class: _normalizeClass(["btn-mini", { active: _ctx.installRegistryPreset === 'default' }]),
-                      onClick: $event => (_ctx.setInstallRegistryPreset('default'))
-                    }, _toDisplayString(_ctx.t('common.official')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
-                    _createElementVNode("button", {
-                      type: "button",
                       class: _normalizeClass(["btn-mini", { active: _ctx.installRegistryPreset === 'npmmirror' }]),
                       onClick: $event => (_ctx.setInstallRegistryPreset('npmmirror'))
                     }, "npmmirror", 10 /* CLASS, PROPS */, ["onClick"]),
@@ -4601,7 +4595,7 @@ return function render(_ctx, _cache) {
                 ]),
                 _createElementVNode("div", { class: "docs-summary-item docs-summary-item-wide" }, [
                   _createElementVNode("span", { class: "docs-summary-label" }, _toDisplayString(_ctx.t('common.registry')), 1 /* TEXT */),
-                  _createElementVNode("strong", { class: "docs-summary-value" }, _toDisplayString(_ctx.installRegistryPreview || _ctx.t('common.defaultOfficial')), 1 /* TEXT */)
+                  _createElementVNode("strong", { class: "docs-summary-value" }, _toDisplayString(_ctx.installRegistryPreview || 'npmmirror'), 1 /* TEXT */)
                 ])
               ])
             ]),
@@ -4843,6 +4837,30 @@ return function render(_ctx, _cache) {
                       ? (_openBlock(), _createElementBlock("span", { key: 0 }, _toDisplayString(_ctx.webhookConfig.url ? _ctx.t('settings.webhook.edit') : _ctx.t('settings.webhook.configure')), 1 /* TEXT */))
                       : (_openBlock(), _createElementBlock("span", { key: 1 }, _toDisplayString(_ctx.t('settings.webhook.enable')), 1 /* TEXT */))
                   ], 10 /* CLASS, PROPS */, ["onClick"])
+                ], 8 /* PROPS */, ["aria-label"]),
+                _createElementVNode("section", {
+                  class: "settings-card",
+                  "aria-label": _ctx.t('settings.timeline.style.title')
+                }, [
+                  _createElementVNode("div", { class: "settings-card-main" }, [
+                    _createElementVNode("div", { class: "settings-card-content" }, [
+                      _createElementVNode("div", { class: "settings-card-title" }, _toDisplayString(_ctx.t('settings.timeline.style.title')), 1 /* TEXT */),
+                      _createElementVNode("p", { class: "settings-card-desc" }, _toDisplayString(_ctx.t('settings.timeline.style.meta')), 1 /* TEXT */),
+                      _createElementVNode("div", { class: "settings-toggle-group" }, [
+                        _createElementVNode("button", {
+                          type: "button",
+                          class: _normalizeClass(['toggle-btn', { active: _ctx.sessionTimelineStyle === 'dots' }]),
+                          onClick: $event => (_ctx.setSessionTimelineStyle('dots'))
+                        }, _toDisplayString(_ctx.t('settings.timeline.style.dots')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
+                        _createElementVNode("button", {
+                          type: "button",
+                          class: _normalizeClass(['toggle-btn', { active: _ctx.sessionTimelineStyle === 'bar' }]),
+                          onClick: $event => (_ctx.setSessionTimelineStyle('bar'))
+                        }, _toDisplayString(_ctx.t('settings.timeline.style.bar')), 11 /* TEXT, CLASS, PROPS */, ["onClick"])
+                      ]),
+                      _createElementVNode("p", { class: "settings-card-hint" }, _toDisplayString(_ctx.t('settings.timeline.style.hint')), 1 /* TEXT */)
+                    ])
+                  ])
                 ], 8 /* PROPS */, ["aria-label"])
               ])
             ], 512 /* NEED_PATCH */), [
@@ -5977,10 +5995,46 @@ return function render(_ctx, _cache) {
                   }, _toDisplayString(_ctx.t('prompts.subTab.codex')), 11 /* TEXT, CLASS, PROPS */, ["onClick"]),
                   _createElementVNode("button", {
                     type: "button",
-                    class: _normalizeClass(['segment', { active: _ctx.promptsSubTab === 'claude-md' }]),
-                    onClick: $event => (_ctx.switchPromptsSubTab('claude-md'))
-                  }, _toDisplayString(_ctx.t('prompts.subTab.claude')), 11 /* TEXT, CLASS, PROPS */, ["onClick"])
+                    class: _normalizeClass(['segment', { active: _ctx.promptsSubTab === 'claude-project' }]),
+                    onClick: $event => (_ctx.switchPromptsSubTab('claude-project'))
+                  }, _toDisplayString(_ctx.t('prompts.subTab.project')), 11 /* TEXT, CLASS, PROPS */, ["onClick"])
                 ]),
+                (_ctx.promptsSubTab === 'claude-project')
+                  ? (_openBlock(), _createElementBlock("div", {
+                      key: 0,
+                      class: "project-path-selector"
+                    }, [
+                      _createElementVNode("label", { class: "project-path-label" }, _toDisplayString(_ctx.t('prompts.project.pathLabel')), 1 /* TEXT */),
+                      _createElementVNode("div", { class: "project-path-row" }, [
+                        _createElementVNode("select", {
+                          class: "form-input project-path-select",
+                          value: _ctx.projectClaudeMdPath,
+                          onChange: $event => (_ctx.selectProjectClaudeMdPath($event.target.value))
+                        }, [
+                          _createElementVNode("option", { value: "" }, _toDisplayString(_ctx.t('prompts.project.selectPlaceholder')), 1 /* TEXT */),
+                          (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.projectPathOptions, (p) => {
+                            return (_openBlock(), _createElementBlock("option", {
+                              key: p,
+                              value: p
+                            }, _toDisplayString(p), 9 /* TEXT, PROPS */, ["value"]))
+                          }), 128 /* KEYED_FRAGMENT */))
+                        ], 40 /* PROPS, NEED_HYDRATION */, ["value", "onChange"]),
+                        _createElementVNode("input", {
+                          type: "text",
+                          class: "form-input project-path-manual",
+                          placeholder: _ctx.t('prompts.project.manualPlaceholder'),
+                          value: _ctx.projectClaudeMdPath,
+                          onChange: $event => (_ctx.setProjectClaudeMdPathManual($event.target.value))
+                        }, null, 40 /* PROPS, NEED_HYDRATION */, ["placeholder", "value", "onChange"])
+                      ]),
+                      (_ctx.projectClaudeMdPath)
+                        ? (_openBlock(), _createElementBlock("div", {
+                            key: 0,
+                            class: "form-hint project-path-detected"
+                          }, _toDisplayString(_ctx.t('prompts.project.detected', { path: _ctx.projectClaudeMdPath })), 1 /* TEXT */))
+                        : _createCommentVNode("v-if", true)
+                    ]))
+                  : _createCommentVNode("v-if", true),
                 _createElementVNode("div", { class: "prompts-editor" }, [
                   _createElementVNode("div", { class: "prompts-editor-toolbar" }, [
                     _createElementVNode("div", { class: "form-hint" }, [
@@ -5994,38 +6048,135 @@ return function render(_ctx, _cache) {
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.exportAgentsContent,
-                          disabled: _ctx.agentsLoading
-                        }, _toDisplayString(_ctx.t('modal.agents.export')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                          disabled: _ctx.agentsLoading,
+                          title: _ctx.t('modal.agents.export')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("path", { d: "M12 3v12M8 11l4 4 4-4M4 17v2h16v-2" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"]),
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.copyAgentsContent,
-                          disabled: _ctx.agentsLoading
-                        }, _toDisplayString(_ctx.t('modal.agents.copy')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                          disabled: _ctx.agentsLoading,
+                          title: _ctx.t('modal.agents.copy')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("rect", {
+                              x: "9",
+                              y: "9",
+                              width: "13",
+                              height: "13",
+                              rx: "2"
+                            }),
+                            _createElementVNode("path", { d: "M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"]),
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.pasteAgentsContent,
-                          disabled: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible
-                        }, _toDisplayString(_ctx.t('common.paste')), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                          disabled: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible,
+                          title: _ctx.t('common.paste')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("rect", {
+                              x: "8",
+                              y: "2",
+                              width: "8",
+                              height: "4",
+                              rx: "1"
+                            }),
+                            _createElementVNode("path", { d: "M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"])
                       ]),
                       _createElementVNode("div", { class: "prompts-editor-group prompts-editor-group--workflow" }, [
                         _createElementVNode("button", {
                           class: "btn-mini",
                           onClick: _ctx.loadPromptsContent,
-                          disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
-                        }, _toDisplayString(_ctx.t('common.cancel')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]),
+                          disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading,
+                          title: _ctx.t('common.cancel')
+                        }, [
+                          (_openBlock(), _createElementBlock("svg", {
+                            class: "btn-icon-sm",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            "stroke-width": "2"
+                          }, [
+                            _createElementVNode("path", { d: "M18 6L6 18M6 6l12 12" })
+                          ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"]),
                         (_ctx.agentsDiffVisible)
                           ? (_openBlock(), _createElementBlock("button", {
                               key: 0,
                               class: "btn-mini",
                               onClick: _ctx.resetAgentsDiffState,
-                              disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading
-                            }, _toDisplayString(_ctx.t('common.backToEdit')), 9 /* TEXT, PROPS */, ["onClick", "disabled"]))
+                              disabled: _ctx.agentsSaving || _ctx.agentsDiffLoading,
+                              title: _ctx.t('common.backToEdit')
+                            }, [
+                              (_openBlock(), _createElementBlock("svg", {
+                                class: "btn-icon-sm",
+                                viewBox: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                "stroke-width": "2"
+                              }, [
+                                _createElementVNode("path", { d: "M19 12H5M12 19l-7-7 7-7" })
+                              ]))
+                            ], 8 /* PROPS */, ["onClick", "disabled", "title"]))
                           : _createCommentVNode("v-if", true),
                         _createElementVNode("button", {
                           class: "btn-mini btn-confirm-mini",
                           onClick: _ctx.applyAgentsContent,
-                          disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (!_ctx.agentsDiffVisible && !_ctx.hasAgentsContentChanged()) || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges)
-                        }, _toDisplayString(_ctx.agentsSaving ? (_ctx.agentsDiffVisible ? _ctx.t('common.saving') : _ctx.t('common.previewing')) : (_ctx.agentsDiffVisible ? _ctx.t('common.save') : _ctx.t('common.preview'))), 9 /* TEXT, PROPS */, ["onClick", "disabled"])
+                          disabled: _ctx.agentsSaving || _ctx.agentsLoading || _ctx.agentsDiffLoading || (!_ctx.agentsDiffVisible && !_ctx.hasAgentsContentChanged()) || (_ctx.agentsDiffVisible && !_ctx.agentsDiffHasChanges),
+                          title: _ctx.agentsDiffVisible ? _ctx.t('common.save') : _ctx.t('common.preview')
+                        }, [
+                          (_ctx.agentsDiffVisible)
+                            ? (_openBlock(), _createElementBlock("svg", {
+                                key: 0,
+                                class: "btn-icon-sm",
+                                viewBox: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                "stroke-width": "2"
+                              }, [
+                                _createElementVNode("path", { d: "M20 6L9 17l-5-5" })
+                              ]))
+                            : (_openBlock(), _createElementBlock("svg", {
+                                key: 1,
+                                class: "btn-icon-sm",
+                                viewBox: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                "stroke-width": "2"
+                              }, [
+                                _createElementVNode("path", { d: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" }),
+                                _createElementVNode("circle", {
+                                  cx: "12",
+                                  cy: "12",
+                                  r: "3"
+                                })
+                              ]))
+                        ], 8 /* PROPS */, ["onClick", "disabled", "title"])
                       ])
                     ])
                   ]),
@@ -6099,7 +6250,7 @@ return function render(_ctx, _cache) {
                         spellcheck: "false",
                         readonly: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible,
                         onInput: _ctx.onAgentsContentInput,
-                        placeholder: _ctx.t(_ctx.promptsSubTab === 'claude-md' ? 'modal.agents.placeholder.claudeMd' : 'modal.agents.placeholder')
+                        placeholder: _ctx.t(_ctx.promptsSubTab === 'claude-project' ? 'modal.agents.placeholder.claudeProject' : 'modal.agents.placeholder')
                       }, null, 40 /* PROPS, NEED_HYDRATION */, ["onUpdate:modelValue", "readonly", "onInput", "placeholder"]), [
                         [_vModelText, _ctx.agentsContent]
                       ])
@@ -7970,7 +8121,7 @@ return function render(_ctx, _cache) {
                 ])
               ]),
               _createElementVNode("div", { class: "form-group" }, [
-                _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t(_ctx.agentsContext === 'claude-md' ? 'modal.agents.contentLabel.claudeMd' : 'modal.agents.contentLabel')), 1 /* TEXT */),
+                _createElementVNode("label", { class: "form-label" }, _toDisplayString(_ctx.t(_ctx.agentsContext === 'claude-project' ? 'modal.agents.contentLabel.claudeProject' : 'modal.agents.contentLabel')), 1 /* TEXT */),
                 (!_ctx.agentsLoading && (_ctx.hasAgentsContentChanged() || _ctx.agentsDiffVisible))
                   ? (_openBlock(), _createElementBlock("div", {
                       key: 0,
@@ -8030,7 +8181,7 @@ return function render(_ctx, _cache) {
                   spellcheck: "false",
                   readonly: _ctx.agentsLoading || _ctx.agentsSaving || _ctx.agentsDiffVisible,
                   onInput: _ctx.onAgentsContentInput,
-                  placeholder: _ctx.t(_ctx.agentsContext === 'claude-md' ? 'modal.agents.placeholder.claudeMd' : 'modal.agents.placeholder')
+                  placeholder: _ctx.t(_ctx.agentsContext === 'claude-project' ? 'modal.agents.placeholder.claudeProject' : 'modal.agents.placeholder')
                 }, null, 40 /* PROPS, NEED_HYDRATION */, ["onUpdate:modelValue", "readonly", "onInput", "placeholder"]), [
                   [_vModelText, _ctx.agentsContent]
                 ]),

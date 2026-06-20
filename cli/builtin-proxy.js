@@ -66,6 +66,44 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
     let runtime = null;
 
+    const DEFAULT_CODEX_VERSION = '0.98.0';
+    const DEFAULT_CODEX_USER_AGENT = 'codex_cli_rs/0.98.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464';
+    const DEFAULT_CODEX_ORIGINATOR = 'codex_cli_rs';
+    const DEFAULT_OPENAI_BETA = 'responses=experimental';
+
+    function firstHeaderValue(req, name) {
+        if (!req || !req.headers || typeof req.headers !== 'object') return '';
+        const value = req.headers[String(name || '').toLowerCase()];
+        if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : '';
+        return typeof value === 'string' ? value : '';
+    }
+
+    function resolveCodexUserAgent(req) {
+        const incoming = firstHeaderValue(req, 'user-agent').trim();
+        if (/^(codex_cli_rs|codex-cli)\//i.test(incoming)) return incoming;
+        return DEFAULT_CODEX_USER_AGENT;
+    }
+
+    function resolveCodexOriginator() {
+        // Some Codex-only upstreams validate Originator separately from User-Agent.
+        // The local TUI may send values such as `codex-tui`, but upstream Codex
+        // gates commonly expect the official Rust CLI originator token.
+        return DEFAULT_CODEX_ORIGINATOR;
+    }
+
+    function codexUpstreamHeaders(req, upstream) {
+        const version = firstHeaderValue(req, 'version').trim() || DEFAULT_CODEX_VERSION;
+        const openaiBeta = firstHeaderValue(req, 'openai-beta').trim() || DEFAULT_OPENAI_BETA;
+        return {
+            ...(upstream && upstream.authHeader ? { 'Authorization': upstream.authHeader } : {}),
+            'User-Agent': resolveCodexUserAgent(req),
+            'Version': version,
+            'OpenAI-Beta': openaiBeta,
+            'Originator': resolveCodexOriginator(),
+            'X-Codexmate-Proxy': '1'
+        };
+    }
+
     function readRequestBody(req, maxBytes) {
         return new Promise((resolve) => {
             let body = '';
@@ -902,7 +940,6 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             'n',
             'modalities',
             'audio',
-            'reasoning',
             'reasoning_effort',
             'service_tier'
         ];
@@ -926,16 +963,33 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         if (isRecord(source.text) && asTrimmedString(source.text.verbosity)) {
             chatBody.verbosity = asTrimmedString(source.text.verbosity);
         }
+        if (isRecord(source.reasoning) && asTrimmedString(source.reasoning.effort)) {
+            chatBody.reasoning_effort = asTrimmedString(source.reasoning.effort);
+        }
 
         pruneInvalidChatToolChoice(chatBody);
 
-        if (Object.prototype.hasOwnProperty.call(source, 'max_tokens')) {
+        if (Object.prototype.hasOwnProperty.call(source, 'max_completion_tokens')) {
+            chatBody.max_tokens = Math.max(128, Number(source.max_completion_tokens) || 0);
+        } else if (Object.prototype.hasOwnProperty.call(source, 'max_tokens')) {
             chatBody.max_tokens = source.max_tokens;
         } else if (source.max_output_tokens != null) {
             chatBody.max_tokens = source.max_output_tokens;
         }
 
         return chatBody;
+    }
+
+    function normalizeResponsesPayloadForUpstream(payload, stream) {
+        const source = isRecord(payload) ? payload : {};
+        const normalized = { ...source, stream };
+        if (isRecord(source.reasoning)) {
+            const include = Array.isArray(source.include) ? source.include.filter((item) => typeof item === 'string') : [];
+            if (!include.includes('reasoning.encrypted_content')) {
+                normalized.include = [...include, 'reasoning.encrypted_content'];
+            }
+        }
+        return normalized;
     }
 
     function ensureResponseMetadata(payload) {
@@ -961,6 +1015,112 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             return;
         }
         res.write(`data: ${JSON.stringify(dataObj)}\n\n`);
+    }
+
+    function buildResponsesSseItem(item, fallbackId) {
+        const source = isRecord(item) ? item : {};
+        const itemId = asTrimmedString(source.id || source.call_id) || fallbackId || `item_${crypto.randomBytes(8).toString('hex')}`;
+        if (source.type === 'message') {
+            return {
+                ...source,
+                id: itemId,
+                role: source.role || 'assistant',
+                content: Array.isArray(source.content)
+                    ? source.content.map((part) => {
+                        if (!isRecord(part)) return part;
+                        if (part.type !== 'output_text') return cloneJsonValue(part);
+                        return {
+                            ...part,
+                            text: typeof part.text === 'string' ? part.text : '',
+                            annotations: Array.isArray(part.annotations) ? part.annotations : [],
+                            logprobs: Array.isArray(part.logprobs) ? part.logprobs : []
+                        };
+                    })
+                    : []
+            };
+        }
+        if (source.type === 'reasoning') {
+            return {
+                ...source,
+                id: itemId,
+                summary: Array.isArray(source.summary) ? source.summary : []
+            };
+        }
+        if (source.type === 'function_call') {
+            return {
+                ...source,
+                id: itemId,
+                call_id: asTrimmedString(source.call_id) || itemId,
+                name: asTrimmedString(source.name),
+                arguments: typeof source.arguments === 'string' ? source.arguments : ''
+            };
+        }
+        if (source.type === 'custom_tool_call') {
+            return {
+                ...source,
+                id: itemId,
+                call_id: asTrimmedString(source.call_id) || itemId,
+                name: asTrimmedString(source.name),
+                input: typeof source.input === 'string' ? source.input : ''
+            };
+        }
+        return { ...source, id: itemId };
+    }
+
+    function emitResponsesTextPartAdded(res, itemId, outputIndex, contentIndex, nextSeq) {
+        writeSse(res, 'response.content_part.added', {
+            type: 'response.content_part.added',
+            item_id: itemId,
+            output_index: outputIndex,
+            content_index: contentIndex,
+            part: { type: 'output_text', text: '', annotations: [], logprobs: [] },
+            sequence_number: nextSeq()
+        });
+    }
+
+    function emitResponsesTextPartDone(res, itemId, outputIndex, contentIndex, text, nextSeq) {
+        writeSse(res, 'response.content_part.done', {
+            type: 'response.content_part.done',
+            item_id: itemId,
+            output_index: outputIndex,
+            content_index: contentIndex,
+            part: { type: 'output_text', text: typeof text === 'string' ? text : '', annotations: [], logprobs: [] },
+            sequence_number: nextSeq()
+        });
+    }
+
+    function emitResponsesToolArgumentEvents(res, item, outputIndex, nextSeq) {
+        const eventType = item.type === 'custom_tool_call'
+            ? 'response.custom_tool_call_input.delta'
+            : 'response.function_call_arguments.delta';
+        const doneType = item.type === 'custom_tool_call'
+            ? ''
+            : 'response.function_call_arguments.done';
+        const value = item.type === 'custom_tool_call'
+            ? (typeof item.input === 'string' ? item.input : '')
+            : (typeof item.arguments === 'string' ? item.arguments : '');
+        if (value) {
+            writeSse(res, eventType, {
+                type: eventType,
+                item_id: item.id,
+                output_index: outputIndex,
+                call_id: item.call_id,
+                name: item.name,
+                delta: value,
+                sequence_number: nextSeq()
+            });
+        }
+        if (doneType) {
+            writeSse(res, doneType, {
+                type: doneType,
+                item_id: item.id,
+                output_index: outputIndex,
+                call_id: item.call_id,
+                name: item.name,
+                arguments: value,
+                sequence_number: nextSeq()
+            });
+        }
     }
 
     function sendResponsesSse(res, responsePayload) {
@@ -989,12 +1149,14 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             const itemType = typeof item.type === 'string' ? item.type : '';
             const itemId = typeof item.id === 'string' && item.id.trim()
                 ? item.id.trim()
-                : `item_${crypto.randomBytes(8).toString('hex')}`;
+                : (typeof item.call_id === 'string' && item.call_id.trim() ? item.call_id.trim() : `item_${crypto.randomBytes(8).toString('hex')}`);
+            const wireItem = buildResponsesSseItem(item, itemId);
 
             writeSse(res, 'response.output_item.added', {
                 type: 'response.output_item.added',
                 output_index: outputIndex,
-                item: { ...item, id: itemId }
+                item: wireItem,
+                sequence_number: nextSeq()
             });
 
             if (itemType === 'message') {
@@ -1004,6 +1166,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     if (!block || typeof block !== 'object') continue;
                     if (block.type !== 'output_text') continue;
                     const text = typeof block.text === 'string' ? block.text : '';
+                    emitResponsesTextPartAdded(res, itemId, outputIndex, contentIndex, nextSeq);
                     if (text) {
                         writeSse(res, 'response.output_text.delta', {
                             type: 'response.output_text.delta',
@@ -1022,13 +1185,40 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         text,
                         sequence_number: nextSeq()
                     });
+                    emitResponsesTextPartDone(res, itemId, outputIndex, contentIndex, text, nextSeq);
+                }
+            } else if (itemType === 'function_call' || itemType === 'custom_tool_call') {
+                emitResponsesToolArgumentEvents(res, wireItem, outputIndex, nextSeq);
+            } else if (itemType === 'reasoning') {
+                const summary = Array.isArray(item.summary) ? item.summary : [];
+                for (let summaryIndex = 0; summaryIndex < summary.length; summaryIndex += 1) {
+                    const block = summary[summaryIndex];
+                    const text = block && typeof block.text === 'string' ? block.text : '';
+                    if (text) {
+                        writeSse(res, 'response.reasoning_summary_text.delta', {
+                            type: 'response.reasoning_summary_text.delta',
+                            item_id: itemId,
+                            output_index: outputIndex,
+                            summary_index: summaryIndex,
+                            delta: text,
+                            sequence_number: nextSeq()
+                        });
+                    }
+                    writeSse(res, 'response.reasoning_summary_text.done', {
+                        type: 'response.reasoning_summary_text.done',
+                        item_id: itemId,
+                        output_index: outputIndex,
+                        summary_index: summaryIndex,
+                        text,
+                        sequence_number: nextSeq()
+                    });
                 }
             }
 
             writeSse(res, 'response.output_item.done', {
                 type: 'response.output_item.done',
                 output_index: outputIndex,
-                item: { ...item, id: itemId },
+                item: wireItem,
                 sequence_number: nextSeq()
             });
         }
@@ -1067,6 +1257,40 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             const delta = choice && choice.delta && typeof choice.delta === 'object' ? choice.delta : null;
             if (!delta) continue;
 
+            const reasoningSegment = typeof delta.reasoning_content === 'string'
+                ? delta.reasoning_content
+                : (typeof delta.reasoning === 'string'
+                    ? delta.reasoning
+                    : (typeof delta.reasoning_text === 'string' ? delta.reasoning_text : ''));
+            if (reasoningSegment) {
+                if (!state.reasoningItem) {
+                    state.reasoningItem = {
+                        id: `rs_${crypto.randomBytes(8).toString('hex')}`,
+                        type: 'reasoning',
+                        summary: [{ type: 'summary_text', text: '' }]
+                    };
+                    state.output.push(state.reasoningItem);
+                    state.outputStarted = true;
+                    beginChatStreamResponsesSse(state);
+                    writeSse(state.res, 'response.output_item.added', {
+                        type: 'response.output_item.added',
+                        output_index: state.output.length - 1,
+                        item: buildResponsesSseItem(state.reasoningItem, state.reasoningItem.id),
+                        sequence_number: state.nextSeq()
+                    });
+                }
+                state.reasoningText += reasoningSegment;
+                state.reasoningItem.summary[0].text = state.reasoningText;
+                writeSse(state.res, 'response.reasoning_summary_text.delta', {
+                    type: 'response.reasoning_summary_text.delta',
+                    item_id: state.reasoningItem.id,
+                    output_index: state.output.indexOf(state.reasoningItem),
+                    summary_index: 0,
+                    delta: reasoningSegment,
+                    sequence_number: state.nextSeq()
+                });
+            }
+
             if (typeof delta.content === 'string' && delta.content) {
                 if (!state.messageItem) {
                     state.messageItem = {
@@ -1081,8 +1305,10 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     writeSse(state.res, 'response.output_item.added', {
                         type: 'response.output_item.added',
                         output_index: state.output.length - 1,
-                        item: state.messageItem
+                        item: buildResponsesSseItem(state.messageItem, state.messageItem.id),
+                        sequence_number: state.nextSeq()
                     });
+                    emitResponsesTextPartAdded(state.res, state.messageItem.id, state.output.length - 1, 0, state.nextSeq);
                 }
                 state.messageText += delta.content;
                 state.messageItem.content[0].text = state.messageText;
@@ -1134,6 +1360,24 @@ function createBuiltinProxyRuntimeController(deps = {}) {
         state.finished = true;
         stopChatStreamHeartbeat(state);
 
+        if (state.reasoningItem) {
+            const outputIndex = state.output.indexOf(state.reasoningItem);
+            writeSse(state.res, 'response.reasoning_summary_text.done', {
+                type: 'response.reasoning_summary_text.done',
+                item_id: state.reasoningItem.id,
+                output_index: outputIndex,
+                summary_index: 0,
+                text: state.reasoningText,
+                sequence_number: state.nextSeq()
+            });
+            writeSse(state.res, 'response.output_item.done', {
+                type: 'response.output_item.done',
+                output_index: outputIndex,
+                item: buildResponsesSseItem(state.reasoningItem, state.reasoningItem.id),
+                sequence_number: state.nextSeq()
+            });
+        }
+
         if (state.messageItem) {
             const outputIndex = state.output.indexOf(state.messageItem);
             writeSse(state.res, 'response.output_text.done', {
@@ -1144,10 +1388,11 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                 text: state.messageText,
                 sequence_number: state.nextSeq()
             });
+            emitResponsesTextPartDone(state.res, state.messageItem.id, outputIndex, 0, state.messageText, state.nextSeq);
             writeSse(state.res, 'response.output_item.done', {
                 type: 'response.output_item.done',
                 output_index: outputIndex,
-                item: state.messageItem,
+                item: buildResponsesSseItem(state.messageItem, state.messageItem.id),
                 sequence_number: state.nextSeq()
             });
         }
@@ -1162,12 +1407,14 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             writeSse(state.res, 'response.output_item.added', {
                 type: 'response.output_item.added',
                 output_index: outputIndex,
-                item
+                item: buildResponsesSseItem(item, item.call_id),
+                sequence_number: state.nextSeq()
             });
+            emitResponsesToolArgumentEvents(state.res, buildResponsesSseItem(item, item.call_id), outputIndex, state.nextSeq);
             writeSse(state.res, 'response.output_item.done', {
                 type: 'response.output_item.done',
                 output_index: outputIndex,
-                item,
+                item: buildResponsesSseItem(item, item.call_id),
                 sequence_number: state.nextSeq()
             });
         }
@@ -1244,6 +1491,8 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             output: [],
             messageItem: null,
             messageText: '',
+            reasoningItem: null,
+            reasoningText: '',
             toolCalls: [],
             toolTypesByName: options.toolTypesByName || {},
             finished: false,
@@ -1425,6 +1674,127 @@ function createBuiltinProxyRuntimeController(deps = {}) {
             if (bodyText) req.write(bodyText);
             req.end();
         });
+    }
+
+    function streamResponsesSse(targetUrl, options = {}) {
+        const parsed = new URL(targetUrl);
+        const transport = parsed.protocol === 'https:' ? https : http;
+        const bodyText = options.body ? JSON.stringify(options.body) : '';
+        const headers = {
+            'Accept': 'text/event-stream',
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+        };
+        if (options.body) {
+            headers['Content-Length'] = Buffer.byteLength(bodyText, 'utf-8');
+        }
+        const timeoutMs = Number.isFinite(options.timeoutMs)
+            ? Math.max(1000, Number(options.timeoutMs))
+            : 30000;
+        const res = options.res;
+
+        return new Promise((resolve) => {
+            let settled = false;
+            let streamAccepted = false;
+            const finish = (value) => {
+                if (settled) return;
+                settled = true;
+                resolve(value);
+            };
+            const req = transport.request({
+                protocol: parsed.protocol,
+                hostname: parsed.hostname,
+                port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+                method: options.method || 'POST',
+                path: `${parsed.pathname}${parsed.search}`,
+                headers,
+                agent: parsed.protocol === 'https:' ? HTTPS_KEEP_ALIVE_AGENT : HTTP_KEEP_ALIVE_AGENT
+            }, (upstreamRes) => {
+                const status = upstreamRes.statusCode || 0;
+                const chunks = [];
+                const contentType = String(upstreamRes.headers && upstreamRes.headers['content-type'] || '');
+
+                const collectBody = (done) => {
+                    upstreamRes.on('data', (chunk) => chunk && chunks.push(chunk));
+                    upstreamRes.on('end', () => done(chunks.length ? Buffer.concat(chunks).toString('utf-8') : ''));
+                };
+
+                upstreamRes.on('error', (err) => finish({ ok: false, error: err && err.message ? err.message : 'upstream stream failed' }));
+                upstreamRes.on('aborted', () => finish({ ok: false, retryTransient: true, error: 'upstream stream aborted' }));
+
+                if (status === 404 || status === 405) {
+                    collectBody((bodyTextResult) => finish({ retry: true, status, bodyText: bodyTextResult }));
+                    return;
+                }
+
+                if (status >= 400) {
+                    collectBody((bodyTextResult) => finish({ ok: false, status, bodyText: bodyTextResult }));
+                    return;
+                }
+
+                if (/text\/event-stream/i.test(contentType)) {
+                    streamAccepted = true;
+                    req.setTimeout(0);
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    });
+                    upstreamRes.on('data', (chunk) => {
+                        if (chunk && !res.writableEnded) res.write(chunk);
+                    });
+                    upstreamRes.on('end', () => {
+                        if (!res.writableEnded) res.end();
+                        finish({ ok: true });
+                    });
+                    return;
+                }
+
+                collectBody((text) => {
+                    const parsedJson = parseJsonOrError(text);
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    });
+                    if (parsedJson.error) {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: `invalid upstream response: ${parsedJson.error}` });
+                        writeSse(res, 'done', '[DONE]');
+                        res.end();
+                        finish({ ok: true });
+                        return;
+                    }
+                    sendResponsesSse(res, ensureResponseMetadata(parsedJson.value));
+                    res.end();
+                    finish({ ok: true });
+                });
+            });
+            req.setTimeout(timeoutMs, () => {
+                if (streamAccepted) return;
+                try { req.destroy(new Error('timeout')); } catch (_) {}
+                finish({ ok: false, error: 'timeout' });
+            });
+            req.on('error', (err) => finish({ ok: false, error: err && err.message ? err.message : 'request failed' }));
+            if (bodyText) req.write(bodyText);
+            req.end();
+        });
+    }
+
+    async function streamResponsesSseWithFallbackUrls(baseUrl, pathSuffix, options = {}) {
+        const urls = buildUpstreamUrlCandidates(baseUrl, pathSuffix);
+        if (urls.length === 0) {
+            return { ok: false, error: 'failed to build upstream URL' };
+        }
+        let lastResult = null;
+        for (const url of urls) {
+            const result = await retryTransientRequest(() => streamResponsesSse(url, options));
+            lastResult = result;
+            if (result && result.retry) continue;
+            return result;
+        }
+        return lastResult || { ok: false, error: 'failed to build upstream URL' };
     }
 
     async function streamChatCompletionsAsResponsesSseWithFallbackUrls(baseUrl, pathSuffix, options = {}) {
@@ -1793,8 +2163,8 @@ function createBuiltinProxyRuntimeController(deps = {}) {
 
             // Responses shim：
             // - Codex CLI 默认走 /v1/responses（含 SSE）
-            // - SSE/streaming 任务优先走 chat/completions fallback，避免卡在会接收但不产出 Responses 的兼容网关
-            // - 非流式请求仍优先尝试 /v1/responses（stream=false），失败再转换到 chat/completions 并回包为 responses。
+            // - SSE/streaming 任务优先保持 /v1/responses，避免 Codex-only upstream 把 fallback 后的 chat/completions 链路误判为非 Codex 客户端
+            // - 仅在上游明确不支持 Responses 时，才转换到 chat/completions 并回包为 responses。
             if ((incomingPath === '/v1/responses' || incomingPath === '/v1/responses/') && (req.method || 'GET').toUpperCase() === 'POST') {
                 void (async () => {
                     const { body, error } = await readRequestBody(req, 10 * 1024 * 1024);
@@ -1813,16 +2183,38 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                     const payload = parsed.value && typeof parsed.value === 'object' ? parsed.value : {};
                     const wantsStream = payload.stream === true;
 
-                    const commonHeaders = {
-                        ...(upstream.authHeader ? { 'Authorization': upstream.authHeader } : {}),
-                        'X-Codexmate-Proxy': '1'
-                    };
+                    const commonHeaders = codexUpstreamHeaders(req, upstream);
 
                     const model = typeof payload.model === 'string' ? payload.model : '';
                     const chatBody = buildChatCompletionsBodyFromResponsesPayload(payload);
                     const toolTypesByName = collectResponsesToolTypesByName(payload.tools);
 
                     if (wantsStream) {
+                        const streamedResponses = await streamResponsesSseWithFallbackUrls(upstream.baseUrl, 'responses', {
+                            method: 'POST',
+                            headers: commonHeaders,
+                            timeoutMs,
+                            body: normalizeResponsesPayloadForUpstream(payload, true),
+                            res,
+                            model
+                        });
+                        if (streamedResponses.ok) return;
+                        const canFallbackToChat = streamedResponses.status
+                            ? shouldFallbackFromUpstreamResponses(streamedResponses.status, streamedResponses.bodyText)
+                            : false;
+                        if (!canFallbackToChat) {
+                            if (!res.headersSent) {
+                                const status = streamedResponses.status && streamedResponses.status >= 400 ? streamedResponses.status : 502;
+                                res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+                                res.end(streamedResponses.bodyText || JSON.stringify({ error: streamedResponses.error || 'proxy request failed' }));
+                            } else if (!res.writableEnded) {
+                                writeSse(res, 'response.failed', { type: 'response.failed', error: streamedResponses.error || streamedResponses.bodyText || 'proxy request failed' });
+                                writeSse(res, 'done', '[DONE]');
+                                res.end();
+                            }
+                            return;
+                        }
+
                         const streamingChatBody = { ...chatBody, stream: true };
                         const streamed = await streamChatCompletionsAsResponsesSseWithFallbackUrls(upstream.baseUrl, 'chat/completions', {
                             method: 'POST',
@@ -1850,7 +2242,7 @@ function createBuiltinProxyRuntimeController(deps = {}) {
                         method: 'POST',
                         headers: commonHeaders,
                         timeoutMs,
-                        body: { ...payload, stream: false }
+                        body: normalizeResponsesPayloadForUpstream(payload, false)
                     });
 
                     // 优先走上游 /responses（如果支持）。若上游报错且不是“端点不支持”，则直接透传错误。

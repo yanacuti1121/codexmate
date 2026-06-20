@@ -92,31 +92,100 @@ test('openai-bridge GET /v1 returns local bridge status without probing upstream
     await rm(tmpDir, { recursive: true, force: true });
 });
 
-test('openai-bridge streams chat/completions directly when Responses client requests SSE', async () => {
+test('openai-bridge keeps streaming Codex requests on upstream Responses before chat fallback', async () => {
     let responsesHit = false;
-    let capturedChatRequest = null;
+    let chatHit = false;
+    let capturedResponsesHeaders = null;
     const upstream = http.createServer((req, res) => {
         if (req.url === '/v1/responses' && req.method === 'POST') {
             responsesHit = true;
-            // Simulate gateways that accept /responses but never produce a usable response.
+            capturedResponsesHeaders = req.headers;
+            // A hanging Responses endpoint is not proof that Responses is unsupported.
+            // Do not silently route Codex-only requests into chat/completions.
             return;
         }
         if (req.url === '/v1/chat/completions' && req.method === 'POST') {
-            let body = '';
-            req.on('data', (c) => (body += c));
-            req.on('end', () => {
-                capturedChatRequest = JSON.parse(body || '{}');
-                res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
-                res.write('data: {"id":"chatcmpl_stream","model":"gpt-test","choices":[{"delta":{"role":"assistant"}}]}\n\n');
-                res.write('data: {"id":"chatcmpl_stream","model":"gpt-test","choices":[{"delta":{"content":"hello"}}]}\n\n');
-                res.write('data: {"id":"chatcmpl_stream","model":"gpt-test","choices":[{"delta":{"content":"-bridge"}}]}\n\n');
-                res.end('data: [DONE]\n\n');
-            });
+            chatHit = true;
+            res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+            res.end('data: [DONE]\n\n');
             return;
         }
         if (req.url === '/v1/models' && req.method === 'GET') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ object: 'list', data: [] }));
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate', streamTimeoutMs: 1000 });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const base = `http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`;
+    const sse = await requestText(base, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer codexmate',
+            'Originator': 'codex-tui'
+        },
+        body: {
+            model: 'gpt-test',
+            input: 'ping',
+            stream: true
+        }
+    });
+    assert.equal(sse.status, 502);
+    assert.equal(responsesHit, true, 'streaming bridge should call upstream /responses first');
+    assert.equal(chatHit, false, 'hanging Responses should not fall back to chat/completions');
+    assert.match(capturedResponsesHeaders['user-agent'] || '', /^codex_cli_rs\//);
+    assert.equal(capturedResponsesHeaders.version, '0.98.0');
+    assert.equal(capturedResponsesHeaders['openai-beta'], 'responses=experimental');
+    assert.equal(capturedResponsesHeaders.originator, 'codex_cli_rs');
+    assert.match(sse.headers['content-type'], /application\/json/i);
+    assert.match(sse.text, /timeout/);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('openai-bridge streams upstream Responses SSE with Codex identity headers', async () => {
+    let capturedResponsesHeaders = null;
+    let chatHit = false;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/responses' && req.method === 'POST') {
+            capturedResponsesHeaders = req.headers;
+            res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+            res.write('event: response.created\n');
+            res.write('data: {"type":"response.created","response":{"id":"resp_test","model":"gpt-test"}}\n\n');
+            res.write('event: response.completed\n');
+            res.write('data: {"type":"response.completed","response":{"id":"resp_test","model":"gpt-test","output":[]}}\n\n');
+            res.end('data: [DONE]\n\n');
+            return;
+        }
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            chatHit = true;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
             return;
         }
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -142,30 +211,89 @@ test('openai-bridge streams chat/completions directly when Responses client requ
     });
     const { port: bridgePort } = await listen(bridge);
 
-    const base = `http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`;
-    const sse = await requestText(base, {
+    const sse = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer codexmate',
+            'Originator': 'codex-tui'
+        },
+        body: { model: 'gpt-test', input: 'ping', stream: true }
+    });
+
+    assert.equal(sse.status, 200);
+    assert.equal(chatHit, false, 'successful upstream Responses stream should not call chat/completions');
+    assert.ok(capturedResponsesHeaders, 'upstream Responses request should be captured');
+    assert.match(capturedResponsesHeaders['user-agent'] || '', /^codex_cli_rs\//);
+    assert.equal(capturedResponsesHeaders.version, '0.98.0');
+    assert.equal(capturedResponsesHeaders['openai-beta'], 'responses=experimental');
+    assert.equal(capturedResponsesHeaders.originator, 'codex_cli_rs');
+    assert.match(sse.headers['content-type'], /text\/event-stream/i);
+    assert.match(sse.text, /response\.created/);
+    assert.match(sse.text, /response\.completed/);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
+});
+
+test('openai-bridge fails accepted upstream Responses SSE when stream goes idle', async () => {
+    let responsesHit = false;
+    let chatHit = false;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/responses' && req.method === 'POST') {
+            responsesHit = true;
+            res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+            if (typeof res.flushHeaders === 'function') res.flushHeaders();
+            // Keep the connection open without data; the bridge must not hang forever.
+            return;
+        }
+        if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+            chatHit = true;
+            res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
+            res.end('data: [DONE]\n\n');
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: '***' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate', streamTimeoutMs: 1000 });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const sse = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
             'Authorization': 'Bearer codexmate'
         },
-        body: {
-            model: 'gpt-test',
-            input: 'ping',
-            stream: true
-        }
+        body: { model: 'gpt-test', input: 'ping', stream: true }
     });
+
     assert.equal(sse.status, 200);
-    assert.equal(responsesHit, false, 'streaming bridge should not block on upstream /responses probe');
-    assert.ok(capturedChatRequest, 'streaming bridge should call upstream chat/completions');
-    assert.equal(capturedChatRequest.stream, true);
+    assert.equal(responsesHit, true, 'upstream Responses SSE should be attempted');
+    assert.equal(chatHit, false, 'accepted but idle Responses SSE should not fall back to chat/completions');
     assert.match(sse.headers['content-type'], /text\/event-stream/i);
-    assert.match(sse.text, /response\.output_item\.added/);
-    assert.match(sse.text, /response\.output_text\.delta/);
-    assert.match(sse.text, /"delta":"hello"/);
-    assert.match(sse.text, /"delta":"-bridge"/);
-    assert.match(sse.text, /event: response\.completed/);
+    assert.match(sse.text, /response\.failed/);
+    assert.match(sse.text, /upstream stream idle timeout/);
     assert.match(sse.text, /data: \[DONE\]/);
 
     await bridge.close();
@@ -221,8 +349,11 @@ test('openai-bridge omits upstream reasoning_content from output_text deltas', a
         body: { model: 'deepseek-v4', input: 'ping', stream: true }
     });
     assert.equal(sse.status, 200);
-    assert.doesNotMatch(sse.text, /"delta":"thinking-"/);
-    assert.doesNotMatch(sse.text, /"delta":"step"/);
+    assert.match(sse.text, /event: response\.reasoning_summary_text\.delta/);
+    assert.match(sse.text, /"delta":"thinking-"/);
+    assert.match(sse.text, /"delta":"step"/);
+    const outputTextLines = sse.text.split('\n').filter((line) => line.includes('response.output_text'));
+    assert.equal(outputTextLines.some((line) => line.includes('thinking-') || line.includes('step')), false);
     assert.match(sse.text, /"delta":"answer"/);
     assert.match(sse.text, /"text":"answer"/);
     assert.match(sse.text, /data: \[DONE\]/);
@@ -1306,4 +1437,114 @@ test('openai-bridge tells chat fallback to poll running Codex exec sessions', ()
     assert.match(converted.chat.messages[0].content, /write_stdin/);
     assert.match(converted.chat.messages[0].content, /session_id/);
     assert.match(converted.chat.messages[0].content, /Do not merely say that you are waiting/);
+});
+
+test('openai-bridge converts empty probes, empty tool output, and reasoning effort for chat fallback', () => {
+    const emptyProbe = convertResponsesRequestToChatCompletions({
+        model: 'gpt-test',
+        input: [],
+        reasoning: { effort: 'high' },
+        stream: false
+    });
+
+    assert.equal(emptyProbe.error, undefined);
+    assert.deepStrictEqual(emptyProbe.chat.messages, [{ role: 'user', content: '' }]);
+    assert.equal(emptyProbe.chat.reasoning_effort, 'high');
+
+    const withEmptyToolOutput = convertResponsesRequestToChatCompletions({
+        model: 'gpt-test',
+        input: [
+            { type: 'function_call', call_id: 'call_empty', name: 'lookup', arguments: {} },
+            { type: 'function_call_output', call_id: 'call_empty', output: '' }
+        ],
+        reasoning_effort: 'medium',
+        stream: false
+    });
+
+    assert.equal(withEmptyToolOutput.error, undefined);
+    assert.equal(withEmptyToolOutput.chat.reasoning_effort, 'medium');
+    assert.deepStrictEqual(withEmptyToolOutput.chat.messages, [
+        {
+            role: 'assistant',
+            content: null,
+            tool_calls: [{
+                id: 'call_empty',
+                type: 'function',
+                function: { name: 'lookup', arguments: '{}' }
+            }]
+        },
+        { role: 'tool', tool_call_id: 'call_empty', content: '(empty)' }
+    ]);
+});
+
+test('openai-bridge marks finish_reason length as incomplete Responses payload', () => {
+    const payload = buildResponsesPayloadFromChatResult('gpt-test', '', [], {
+        choices: [{ finish_reason: 'length', message: { role: 'assistant', content: '' } }],
+        usage: { prompt_tokens: 3, completion_tokens: 7, total_tokens: 10 }
+    });
+
+    assert.equal(payload.status, 'incomplete');
+    assert.deepStrictEqual(payload.incomplete_details, { reason: 'max_output_tokens' });
+    assert.deepStrictEqual(payload.output, []);
+    assert.equal(payload.output_text, '');
+    assert.deepStrictEqual(payload.usage, { input_tokens: 3, output_tokens: 7, total_tokens: 10 });
+});
+
+test('openai-bridge adds encrypted reasoning include when proxying upstream Responses', async () => {
+    let capturedRequest = null;
+    const upstream = http.createServer((req, res) => {
+        if (req.url === '/v1/responses' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                capturedRequest = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ id: 'resp_reasoning', model: 'gpt-test', output: [] }));
+            });
+            return;
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not found' }));
+    });
+    const { port: upstreamPort } = await listen(upstream);
+
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'codexmate-bridge-test-'));
+    const settingsFile = path.join(tmpDir, 'bridge.json');
+    await writeFile(settingsFile, JSON.stringify({
+        version: 1,
+        providers: {
+            test: { baseUrl: `http://127.0.0.1:${upstreamPort}/v1`, apiKey: 'sk-upstream' }
+        }
+    }), 'utf-8');
+
+    const handler = createOpenaiBridgeHttpHandler({ settingsFile, expectedToken: 'codexmate' });
+    const bridge = http.createServer((req, res) => {
+        if (!handler(req, res)) {
+            res.statusCode = 404;
+            res.end('not handled');
+        }
+    });
+    const { port: bridgePort } = await listen(bridge);
+
+    const resp = await requestText(`http://127.0.0.1:${bridgePort}/bridge/openai/test/v1/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer codexmate' },
+        body: {
+            model: 'gpt-test',
+            input: 'think privately',
+            reasoning: { effort: 'high' },
+            include: ['file_search_call.results'],
+            stream: false
+        }
+    });
+
+    assert.equal(resp.status, 200);
+    assert.ok(capturedRequest, 'upstream Responses request should be captured');
+    assert.equal(capturedRequest.stream, false);
+    assert.deepStrictEqual(capturedRequest.reasoning, { effort: 'high' });
+    assert.deepStrictEqual(capturedRequest.include, ['file_search_call.results', 'reasoning.encrypted_content']);
+
+    await bridge.close();
+    await upstream.close();
+    await rm(tmpDir, { recursive: true, force: true });
 });

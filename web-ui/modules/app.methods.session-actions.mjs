@@ -265,6 +265,12 @@ export function createSessionActionMethods(options = {}) {
             return true;
         },
 
+        normalizeSessionTimelineStyle(value) {
+            const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+            if (normalized === 'bar') return 'bar';
+            return 'dots';
+        },
+
         normalizeConfigTemplateDiffConfirmEnabled(value) {
             return normalizeConfigTemplateDiffConfirmEnabled(value);
         },
@@ -274,6 +280,14 @@ export function createSessionActionMethods(options = {}) {
             this.sessionTrashEnabled = enabled;
             try {
                 localStorage.setItem('codexmateSessionTrashEnabled', enabled ? 'true' : 'false');
+            } catch (_) {}
+        },
+
+        setSessionTimelineStyle(style) {
+            const normalized = style === 'bar' ? 'bar' : 'dots';
+            this.sessionTimelineStyle = normalized;
+            try {
+                localStorage.setItem('codexmateSessionTimelineStyle', normalized);
             } catch (_) {}
         },
 
@@ -340,14 +354,18 @@ export function createSessionActionMethods(options = {}) {
                 return;
             }
             const now = new Date();
-            const year = String(now.getFullYear());
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hour = String(now.getHours()).padStart(2, '0');
-            const minute = String(now.getMinutes()).padStart(2, '0');
-            const second = String(now.getSeconds()).padStart(2, '0');
-            const fileName = `agent-${year}${month}${day}-${hour}${minute}${second}.txt`;
-            this.downloadTextFile(fileName, text, 'text/plain;charset=utf-8');
+            const ts = [
+                String(now.getFullYear()),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+                '-',
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0'),
+                String(now.getSeconds()).padStart(2, '0')
+            ].join('');
+            const prefix = this.promptsSubTab === 'claude-project' ? 'claude' : 'agents';
+            const fileName = `${prefix}-${ts}.md`;
+            this.downloadTextFile(fileName, text, 'text/markdown;charset=utf-8');
             this.showMessage(`已导出 ${fileName}`, 'success');
         },
 

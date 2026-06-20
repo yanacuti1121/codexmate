@@ -374,7 +374,10 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'toolConfigPermissionSaving',
         'toolConfigPermissions',
         'promptsHint',
-        'promptsSubTab'
+        'promptsSubTab',
+        'projectClaudeMdPath',
+        'projectPathOptions',
+        'projectPathOptionsLoading'
     ] : [
         'appVersion',
         'appLatestVersion',
@@ -417,7 +420,10 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'showEditClaudeConfigKey',
         'showEditProviderKey',
         'promptsHint',
-        'promptsSubTab'
+        'promptsSubTab',
+        'projectClaudeMdPath',
+        'projectPathOptions',
+        'projectPathOptionsLoading'
     ];
     const allowedMissingCurrentKeys = [
         'localProxyRunning',
@@ -509,7 +515,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'opencodeApplyToCoreAgents',
         'opencodeAutoCompact',
         'opencodeMaxTokens',
-        'opencodeReasoningEffort'
+        'opencodeReasoningEffort',
+        'sessionTimelineStyle'
     );
     if (parityAgainstHead) {
         const allowedExtraKeySet = new Set(allowedExtraCurrentKeys);
@@ -577,6 +584,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'selectSessionsUsageDay',
         'clearSessionsUsageDay',
         'setSessionTrashEnabled',
+        'setSessionTimelineStyle',
+        'normalizeSessionTimelineStyle',
         'onSettingsTabKeydown',
         'setShareCommandPrefix',
         'setSessionListRef',
@@ -636,7 +645,10 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'parseOpencodeImportContent',
         'handleOpencodeImportChange',
         'saveOpencodeConfig',
-        'applyOpencodeSelection'
+        'applyOpencodeSelection',
+        'selectProjectClaudeMdPath',
+        'setProjectClaudeMdPathManual',
+        'loadProjectPathOptions'
     ];
     allowedExtraCurrentMethodKeys.push(
         'normalizePackageVersion',
@@ -833,7 +845,8 @@ test('captured bundled app skeleton only exposes expected data key drift versus 
         'providersHealthSummary',
         'providersHealthTone',
         'sessionContextUtilization',
-        'isLocalProviderDisabled'
+        'isLocalProviderDisabled',
+        'sessionTimelineProgressPercent'
     ];
     const allowedMissingCurrentComputedKeys = [
         'hasLocalAndProxy',

@@ -11,6 +11,10 @@ const SETTINGS_VERSION = 1;
 const STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
 const RESPONSES_UNSUPPORTED_TTL_MS = 30 * 60 * 1000;
+const DEFAULT_CODEX_VERSION = '0.98.0';
+const DEFAULT_CODEX_USER_AGENT = 'codex_cli_rs/0.98.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464';
+const DEFAULT_CODEX_ORIGINATOR = 'codex_cli_rs';
+const DEFAULT_OPENAI_BETA = 'responses=experimental';
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -19,6 +23,42 @@ function normalizeText(value) {
 function normalizeProviderName(value) {
     // Provider name validation is done elsewhere; keep this conservative.
     return normalizeText(value);
+}
+
+function firstHeaderValue(req, name) {
+    if (!req || !req.headers || typeof req.headers !== 'object') return '';
+    const value = req.headers[String(name || '').toLowerCase()];
+    if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : '';
+    return typeof value === 'string' ? value : '';
+}
+
+function resolveCodexUserAgent(req) {
+    const incoming = firstHeaderValue(req, 'user-agent').trim();
+    if (/^(codex_cli_rs|codex-cli)\//i.test(incoming)) return incoming;
+    return DEFAULT_CODEX_USER_AGENT;
+}
+
+function resolveCodexOriginator() {
+    // Some Codex-only upstreams validate Originator separately from User-Agent.
+    // The local TUI may send values such as `codex-tui`, but upstream Codex
+    // gates commonly expect the official Rust CLI originator token.
+    return DEFAULT_CODEX_ORIGINATOR;
+}
+
+function buildCodexBridgeHeaders(req, upstream, authHeader) {
+    const upstreamHeaders = upstream && upstream.headers && typeof upstream.headers === 'object' && !Array.isArray(upstream.headers)
+        ? upstream.headers
+        : {};
+    const version = firstHeaderValue(req, 'version').trim() || DEFAULT_CODEX_VERSION;
+    const openaiBeta = firstHeaderValue(req, 'openai-beta').trim() || DEFAULT_OPENAI_BETA;
+    return {
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        ...upstreamHeaders,
+        'User-Agent': resolveCodexUserAgent(req),
+        'Version': version,
+        'OpenAI-Beta': openaiBeta,
+        'Originator': resolveCodexOriginator()
+    };
 }
 
 function normalizeOpenaiUpstreamBaseUrl(rawValue) {
@@ -260,9 +300,28 @@ function cloneJsonValue(value) {
 }
 
 function normalizeResponsesToolOutput(value) {
-    if (typeof value === 'string') return value;
-    if (value == null) return '';
-    return stringifyJsonValue(value, '');
+    if (typeof value === 'string') return value || '(empty)';
+    if (value == null) return '(empty)';
+    return stringifyJsonValue(value, '(empty)') || '(empty)';
+}
+
+function chatContentToPlainText(content) {
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return '';
+    return content
+        .map((item) => {
+            if (typeof item === 'string') return item;
+            if (!isRecord(item)) return '';
+            if (typeof item.text === 'string') return item.text;
+            if (typeof item.content === 'string') return item.content;
+            return '';
+        })
+        .join('');
+}
+
+function wrapReasoningContentForChat(content) {
+    const text = chatContentToPlainText(content).trim();
+    return text ? `<thinking>${text}</thinking>` : '';
 }
 
 function normalizeOpenAiToolArguments(value) {
@@ -490,7 +549,7 @@ function normalizeResponsesInputToChatMessages(input) {
 
         if (itemType === 'reasoning') {
             flushPendingToolCalls();
-            const reasoningContent = toOpenAiMessageContent(item.summary != null ? item.summary : (item.content != null ? item.content : item));
+            const reasoningContent = wrapReasoningContentForChat(toOpenAiMessageContent(item.summary != null ? item.summary : (item.content != null ? item.content : item)));
             const reasoningSignature = asTrimmedString(item.encrypted_content || item.reasoning_signature);
             if (!hasOpenAiMessageContent(reasoningContent) && !reasoningSignature) return;
             const message = { role: 'assistant', content: reasoningContent };
@@ -849,6 +908,12 @@ function convertResponsesRequestToChatCompletions(payload) {
         top_p: Number.isFinite(body.top_p) ? Number(body.top_p) : undefined,
         max_tokens: Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? maxOutputTokens : undefined
     };
+    if (isRecord(body.reasoning)) {
+        const effort = asTrimmedString(body.reasoning.effort);
+        if (effort) chat.reasoning_effort = effort;
+    } else if (asTrimmedString(body.reasoning_effort)) {
+        chat.reasoning_effort = asTrimmedString(body.reasoning_effort);
+    }
     if (Array.isArray(body.stop) && body.stop.length) {
         chat.stop = body.stop.filter((item) => typeof item === 'string' && item.trim());
     }
@@ -900,12 +965,22 @@ function buildResponsesPayloadFromChatResult(model, text, toolCalls, upstreamPay
         }
     }
 
+    const choice = upstreamPayload && typeof upstreamPayload === 'object' && Array.isArray(upstreamPayload.choices)
+        ? upstreamPayload.choices[0]
+        : null;
+    const finishReason = choice && typeof choice.finish_reason === 'string' ? choice.finish_reason : '';
+    const statusPatch = finishReason === 'length'
+        ? { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } }
+        : (finishReason === 'content_filter'
+            ? { status: 'incomplete', incomplete_details: { reason: 'content_filter' } }
+            : { status: 'completed' });
+
     const payload = {
         id: responseId,
         object: 'response',
         model,
         created_at: createdAt,
-        status: 'completed',
+        ...statusPatch,
         output,
         output_text: trimmedText
     };
@@ -977,12 +1052,14 @@ function sendResponsesSse(res, responsePayload) {
         const itemId = typeof item.id === 'string' && item.id.trim()
             ? item.id.trim()
             : (typeof item.call_id === 'string' && item.call_id.trim() ? item.call_id.trim() : `item_${crypto.randomBytes(8).toString('hex')}`);
+        const wireItem = buildResponsesSseItem(item, itemId);
 
         // Emit item added so Codex can anchor subsequent deltas by output_index/content_index/item_id.
         writeSse(res, 'response.output_item.added', {
             type: 'response.output_item.added',
             output_index: outputIndex,
-            item: { ...item, id: itemId }
+            item: wireItem,
+            sequence_number: nextSeq()
         });
 
         if (itemType === 'message') {
@@ -992,6 +1069,7 @@ function sendResponsesSse(res, responsePayload) {
                 if (!block || typeof block !== 'object') continue;
                 if (block.type !== 'output_text') continue;
                 const text = typeof block.text === 'string' ? block.text : '';
+                emitResponsesTextPartAdded(res, itemId, outputIndex, contentIndex, nextSeq);
                 if (text) {
                     writeSse(res, 'response.output_text.delta', {
                         type: 'response.output_text.delta',
@@ -1010,6 +1088,33 @@ function sendResponsesSse(res, responsePayload) {
                     text,
                     sequence_number: nextSeq()
                 });
+                emitResponsesTextPartDone(res, itemId, outputIndex, contentIndex, text, nextSeq);
+            }
+        } else if (itemType === 'function_call' || itemType === 'custom_tool_call') {
+            emitResponsesToolArgumentEvents(res, wireItem, outputIndex, nextSeq);
+        } else if (itemType === 'reasoning') {
+            const summary = Array.isArray(item.summary) ? item.summary : [];
+            for (let summaryIndex = 0; summaryIndex < summary.length; summaryIndex += 1) {
+                const block = summary[summaryIndex];
+                const text = block && typeof block.text === 'string' ? block.text : '';
+                if (text) {
+                    writeSse(res, 'response.reasoning_summary_text.delta', {
+                        type: 'response.reasoning_summary_text.delta',
+                        item_id: itemId,
+                        output_index: outputIndex,
+                        summary_index: summaryIndex,
+                        delta: text,
+                        sequence_number: nextSeq()
+                    });
+                }
+                writeSse(res, 'response.reasoning_summary_text.done', {
+                    type: 'response.reasoning_summary_text.done',
+                    item_id: itemId,
+                    output_index: outputIndex,
+                    summary_index: summaryIndex,
+                    text,
+                    sequence_number: nextSeq()
+                });
             }
         }
 
@@ -1017,7 +1122,7 @@ function sendResponsesSse(res, responsePayload) {
         writeSse(res, 'response.output_item.done', {
             type: 'response.output_item.done',
             output_index: outputIndex,
-            item: { ...item, id: itemId },
+            item: wireItem,
             sequence_number: nextSeq()
         });
     }
@@ -1043,13 +1148,23 @@ function extractResponsesOutputText(payload) {
     return '';
 }
 
-function toUpstreamNonStreamingResponsesPayload(payload) {
+function normalizeResponsesPayloadForUpstream(payload, stream) {
     const body = payload && typeof payload === 'object' ? payload : {};
-    const normalized = { ...body, stream: false };
+    const normalized = { ...body, stream };
     if (Array.isArray(body.tools)) {
         normalized.tools = normalizeResponsesToolsForResponsesApi(body.tools);
     }
+    if (isRecord(body.reasoning)) {
+        const include = Array.isArray(body.include) ? body.include.filter((item) => typeof item === 'string') : [];
+        if (!include.includes('reasoning.encrypted_content')) {
+            normalized.include = [...include, 'reasoning.encrypted_content'];
+        }
+    }
     return normalized;
+}
+
+function toUpstreamNonStreamingResponsesPayload(payload) {
+    return normalizeResponsesPayloadForUpstream(payload, false);
 }
 
 function shouldFallbackFromUpstreamResponses(status, bodyText) {
@@ -1162,6 +1277,101 @@ function writeSse(res, eventName, dataObj) {
     res.write(`data: ${JSON.stringify(dataObj)}\n\n`);
 }
 
+function buildResponsesSseItem(item, fallbackId) {
+    const source = isRecord(item) ? item : {};
+    const itemId = asTrimmedString(source.id || source.call_id) || fallbackId || `item_${crypto.randomBytes(8).toString('hex')}`;
+    if (source.type === 'message') {
+        return {
+            ...source,
+            id: itemId,
+            role: source.role || 'assistant',
+            content: Array.isArray(source.content) ? source.content : []
+        };
+    }
+    if (source.type === 'reasoning') {
+        return {
+            ...source,
+            id: itemId,
+            summary: Array.isArray(source.summary) ? source.summary : []
+        };
+    }
+    if (source.type === 'function_call') {
+        return {
+            ...source,
+            id: itemId,
+            call_id: asTrimmedString(source.call_id) || itemId,
+            name: asTrimmedString(source.name),
+            arguments: typeof source.arguments === 'string' ? source.arguments : ''
+        };
+    }
+    if (source.type === 'custom_tool_call') {
+        return {
+            ...source,
+            id: itemId,
+            call_id: asTrimmedString(source.call_id) || itemId,
+            name: asTrimmedString(source.name),
+            input: typeof source.input === 'string' ? source.input : ''
+        };
+    }
+    return { ...source, id: itemId };
+}
+
+function emitResponsesTextPartAdded(res, itemId, outputIndex, contentIndex, nextSeq) {
+    writeSse(res, 'response.content_part.added', {
+        type: 'response.content_part.added',
+        item_id: itemId,
+        output_index: outputIndex,
+        content_index: contentIndex,
+        part: { type: 'output_text', text: '', annotations: [], logprobs: [] },
+        sequence_number: nextSeq()
+    });
+}
+
+function emitResponsesTextPartDone(res, itemId, outputIndex, contentIndex, text, nextSeq) {
+    writeSse(res, 'response.content_part.done', {
+        type: 'response.content_part.done',
+        item_id: itemId,
+        output_index: outputIndex,
+        content_index: contentIndex,
+        part: { type: 'output_text', text: typeof text === 'string' ? text : '', annotations: [], logprobs: [] },
+        sequence_number: nextSeq()
+    });
+}
+
+function emitResponsesToolArgumentEvents(res, item, outputIndex, nextSeq) {
+    const eventType = item.type === 'custom_tool_call'
+        ? 'response.custom_tool_call_input.delta'
+        : 'response.function_call_arguments.delta';
+    const doneType = item.type === 'custom_tool_call'
+        ? ''
+        : 'response.function_call_arguments.done';
+    const value = item.type === 'custom_tool_call'
+        ? (typeof item.input === 'string' ? item.input : '')
+        : (typeof item.arguments === 'string' ? item.arguments : '');
+    if (value) {
+        writeSse(res, eventType, {
+            type: eventType,
+            item_id: item.id,
+            output_index: outputIndex,
+            call_id: item.call_id,
+            name: item.name,
+            delta: value,
+            sequence_number: nextSeq()
+        });
+    }
+    if (doneType) {
+        writeSse(res, doneType, {
+            type: doneType,
+            item_id: item.id,
+            output_index: outputIndex,
+            call_id: item.call_id,
+            name: item.name,
+            arguments: value,
+            sequence_number: nextSeq()
+        });
+    }
+}
+
 function appendChatStreamToolCall(target, toolCall) {
     if (!toolCall || typeof toolCall !== 'object') return;
     const index = Number.isFinite(toolCall.index) ? toolCall.index : target.length;
@@ -1192,6 +1402,37 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
         const delta = choice && choice.delta && typeof choice.delta === 'object' ? choice.delta : null;
         if (!delta) continue;
 
+        const reasoningSegment = typeof delta.reasoning_content === 'string'
+            ? delta.reasoning_content
+            : (typeof delta.reasoning === 'string'
+                ? delta.reasoning
+                : (typeof delta.reasoning_text === 'string' ? delta.reasoning_text : ''));
+        if (reasoningSegment) {
+            if (!state.reasoningItem) {
+                state.reasoningItem = {
+                    id: `rs_${crypto.randomBytes(8).toString('hex')}`,
+                    type: 'reasoning',
+                    summary: [{ type: 'summary_text', text: '' }]
+                };
+                state.output.push(state.reasoningItem);
+                writeSse(state.res, 'response.output_item.added', {
+                    type: 'response.output_item.added',
+                    output_index: state.output.length - 1,
+                    item: buildResponsesSseItem(state.reasoningItem, state.reasoningItem.id)
+                });
+            }
+            state.reasoningText += reasoningSegment;
+            state.reasoningItem.summary[0].text = state.reasoningText;
+            writeSse(state.res, 'response.reasoning_summary_text.delta', {
+                type: 'response.reasoning_summary_text.delta',
+                item_id: state.reasoningItem.id,
+                output_index: state.output.indexOf(state.reasoningItem),
+                summary_index: 0,
+                delta: reasoningSegment,
+                sequence_number: state.nextSeq()
+            });
+        }
+
         const segments = [];
         // DeepSeek-style OpenAI-compatible streams may emit private reasoning in
         // `reasoning_content` before the final answer. Responses `output_text`
@@ -1212,8 +1453,9 @@ function writeChatCompletionChunkAsResponsesSse(state, chunk) {
                 writeSse(state.res, 'response.output_item.added', {
                     type: 'response.output_item.added',
                     output_index: state.output.length - 1,
-                    item: state.messageItem
+                    item: buildResponsesSseItem(state.messageItem, state.messageItem.id)
                 });
+                emitResponsesTextPartAdded(state.res, state.messageItem.id, state.output.length - 1, 0, state.nextSeq);
             }
             state.messageText += seg;
             state.messageItem.content[0].text = state.messageText;
@@ -1243,6 +1485,24 @@ function finishChatStreamResponsesSse(state) {
     if (!state || state.finished) return;
     state.finished = true;
 
+    if (state.reasoningItem) {
+        const outputIndex = state.output.indexOf(state.reasoningItem);
+        writeSse(state.res, 'response.reasoning_summary_text.done', {
+            type: 'response.reasoning_summary_text.done',
+            item_id: state.reasoningItem.id,
+            output_index: outputIndex,
+            summary_index: 0,
+            text: state.reasoningText,
+            sequence_number: state.nextSeq()
+        });
+        writeSse(state.res, 'response.output_item.done', {
+            type: 'response.output_item.done',
+            output_index: outputIndex,
+            item: buildResponsesSseItem(state.reasoningItem, state.reasoningItem.id),
+            sequence_number: state.nextSeq()
+        });
+    }
+
     if (state.messageItem) {
         const outputIndex = state.output.indexOf(state.messageItem);
         writeSse(state.res, 'response.output_text.done', {
@@ -1253,10 +1513,11 @@ function finishChatStreamResponsesSse(state) {
             text: state.messageText,
             sequence_number: state.nextSeq()
         });
+        emitResponsesTextPartDone(state.res, state.messageItem.id, outputIndex, 0, state.messageText, state.nextSeq);
         writeSse(state.res, 'response.output_item.done', {
             type: 'response.output_item.done',
             output_index: outputIndex,
-            item: state.messageItem,
+            item: buildResponsesSseItem(state.messageItem, state.messageItem.id),
             sequence_number: state.nextSeq()
         });
     }
@@ -1270,12 +1531,13 @@ function finishChatStreamResponsesSse(state) {
         writeSse(state.res, 'response.output_item.added', {
             type: 'response.output_item.added',
             output_index: outputIndex,
-            item
+            item: buildResponsesSseItem(item, item.call_id)
         });
+        emitResponsesToolArgumentEvents(state.res, buildResponsesSseItem(item, item.call_id), outputIndex, state.nextSeq);
         writeSse(state.res, 'response.output_item.done', {
             type: 'response.output_item.done',
             output_index: outputIndex,
-            item,
+            item: buildResponsesSseItem(item, item.call_id),
             sequence_number: state.nextSeq()
         });
     }
@@ -1445,6 +1707,8 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
                 output: [],
                 messageItem: null,
                 messageText: '',
+                reasoningItem: null,
+                reasoningText: '',
                 toolCalls: [],
                 toolTypesByName: options.toolTypesByName || {},
                 finished: false,
@@ -1524,6 +1788,184 @@ function streamChatCompletionsAsResponsesSse(targetUrl, options = {}) {
             });
         });
         upstreamReq.setTimeout(timeoutMs, () => {
+            try { upstreamReq.destroy(new Error('timeout')); } catch (_) {}
+            finish({ ok: false, error: 'timeout' });
+        });
+        upstreamReq.on('error', (err) => finish({ ok: false, error: err && err.message ? err.message : 'request failed' }));
+        if (bodyText) upstreamReq.write(bodyText);
+        upstreamReq.end();
+    });
+}
+
+function streamResponsesSse(targetUrl, options = {}) {
+    const parsed = new URL(targetUrl);
+    const transport = parsed.protocol === 'https:' ? https : http;
+    const bodyText = options.body ? JSON.stringify(options.body) : '';
+    const maxBytes = Number.isFinite(options.maxBytes) && options.maxBytes > 0
+        ? Math.floor(options.maxBytes)
+        : 0;
+    const headers = {
+        'Accept': 'text/event-stream',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {})
+    };
+    if (options.body) {
+        headers['Content-Length'] = Buffer.byteLength(bodyText, 'utf-8');
+    }
+    const timeoutMs = Number.isFinite(options.timeoutMs)
+        ? Math.max(1000, Number(options.timeoutMs))
+        : STREAM_IDLE_TIMEOUT_MS;
+    const res = options.res;
+
+    return new Promise((resolve) => {
+        let settled = false;
+        let upstreamReq = null;
+        let streamAccepted = false;
+        let streamIdleTimer = null;
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            if (streamIdleTimer) {
+                clearTimeout(streamIdleTimer);
+                streamIdleTimer = null;
+            }
+            resolve(value);
+        };
+        const abortUpstream = () => {
+            if (upstreamReq) {
+                try { upstreamReq.destroy(new Error('client aborted')); } catch (_) {}
+            }
+        };
+        if (res && typeof res.once === 'function') {
+            res.once('close', abortUpstream);
+        }
+
+        upstreamReq = transport.request({
+            protocol: parsed.protocol,
+            hostname: parsed.hostname,
+            port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+            method: options.method || 'POST',
+            path: `${parsed.pathname}${parsed.search}`,
+            headers,
+            agent: parsed.protocol === 'https:' ? options.httpsAgent : options.httpAgent
+        }, (upstreamRes) => {
+            const status = upstreamRes.statusCode || 0;
+            const chunks = [];
+            let size = 0;
+            const contentType = String(upstreamRes.headers && upstreamRes.headers['content-type'] || '');
+            const collectChunk = (chunk) => {
+                if (!chunk) return true;
+                if (maxBytes > 0) {
+                    size += chunk.length;
+                    if (size > maxBytes) {
+                        chunks.length = 0;
+                        try { upstreamRes.destroy(new Error('response too large')); } catch (_) {}
+                        try { upstreamReq.destroy(new Error('response too large')); } catch (_) {}
+                        finish({ ok: false, status, error: 'response too large' });
+                        return false;
+                    }
+                }
+                chunks.push(chunk);
+                return true;
+            };
+            const bodyFromChunks = () => (chunks.length ? Buffer.concat(chunks).toString('utf-8') : '');
+
+            if (status === 404 || status === 405) {
+                upstreamRes.on('data', collectChunk);
+                upstreamRes.on('end', () => finish({ retry: true, status, bodyText: bodyFromChunks() }));
+                return;
+            }
+
+            if (status >= 400) {
+                upstreamRes.on('data', collectChunk);
+                upstreamRes.on('end', () => finish({ ok: false, status, bodyText: bodyFromChunks() }));
+                return;
+            }
+
+            if (/text\/event-stream/i.test(contentType)) {
+                streamAccepted = true;
+                upstreamReq.setTimeout(0);
+                const failAcceptedStream = (message) => {
+                    if (!res.writableEnded && !res.destroyed) {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: message });
+                        writeSse(res, 'done', '[DONE]');
+                        res.end();
+                    }
+                    try { upstreamRes.destroy(new Error(message)); } catch (_) {}
+                    try { upstreamReq.destroy(new Error(message)); } catch (_) {}
+                    finish({ ok: true });
+                };
+                const resetStreamIdleTimer = () => {
+                    if (streamIdleTimer) clearTimeout(streamIdleTimer);
+                    streamIdleTimer = setTimeout(() => {
+                        failAcceptedStream('upstream stream idle timeout');
+                    }, timeoutMs);
+                    if (typeof streamIdleTimer.unref === 'function') streamIdleTimer.unref();
+                };
+                if (!res.headersSent) {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    });
+                    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+                }
+                resetStreamIdleTimer();
+                upstreamRes.on('data', (chunk) => {
+                    resetStreamIdleTimer();
+                    if (chunk && !res.writableEnded && !res.destroyed) res.write(chunk);
+                });
+                upstreamRes.on('end', () => {
+                    if (!res.writableEnded && !res.destroyed) res.end();
+                    finish({ ok: true });
+                });
+                upstreamRes.on('aborted', () => {
+                    if (!res.writableEnded && !res.destroyed) {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: 'upstream stream aborted' });
+                        writeSse(res, 'done', '[DONE]');
+                        res.end();
+                    }
+                    finish({ ok: true });
+                });
+                upstreamRes.on('error', (err) => {
+                    if (!res.writableEnded && !res.destroyed) {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: err && err.message ? err.message : 'upstream stream failed' });
+                        writeSse(res, 'done', '[DONE]');
+                        res.end();
+                    }
+                    finish({ ok: true });
+                });
+                return;
+            }
+
+            upstreamRes.on('data', collectChunk);
+            upstreamRes.on('end', () => {
+                const text = bodyFromChunks();
+                const parsedJson = parseJsonOrError(text);
+                if (!res.headersSent) {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    });
+                    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+                }
+                if (parsedJson.error) {
+                    writeSse(res, 'response.failed', { type: 'response.failed', error: `invalid upstream response: ${parsedJson.error}` });
+                    writeSse(res, 'done', '[DONE]');
+                    if (!res.writableEnded && !res.destroyed) res.end();
+                    finish({ ok: true });
+                    return;
+                }
+                sendResponsesSse(res, ensureResponseMetadata(parsedJson.value));
+                if (!res.writableEnded && !res.destroyed) res.end();
+                finish({ ok: true });
+            });
+        });
+        upstreamReq.setTimeout(timeoutMs, () => {
+            if (streamAccepted) return;
             try { upstreamReq.destroy(new Error('timeout')); } catch (_) {}
             finish({ ok: false, error: 'timeout' });
         });
@@ -1618,6 +2060,9 @@ function createOpenaiBridgeHttpHandler(options = {}) {
     const maxUpstreamBytes = Number.isFinite(options.maxUpstreamBytes) && options.maxUpstreamBytes > 0
         ? Math.floor(options.maxUpstreamBytes)
         : Math.max(16 * 1024 * 1024, maxBodySize > 0 ? maxBodySize * 4 : 0);
+    const streamTimeoutMs = Number.isFinite(options.streamTimeoutMs) && options.streamTimeoutMs > 0
+        ? Math.floor(options.streamTimeoutMs)
+        : STREAM_IDLE_TIMEOUT_MS;
 
     if (!settingsFile) {
         throw new Error('createOpenaiBridgeHttpHandler 缺少 settingsFile');
@@ -1708,6 +2153,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const upstreamHeaders = upstream && upstream.headers && typeof upstream.headers === 'object' && !Array.isArray(upstream.headers)
                 ? upstream.headers
                 : {};
+            const codexHeaders = buildCodexBridgeHeaders(req, upstream, authHeader);
 
             if (!normalizedSuffix) {
                 if ((req.method || 'GET').toUpperCase() !== 'GET') {
@@ -1784,6 +2230,47 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const wantsSse = /text\/event-stream/i.test(String(acceptHeader || ''));
 
             if (streamRequested && wantsSse) {
+                const upstreamResponsesUrl = joinApiUrl(upstream.baseUrl, 'responses');
+                const skipResponsesProbe = isResponsesKnownUnsupported(upstream.baseUrl);
+                const streamedResponses = skipResponsesProbe
+                    ? { ok: false, status: 404, bodyText: '' }
+                    : await retryTransientRequest(() => streamResponsesSse(upstreamResponsesUrl, {
+                        method: 'POST',
+                        body: normalizeResponsesPayloadForUpstream(responsesRequest, true),
+                        headers: codexHeaders,
+                        timeoutMs: streamTimeoutMs,
+                        maxBytes: maxUpstreamBytes,
+                        httpAgent,
+                        httpsAgent,
+                        res
+                    }));
+
+                if (streamedResponses.ok) {
+                    clearResponsesUnsupported(upstream.baseUrl);
+                    return;
+                }
+
+                const canFallbackToChat = streamedResponses.status
+                    ? shouldFallbackFromUpstreamResponses(streamedResponses.status, streamedResponses.bodyText)
+                    : false;
+                if (!canFallbackToChat) {
+                    if (res.writableEnded || res.destroyed) return;
+                    const status = streamedResponses.status && streamedResponses.status >= 400 ? streamedResponses.status : 502;
+                    if (!res.headersSent) {
+                        res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(streamedResponses.bodyText || JSON.stringify({ error: streamedResponses.error || 'Upstream request failed' }));
+                    } else {
+                        writeSse(res, 'response.failed', { type: 'response.failed', error: streamedResponses.error || streamedResponses.bodyText || 'Upstream request failed' });
+                        writeSse(res, 'done', '[DONE]');
+                        res.end();
+                    }
+                    return;
+                }
+
+                if (!skipResponsesProbe && isResponsesEndpointUnsupported(streamedResponses.status, streamedResponses.bodyText)) {
+                    markResponsesUnsupported(upstream.baseUrl);
+                }
+
                 const converted = convertResponsesRequestToChatCompletions(responsesRequest);
                 if (converted.error) {
                     res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -1795,10 +2282,8 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 const streamed = await retryTransientRequest(() => streamChatCompletionsAsResponsesSse(upstreamUrl, {
                     method: 'POST',
                     body: chatBody,
-                    headers: {
-                        ...(authHeader ? { Authorization: authHeader } : {}),
-                        ...upstreamHeaders
-                    },
+                    headers: codexHeaders,
+                    timeoutMs: streamTimeoutMs,
                     maxBytes: maxUpstreamBytes,
                     httpAgent,
                     httpsAgent,
@@ -1832,10 +2317,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
                 : await retryTransientRequest(() => proxyRequestJson(upstreamResponsesUrl, {
                     method: 'POST',
                     body: toUpstreamNonStreamingResponsesPayload(responsesRequest),
-                    headers: {
-                        ...(authHeader ? { Authorization: authHeader } : {}),
-                        ...upstreamHeaders
-                    },
+                    headers: codexHeaders,
                     maxBytes: maxUpstreamBytes,
                     httpAgent,
                     httpsAgent
@@ -1897,10 +2379,7 @@ function createOpenaiBridgeHttpHandler(options = {}) {
             const upstreamResult = await retryTransientRequest(() => proxyRequestJson(upstreamUrl, {
                 method: 'POST',
                 body: converted.chat,
-                headers: {
-                    ...(authHeader ? { Authorization: authHeader } : {}),
-                    ...upstreamHeaders
-                },
+                headers: codexHeaders,
                 maxBytes: maxUpstreamBytes,
                 httpAgent,
                 httpsAgent

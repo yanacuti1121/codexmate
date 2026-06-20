@@ -55,10 +55,11 @@ Have you ever felt overwhelmed by managing multiple local AI agents? Each has it
 
 Unlike simple wrappers, Codex Mate acts as a **Local Agent Bridge**:
 - **Unified Session Browser**: Search, inspect, filter, and export local sessions across Codex, Claude Code, Gemini CLI, and CodeBuddy Code from one place.
-- **OpenAI-Compatible Bridge**: Use Codex with any OpenAI-compatible UI by normalizing the Responses API.
+- **OpenAI-Compatible Bridge**: Use Codex with any OpenAI-compatible UI by normalizing the Responses API; the built-in Codex conversion also fills and normalizes Codex fingerprint headers such as `User-Agent`, `Version`, `OpenAI-Beta`, and `Originator` so upstream providers see an official Codex CLI-shaped request.
 - **Claude Provider Bridge**: Connect Claude Code to OpenAI Chat Completions-compatible providers and Ollama through the built-in local Claude-compatible proxy.
 - **OpenCode Provider Control**: Manage OpenCode provider/model selection with a CodexMate-owned provider store under `~/.codexmate`, projecting only the active provider into native OpenCode config to avoid polluting or deleting user-owned settings.
 - **Skills Marketplace**: A local-first market to share and import skills between different agent apps.
+- **Prompt File Editor**: Unified editor for global and project-level `CLAUDE.md` and `AGENTS.md` with auto-detection of project paths.
 - **Task Orchestrator**: Plan and execute complex tasks with dependency tracking.
 
 ---
@@ -73,10 +74,11 @@ Unlike simple wrappers, Codex Mate acts as a **Local Agent Bridge**:
 | **Usage Analytics** | ✅ | Visualize message trends and top projects |
 | **Local Skills Market** | ✅ | Cross-app import/export of agent skills |
 | **Task Queue** | ✅ | DAG-based task execution and logs |
-| **OpenAI Bridge** | ✅ | Convert Codex Responses API to standard OpenAI format |
+| **OpenAI Bridge** | ✅ | Convert Codex Responses API to standard OpenAI format and attach/normalize Codex fingerprints in the built-in conversion |
 | **Claude Provider Bridge** | ✅ | Connect Claude Code to OpenAI Chat Completions-compatible providers and Ollama via the built-in Claude-compatible proxy |
 | **OpenCode Provider Store** | ✅ | Keep multiple OpenCode providers in `~/.codexmate` while projecting only the selected provider to native OpenCode config |
 | **Prompt Templates** | ✅ | Reusable prompt plugins with variables |
+| **Prompt File Editor** | ✅ | Edit global and project-level CLAUDE.md / AGENTS.md with auto-detect and path switching |
 | **MCP Integration** | ✅ | Expose local tools and resources via MCP stdio |
 | **Auto Update** | ✅ | Quick update CLI via `codexmate update` |
 
